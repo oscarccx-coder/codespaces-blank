@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "trust_layer",
+  "title": "Trust / Confidence Layer",
+  "target": "7.8.4",
+  "kind": "service",
+  "ui": false,
+  "depends_on": [
+    "data_provenance",
+    "verification_engine"
+  ],
+  "summary": "Distinguish verified, inferred, generated, stale and conflicting information.",
+  "planned_tools": [
+    "assess_evidence_state",
+    "mark_verified",
+    "mark_stale",
+    "confidence_report"
+  ],
+  "acceptance": [
+    "No hidden conversion of guesses into facts",
+    "Verification state is inspectable",
+    "Stale data can be surfaced"
+  ]
+}

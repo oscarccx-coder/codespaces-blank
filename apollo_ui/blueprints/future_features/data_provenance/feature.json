@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "data_provenance",
+  "title": "Data Provenance",
+  "target": "7.8.3",
+  "kind": "service",
+  "ui": false,
+  "depends_on": [
+    "memory_bank",
+    "knowledge_graph"
+  ],
+  "summary": "Track where learned facts, memories, research findings and generated assets came from.",
+  "planned_tools": [
+    "provenance_for_item",
+    "record_provenance",
+    "trace_source_chain"
+  ],
+  "acceptance": [
+    "Every supported learned item can expose source",
+    "Source links survive restarts",
+    "Conflicts retain both origins"
+  ]
+}

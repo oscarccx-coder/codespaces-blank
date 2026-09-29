@@ -1,0 +1,13 @@
+{
+  "id": "pile_knowledge",
+  "name": "The Pile Knowledge",
+  "version": "1.11",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "AI-core Pile curation with framework-vs-model separation, whole-source language policy, biomedical/domain-drift rejection and resilient local Parquet learning.",
+  "ui": {
+    "enabled": true,
+    "title": "Knowledge Base",
+    "default_placement": "apps"
+  }
+}

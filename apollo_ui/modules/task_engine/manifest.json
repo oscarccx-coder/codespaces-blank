@@ -1,0 +1,13 @@
+{
+  "id": "task_engine",
+  "name": "Task & Goal Engine",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Persistent plans and subtasks so Apollo can break large jobs into verifiable steps across sessions/model swaps.",
+  "ui": {
+    "enabled": true,
+    "title": "Tasks",
+    "default_placement": "apps"
+  }
+}

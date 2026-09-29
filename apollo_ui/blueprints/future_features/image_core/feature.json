@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "image_core",
+  "title": "Image Core",
+  "target": "7.11.1",
+  "kind": "service",
+  "ui": false,
+  "depends_on": [
+    "compute_broker",
+    "asset_library"
+  ],
+  "summary": "Unified local image generation/editing API used by Apollo apps and projects.",
+  "planned_tools": [
+    "generate_image",
+    "edit_image",
+    "create_variations",
+    "image_backend_status"
+  ],
+  "acceptance": [
+    "Structured generation jobs",
+    "Saves provenance and parameters",
+    "Backend can be swapped without changing callers"
+  ]
+}

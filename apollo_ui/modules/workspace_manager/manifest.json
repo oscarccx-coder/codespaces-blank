@@ -1,0 +1,13 @@
+{
+  "id": "workspace_manager",
+  "name": "Workspace Manager",
+  "version": "1.5.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Workspace project explorer/editor/search. Apollo File Manager handles cross-root OS file moves while Workspace Manager stays focused on authored projects.",
+  "ui": {
+    "enabled": true,
+    "title": "Workspace",
+    "default_placement": "apps"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "memory_bank",
+  "name": "Memory Bank",
+  "version": "1.1",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Persistent named Memory Bank that replaces stale same-topic source-backed memories when Apollo learns an improved version.",
+  "ui": {
+    "enabled": true,
+    "title": "Memory Bank",
+    "default_placement": "apps"
+  }
+}

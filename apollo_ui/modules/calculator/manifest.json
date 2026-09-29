@@ -1,0 +1,8 @@
+{
+  "id": "calculator",
+  "name": "Calculator",
+  "version": "1.0.0",
+  "description": "Safe arithmetic calculator available to Apollo.",
+  "entrypoint": "module.py",
+  "class": "Module"
+}

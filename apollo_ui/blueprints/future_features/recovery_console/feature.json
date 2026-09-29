@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "recovery_console",
+  "title": "Recovery Console",
+  "target": "7.14.2",
+  "kind": "ui_module",
+  "ui": true,
+  "depends_on": [
+    "safe_mode",
+    "module_manager"
+  ],
+  "summary": "Repair startup failures, disable broken modules and restore known-good configurations.",
+  "planned_tools": [
+    "recovery_status",
+    "disable_problem_module",
+    "restore_last_good",
+    "export_diagnostics"
+  ],
+  "acceptance": [
+    "Works in safe mode",
+    "Can recover from broken module",
+    "Never requires normal UI to start"
+  ]
+}

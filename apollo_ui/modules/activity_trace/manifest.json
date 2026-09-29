@@ -1,0 +1,13 @@
+{
+  "id": "activity_trace",
+  "name": "Activity Trace",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Operational trace of actions/tools/failures/events without exposing hidden model chain-of-thought.",
+  "ui": {
+    "enabled": true,
+    "title": "Activity",
+    "default_placement": "apps"
+  }
+}

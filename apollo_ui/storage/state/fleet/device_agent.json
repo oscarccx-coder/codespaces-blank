@@ -1,0 +1,10 @@
+{
+  "device_id": "87620d80-30f2-4e5d-8793-d8d95a3d185f",
+  "device_name": "RascalsPc",
+  "host": "0.0.0.0",
+  "port": 8766,
+  "auto_start": false,
+  "role": "worker",
+  "group": "Default",
+  "auth_token": "93SlcMKO8BT4noQOnbttNrBeTL_eigUq0XJZXNifQ5k"
+}

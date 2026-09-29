@@ -1,0 +1,13 @@
+{
+  "id": "model_runtime",
+  "name": "Model Runtime",
+  "version": "1.5.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Ollama model inventory, specialist role profiles and deterministic routing with per-role context/temperature.",
+  "ui": {
+    "enabled": true,
+    "title": "Model Runtime",
+    "default_placement": "apps"
+  }
+}

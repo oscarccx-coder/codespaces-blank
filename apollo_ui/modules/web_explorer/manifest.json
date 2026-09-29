@@ -1,0 +1,8 @@
+{
+  "id": "web_explorer",
+  "name": "Web Explorer",
+  "version": "2.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Search the public web and fetch readable text from webpages for Apollo."
+}

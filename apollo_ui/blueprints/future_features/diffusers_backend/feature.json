@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "diffusers_backend",
+  "title": "Diffusers Backend",
+  "target": "7.11.1",
+  "kind": "backend",
+  "ui": false,
+  "depends_on": [
+    "image_core",
+    "compute_broker"
+  ],
+  "summary": "Optional direct Python image backend for tighter control and lower-overhead pipelines.",
+  "planned_tools": [
+    "diffusers_status",
+    "load_pipeline",
+    "unload_pipeline"
+  ],
+  "acceptance": [
+    "Optional dependency isolation",
+    "CPU/GPU offload support",
+    "No model auto-download without approval"
+  ]
+}

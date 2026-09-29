@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "media_studio",
+  "title": "Media Studio",
+  "target": "7.11.2",
+  "kind": "ui_module",
+  "ui": true,
+  "depends_on": [
+    "image_core",
+    "asset_library"
+  ],
+  "summary": "Generate, edit, compare and manage images from one Apollo app; later extends to audio/video.",
+  "planned_tools": [
+    "create_media_job",
+    "media_job_status",
+    "cancel_media_job",
+    "approve_asset"
+  ],
+  "acceptance": [
+    "Generation queue",
+    "Variant gallery",
+    "Project save/use actions",
+    "Works with local image backend"
+  ]
+}

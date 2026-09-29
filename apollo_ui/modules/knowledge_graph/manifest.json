@@ -1,0 +1,13 @@
+{
+  "id": "knowledge_graph",
+  "name": "Knowledge Graph",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Persistent relationship graph connecting learned topics, sources and Apollo concepts.",
+  "ui": {
+    "enabled": true,
+    "title": "Knowledge Graph",
+    "default_placement": "apps"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "language": "en",
+  "backend": "xtts_local",
+  "model_dir": "C:\\Users\\oscar\\AppData\\Local\\Apollo\\models\\voice\\xtts_v2",
+  "device": "auto",
+  "ffmpeg_shared_bin": "C:\\Users\\oscar\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg.Shared_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0.2-full_build-shared\\bin",
+  "process_isolation": true,
+  "worker_cpu_threads": 4,
+  "worker_timeout_seconds": 900
+}

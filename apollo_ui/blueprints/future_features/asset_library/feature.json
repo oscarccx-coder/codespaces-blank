@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "asset_library",
+  "title": "Asset Library",
+  "target": "7.11.3",
+  "kind": "ui_module",
+  "ui": true,
+  "depends_on": [
+    "data_provenance"
+  ],
+  "summary": "Reusable images, audio, documents, icons and project assets with metadata and project links.",
+  "planned_tools": [
+    "add_asset",
+    "search_assets",
+    "attach_asset_to_project",
+    "asset_history"
+  ],
+  "acceptance": [
+    "Hashes assets",
+    "Tracks project usage",
+    "Searchable metadata",
+    "Never silently deletes originals"
+  ]
+}

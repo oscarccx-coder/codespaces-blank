@@ -1,0 +1,8 @@
+{
+  "id": "my_feature",
+  "name": "My Feature",
+  "version": "1.0.0",
+  "description": "Describe what the feature does.",
+  "entrypoint": "module.py",
+  "class": "Module"
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "cluster_reassignment_verification",
+  "title": "Cluster Reassignment + Verification",
+  "target": "7.5.12.7",
+  "kind": "service",
+  "ui": false,
+  "depends_on": [
+    "cluster_manager",
+    "verification_engine"
+  ],
+  "summary": "Worker leases, failure reassignment and cross-node verification.",
+  "planned_tools": [
+    "lease_task",
+    "reassign_task",
+    "verify_worker_result"
+  ],
+  "acceptance": [
+    "Works only with enrolled/authenticated devices",
+    "Failure does not corrupt worker or coordinator state",
+    "All state survives restart"
+  ]
+}

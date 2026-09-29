@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "experiment_lab",
+  "title": "Experiment Lab",
+  "target": "7.10.2",
+  "kind": "ui_module",
+  "ui": true,
+  "depends_on": [
+    "model_benchmark_lab",
+    "verification_engine"
+  ],
+  "summary": "Safely compare candidate modules, models and configurations against current Apollo.",
+  "planned_tools": [
+    "create_experiment",
+    "run_experiment",
+    "compare_results",
+    "promote_candidate"
+  ],
+  "acceptance": [
+    "Candidate and control run separately",
+    "Promotion is approval-gated",
+    "Results are reproducible"
+  ]
+}

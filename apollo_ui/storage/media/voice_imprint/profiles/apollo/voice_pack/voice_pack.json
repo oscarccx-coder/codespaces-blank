@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "profile_id": "apollo",
+  "profile_name": "Apollo",
+  "created_at": "2026-09-25T00:38:47",
+  "reference_wav": "voice_pack/reference.wav",
+  "reference_candidates": [
+    {
+      "file": "reference_01.wav",
+      "source_clip": "clips/clip_00074.wav",
+      "duration": 9.45,
+      "score": 100.0,
+      "quality": "good"
+    },
+    {
+      "file": "reference_02.wav",
+      "source_clip": "clips/clip_00013.wav",
+      "duration": 9.55,
+      "score": 100.0,
+      "quality": "good"
+    },
+    {
+      "file": "reference_03.wav",
+      "source_clip": "clips/clip_00016.wav",
+      "duration": 8.2,
+      "score": 100.0,
+      "quality": "good"
+    },
+    {
+      "file": "reference_04.wav",
+      "source_clip": "clips/clip_00005.wav",
+      "duration": 10.1,
+      "score": 100.0,
+      "quality": "good"
+    },
+    {
+      "file": "reference_05.wav",
+      "source_clip": "clips/clip_00007.wav",
+      "duration": 10.25,
+      "score": 100.0,
+      "quality": "good"
+    }
+  ],
+  "normalized_source": "source/normalized_24k_mono.wav",
+  "signature_file": "voice_signature.json",
+  "signature_model": "voice_signature_net.npz",
+  "speaker_files_ready": true,
+  "requires_shared_engine": {
+    "backend": "XTTS v2",
+    "files": [
+      "config.json",
+      "model.pth"
+    ],
+    "note": "These are pretrained XTTS engine files shared by every voice profile. They cannot be generated from the speaker recording."
+  }
+}

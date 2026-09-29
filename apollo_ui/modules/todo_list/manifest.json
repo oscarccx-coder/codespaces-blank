@@ -1,0 +1,13 @@
+{
+  "id": "todo_list",
+  "name": "To-Do List",
+  "version": "1.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Persistent editable Apollo To-Do List with achievement workflow.",
+  "ui": {
+    "enabled": true,
+    "title": "To-Do List",
+    "default_placement": "apps"
+  }
+}

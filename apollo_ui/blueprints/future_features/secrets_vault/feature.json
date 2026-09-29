@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "secrets_vault",
+  "title": "Secrets Vault",
+  "target": "7.14",
+  "kind": "security_service",
+  "ui": true,
+  "depends_on": [
+    "permission_gate"
+  ],
+  "summary": "Securely store API keys/tokens instead of scattering them through config files.",
+  "planned_tools": [
+    "store_secret",
+    "secret_status",
+    "delete_secret",
+    "grant_secret_access"
+  ],
+  "acceptance": [
+    "Secrets are not returned in plaintext tool logs",
+    "Per-module access",
+    "Explicit reveal/export protection"
+  ]
+}

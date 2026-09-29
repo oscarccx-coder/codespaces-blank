@@ -1,0 +1,13 @@
+{
+  "id": "neural_learning",
+  "name": "Neural Learning Module",
+  "version": "2.1",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Apollo's persistent trainable text neural network with held-out validation, multiple restarts, progress reporting, quality gating and predictions.",
+  "ui": {
+    "enabled": true,
+    "title": "Neural Learning",
+    "default_placement": "apps"
+  }
+}

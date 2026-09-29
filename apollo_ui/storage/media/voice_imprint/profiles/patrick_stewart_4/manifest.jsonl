@@ -1,0 +1,2 @@
+{"id": "clip_00001", "audio": "clips/clip_00001.wav", "duration": 3.8, "rms_dbfs": -17.53, "peak": 1.0, "clipping_ratio": 0.000175, "silence_ratio": 0.1045, "score": 94.5, "quality": "good", "transcript": "", "approved_for_training": true}
+{"id": "clip_00002", "audio": "clips/clip_00002.wav", "duration": 3.95, "rms_dbfs": -19.0, "peak": 1.0, "clipping_ratio": 0.000127, "silence_ratio": 0.0985, "score": 95.29, "quality": "good", "transcript": "", "approved_for_training": true}

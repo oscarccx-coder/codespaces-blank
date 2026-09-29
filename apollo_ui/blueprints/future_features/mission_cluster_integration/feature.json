@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "mission_cluster_integration",
+  "title": "Development Missions + Cluster",
+  "target": "7.5.12.8",
+  "kind": "service",
+  "ui": false,
+  "depends_on": [
+    "development_missions",
+    "cluster_manager"
+  ],
+  "summary": "Development Missions distribute independent DAG work across Apollo nodes.",
+  "planned_tools": [
+    "distribute_mission",
+    "mission_task_graph"
+  ],
+  "acceptance": [
+    "Works only with enrolled/authenticated devices",
+    "Failure does not corrupt worker or coordinator state",
+    "All state survives restart"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Apollo",
+  "user_name": "Oscar",
+  "ollama_url": "http://127.0.0.1:11434",
+  "model": "qwen2.5-coder:7b",
+  "temperature": 0.65,
+  "num_ctx": 8192,
+  "database": "apollo_memory.db",
+  "auto_model_routing": false,
+  "version": "7.5.12.14"
+}

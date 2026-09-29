@@ -1,0 +1,380 @@
+{
+  "schema_version": 2,
+  "updated_at": "2026-09-18T15:35:06.959049+00:00",
+  "items": [
+    {
+      "version": "7.5.12.4",
+      "id": "fleet_cluster_foundation",
+      "title": "Fleet + Cluster Foundation",
+      "status": "active",
+      "category": "Distributed Apollo",
+      "summary": "Authenticated Device Agent, Fleet registry/UI and task-parallel Cluster scheduler across trusted Apollo nodes."
+    },
+    {
+      "version": "7.5.12.5",
+      "id": "fleet_rollout_controller",
+      "title": "Fleet Rollout Controller",
+      "status": "planned",
+      "category": "Distributed Apollo",
+      "summary": "Central staged/canary update rollout, compatibility filtering, offline queues and rollout journal."
+    },
+    {
+      "version": "7.5.12.6",
+      "id": "distributed_snapshots",
+      "title": "Distributed Project Snapshots",
+      "status": "planned",
+      "category": "Distributed Apollo",
+      "summary": "Content-addressed project snapshots and isolated worker workspaces instead of shared-folder editing."
+    },
+    {
+      "version": "7.5.12.7",
+      "id": "cluster_reassignment_verification",
+      "title": "Cluster Reassignment + Verification",
+      "status": "planned",
+      "category": "Distributed Apollo",
+      "summary": "Worker leases, automatic reassignment, peer review and Verification Engine integration."
+    },
+    {
+      "version": "7.5.12.8",
+      "id": "mission_cluster_integration",
+      "title": "Development Missions + Cluster",
+      "status": "planned",
+      "category": "Distributed Apollo",
+      "summary": "Timed Development Missions can decompose DAGs and distribute independent work across Apollo nodes."
+    },
+    {
+      "version": "7.5.12.3",
+      "id": "update_storage_foundation",
+      "title": "Update Service + Storage Layout",
+      "status": "active",
+      "category": "Foundation",
+      "summary": "Signed LAN update packages, external rollback updater, Update Manager app and categorized persistent storage."
+    },
+    {
+      "version": "7.5.12.2",
+      "id": "roadmap_blueprints_docs",
+      "title": "Roadmap Blueprints + Docs Cleanup",
+      "status": "active",
+      "category": "Foundation",
+      "summary": "Expanded internal roadmap, future-feature blueprints and cleaner documentation layout."
+    },
+    {
+      "version": "7.5.13",
+      "id": "hub_widgets_visualizer2",
+      "title": "Hub Widgets + Neural Visualizer 2",
+      "status": "planned",
+      "category": "OS Shell",
+      "summary": "Live widgets, richer Hub tiles and an event-driven Neural Visualizer."
+    },
+    {
+      "version": "7.5.14",
+      "id": "operation_journal",
+      "title": "Operation Journal",
+      "status": "planned",
+      "category": "Reliability",
+      "summary": "Permanent record of real actions, files changed, tools used, failures and verification."
+    },
+    {
+      "version": "7.5.15",
+      "id": "snapshots_undo",
+      "title": "Project Snapshots / Undo",
+      "status": "planned",
+      "category": "Reliability",
+      "summary": "Atomic checkpoints and rollback for project and module changes."
+    },
+    {
+      "version": "7.5.16",
+      "id": "conversation_intelligence",
+      "title": "Conversation Intelligence",
+      "status": "planned",
+      "category": "Intelligence",
+      "summary": "Stronger referent resolution, project/topic threads and long-conversation continuity."
+    },
+    {
+      "version": "7.5.17",
+      "id": "universal_tool_repair",
+      "title": "Universal Tool Repair",
+      "status": "planned",
+      "category": "Reliability",
+      "summary": "Normalize malformed calls and repair tool arguments before controlled retries."
+    },
+    {
+      "version": "7.6",
+      "id": "verification2",
+      "title": "Verification Engine 2",
+      "status": "planned",
+      "category": "Development",
+      "summary": "Runtime, acceptance and project-specific tests beyond syntax validation."
+    },
+    {
+      "version": "7.6.1",
+      "id": "automatic_regression",
+      "title": "Automatic Regression Tests",
+      "status": "planned",
+      "category": "Development",
+      "summary": "Every fixed bug becomes a permanent regression test."
+    },
+    {
+      "version": "7.6.2",
+      "id": "automatic_repair",
+      "title": "Automatic Repair Loop",
+      "status": "planned",
+      "category": "Development",
+      "summary": "Bounded diagnose, patch, retest and rollback cycle."
+    },
+    {
+      "version": "7.6.3",
+      "id": "development_missions",
+      "title": "Development Missions",
+      "status": "planned",
+      "category": "Development",
+      "summary": "Timed build/test/research/repair missions with deadlines and verified checkpoints."
+    },
+    {
+      "version": "7.6.4",
+      "id": "mission_manager",
+      "title": "Mission Manager UI",
+      "status": "planned",
+      "category": "Development",
+      "summary": "Pause, resume, inspect and extend long-running development missions."
+    },
+    {
+      "version": "7.6.5",
+      "id": "research_diagnosis",
+      "title": "Research + Diagnosis Engine",
+      "status": "planned",
+      "category": "Development",
+      "summary": "Error-led research that records what was learned and why a repair was attempted."
+    },
+    {
+      "version": "7.6.6",
+      "id": "deadline_budgeting",
+      "title": "Deadline / Resource Budgeting",
+      "status": "planned",
+      "category": "Development",
+      "summary": "Reserve time for verification and stop safely at mission deadlines."
+    },
+    {
+      "version": "7.7",
+      "id": "workspace_ide",
+      "title": "Workspace IDE",
+      "status": "planned",
+      "category": "Development",
+      "summary": "Project tree, editor, diffs, tests, output and richer coding workspace."
+    },
+    {
+      "version": "7.7.3",
+      "id": "app_sdk",
+      "title": "Apollo App SDK",
+      "status": "placeholder",
+      "category": "Platform",
+      "summary": "Stable app contracts, templates and validation rules for Apollo-created apps."
+    },
+    {
+      "version": "7.7.4",
+      "id": "project_templates",
+      "title": "Project Templates",
+      "status": "placeholder",
+      "category": "Platform",
+      "summary": "Verified starter foundations for common project types."
+    },
+    {
+      "version": "7.8",
+      "id": "memory3",
+      "title": "Memory 3.0",
+      "status": "planned",
+      "category": "Memory",
+      "summary": "Separate episodic conversation, durable facts, project memory and learned knowledge."
+    },
+    {
+      "version": "7.8.3",
+      "id": "data_provenance",
+      "title": "Data Provenance",
+      "status": "placeholder",
+      "category": "Memory",
+      "summary": "Track where learned facts, research, memories and assets came from."
+    },
+    {
+      "version": "7.8.4",
+      "id": "trust_layer",
+      "title": "Trust / Confidence Layer",
+      "status": "placeholder",
+      "category": "Memory",
+      "summary": "Keep verified facts, inference, generated ideas, stale data and conflicts distinct."
+    },
+    {
+      "version": "7.8.5",
+      "id": "knowledge_provenance_ui",
+      "title": "Knowledge Provenance UI",
+      "status": "placeholder",
+      "category": "Memory",
+      "summary": "Inspect why Apollo knows or trusts something."
+    },
+    {
+      "version": "7.9",
+      "id": "orchestrator_hardening",
+      "title": "Agent / Orchestrator Hardening",
+      "status": "planned",
+      "category": "Agents",
+      "summary": "Resumable tasks, background work, permissions and robust orchestration."
+    },
+    {
+      "version": "7.9.1",
+      "id": "notification_center",
+      "title": "Notification Centre",
+      "status": "placeholder",
+      "category": "OS Shell",
+      "summary": "Mission, failure, hardware and update notifications in one place."
+    },
+    {
+      "version": "7.10",
+      "id": "compute_broker",
+      "title": "VRAM / Compute Broker",
+      "status": "placeholder",
+      "category": "AI Platform",
+      "summary": "Share GPU/CPU/RAM safely between LLM, image, vision, voice, video and training."
+    },
+    {
+      "version": "7.10.1",
+      "id": "model_benchmark_lab",
+      "title": "Model Benchmark Lab",
+      "status": "placeholder",
+      "category": "AI Platform",
+      "summary": "Compare local models on real Apollo tasks before changing defaults."
+    },
+    {
+      "version": "7.10.2",
+      "id": "experiment_lab",
+      "title": "Experiment Lab",
+      "status": "placeholder",
+      "category": "AI Platform",
+      "summary": "Compare candidate modules/models/configurations against current Apollo."
+    },
+    {
+      "version": "7.11",
+      "id": "vision_core",
+      "title": "Vision Core",
+      "status": "placeholder",
+      "category": "Media",
+      "summary": "Understand screenshots, photographs, diagrams and UI states."
+    },
+    {
+      "version": "7.11.1",
+      "id": "image_core",
+      "title": "Image Core + Local Backends",
+      "status": "placeholder",
+      "category": "Media",
+      "summary": "Unified image API with ComfyUI first and optional Diffusers backend."
+    },
+    {
+      "version": "7.11.2",
+      "id": "media_studio",
+      "title": "Media Studio + Image Editing",
+      "status": "placeholder",
+      "category": "Media",
+      "summary": "Generate, edit, inpaint, upscale and compare visual assets."
+    },
+    {
+      "version": "7.11.3",
+      "id": "asset_library",
+      "title": "Asset Library",
+      "status": "placeholder",
+      "category": "Media",
+      "summary": "Reusable project images, audio, documents, icons and generated assets."
+    },
+    {
+      "version": "7.11.4",
+      "id": "style_lora_manager",
+      "title": "Style / LoRA Manager",
+      "status": "placeholder",
+      "category": "Media",
+      "summary": "Manage optional local style adapters/reference presets."
+    },
+    {
+      "version": "7.12",
+      "id": "voice_system",
+      "title": "Voice System Expansion",
+      "status": "planned",
+      "category": "Voice",
+      "summary": "Continuous speech, interruption, wake phrase and Voice Imprint integration."
+    },
+    {
+      "version": "7.13",
+      "id": "hardware_layer",
+      "title": "Computer / Hardware Layer",
+      "status": "planned",
+      "category": "Hardware",
+      "summary": "Serial, Arduino, OBD, screen understanding and process/device control."
+    },
+    {
+      "version": "7.14",
+      "id": "secrets_vault",
+      "title": "Secrets Vault",
+      "status": "placeholder",
+      "category": "Security",
+      "summary": "Secure API keys/tokens with per-module access."
+    },
+    {
+      "version": "7.14.1",
+      "id": "dependency_snapshots",
+      "title": "Dependency Snapshots",
+      "status": "placeholder",
+      "category": "Recovery",
+      "summary": "Record exact project/module dependency environments."
+    },
+    {
+      "version": "7.14.2",
+      "id": "recovery_console",
+      "title": "Recovery Console",
+      "status": "placeholder",
+      "category": "Recovery",
+      "summary": "Safe-mode repair, disable broken modules and restore known-good state."
+    },
+    {
+      "version": "7.14.3",
+      "id": "backup_export",
+      "title": "Backup / Export",
+      "status": "placeholder",
+      "category": "Recovery",
+      "summary": "Verified backups and selective restore for Apollo data."
+    },
+    {
+      "version": "7.15.1",
+      "id": "global_search",
+      "title": "Global Search",
+      "status": "placeholder",
+      "category": "OS Shell",
+      "summary": "Search apps, files, projects, memories, conversations and capabilities."
+    },
+    {
+      "version": "7.15.2",
+      "id": "capability_discovery",
+      "title": "Capability Discovery",
+      "status": "placeholder",
+      "category": "OS Shell",
+      "summary": "Answer what Apollo can actually do from the live capability registry."
+    },
+    {
+      "version": "7.15.3",
+      "id": "local_usage_analytics",
+      "title": "Local Usage Analytics",
+      "status": "placeholder",
+      "category": "Diagnostics",
+      "summary": "Private metrics for failures, latency, usage and improvement targets."
+    },
+    {
+      "version": "8.0",
+      "id": "apollo_os_preview",
+      "title": "Apollo OS Preview",
+      "status": "planned",
+      "category": "OS",
+      "summary": "Unified launcher, workspace, apps, automation, memory, voice and development missions."
+    },
+    {
+      "version": "7.5.12",
+      "title": "Roadmap + Certified Activation",
+      "status": "active",
+      "summary": "Internal roadmap app plus immediate access to approved, certified modules and upgrades."
+    }
+  ]
+}

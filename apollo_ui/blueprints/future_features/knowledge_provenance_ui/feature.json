@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "knowledge_provenance_ui",
+  "title": "Knowledge Provenance UI",
+  "target": "7.8.5",
+  "kind": "ui_module",
+  "ui": true,
+  "depends_on": [
+    "data_provenance",
+    "trust_layer"
+  ],
+  "summary": "Click a memory/knowledge item and see when, where and why Apollo learned or trusted it.",
+  "planned_tools": [
+    "open_provenance_record"
+  ],
+  "acceptance": [
+    "Human-readable source chain",
+    "Shows conflicts",
+    "Supports memory and knowledge records"
+  ]
+}

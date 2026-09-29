@@ -1,0 +1,13 @@
+{
+  "id": "file_manager",
+  "name": "Apollo File Manager",
+  "version": "1.1.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "OS-backed dual-pane file manager. Browse two independent locations, drag/move real files between panes, import from Windows Explorer, reveal files, and use recoverable trash while Apollo and Windows stay synchronized.",
+  "ui": {
+    "enabled": true,
+    "title": "Files",
+    "default_placement": "sidebar"
+  }
+}

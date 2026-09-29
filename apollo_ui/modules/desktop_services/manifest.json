@@ -1,0 +1,13 @@
+{
+  "id": "desktop_services",
+  "name": "Desktop Services",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "OS-shell services for clipboard, default file opening and file-association inspection.",
+  "ui": {
+    "enabled": true,
+    "title": "Desktop Services",
+    "default_placement": "apps"
+  }
+}

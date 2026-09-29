@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "backup_export",
+  "title": "Backup / Export",
+  "target": "7.14.3",
+  "kind": "ui_module",
+  "ui": true,
+  "depends_on": [
+    "recovery_console"
+  ],
+  "summary": "Back up Apollo settings, memories, projects and modules with selectable scope.",
+  "planned_tools": [
+    "create_backup",
+    "verify_backup",
+    "restore_backup",
+    "export_profile"
+  ],
+  "acceptance": [
+    "Backup integrity check",
+    "Selective restore",
+    "Does not expose secrets without explicit inclusion"
+  ]
+}

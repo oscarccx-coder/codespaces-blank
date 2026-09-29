@@ -1,0 +1,13 @@
+{
+  "id": "verification_engine",
+  "name": "Verification Engine",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Independent verification layer for Workspace projects, pending modules and action evidence.",
+  "ui": {
+    "enabled": true,
+    "title": "Verifier",
+    "default_placement": "apps"
+  }
+}

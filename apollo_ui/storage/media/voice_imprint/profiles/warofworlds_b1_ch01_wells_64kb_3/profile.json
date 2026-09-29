@@ -1,0 +1,25 @@
+{
+  "id": "warofworlds_b1_ch01_wells_64kb_3",
+  "name": "warofworlds_b1_ch01_wells_64kb",
+  "created_at": "2026-09-18T16:45:19",
+  "updated_at": "2026-09-18T16:45:19",
+  "rights_confirmed": null,
+  "personal_use_mode": true,
+  "source_filename": "warofworlds_b1_ch01_wells_64kb.mp3",
+  "source_copy": "source/original.mp3",
+  "normalized_wav": "source/normalized_24k_mono.wav",
+  "manifest": "manifest.jsonl",
+  "reference_clip": "clips/clip_00074.wav",
+  "analysis": {
+    "threshold_rms": 0.011989343762397766,
+    "source_seconds": 939.91,
+    "clip_count": 84,
+    "good_clips": 84,
+    "usable_seconds": 873.15
+  },
+  "signature_trained": false,
+  "signature": {},
+  "transcription": {
+    "status": "not_run"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "text_to_speech",
+  "name": "Speech I/O + Voice Studio",
+  "version": "1.5.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Offline speech service and Windows fallback voice controls, surfaced through the unified Voice Center.",
+  "ui": {
+    "enabled": false,
+    "title": "Voice Studio",
+    "default_placement": "apps",
+    "replacement": "voice_center"
+  }
+}

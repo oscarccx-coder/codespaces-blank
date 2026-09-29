@@ -1,0 +1,13 @@
+{
+  "id": "upgrade_history",
+  "name": "Upgrade History",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Version/checkpoint journal for approval-gated Apollo self-improvement and rollback.",
+  "ui": {
+    "enabled": true,
+    "title": "Upgrade History",
+    "default_placement": "apps"
+  }
+}

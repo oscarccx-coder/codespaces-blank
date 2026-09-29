@@ -1,0 +1,13 @@
+{
+  "id": "core_services",
+  "name": "Core Services",
+  "version": "1.5.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Apollo 7.5 action bus, permissions, profiles, events, shared state, health, module quarantine and recovery.",
+  "ui": {
+    "enabled": true,
+    "title": "Control Center",
+    "default_placement": "apps"
+  }
+}

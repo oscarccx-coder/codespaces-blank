@@ -1,0 +1,13 @@
+{
+  "id": "neural_visualizer",
+  "name": "Neural Visualizer",
+  "version": "1.2",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Live Neural Visualizer with a permanently active Hub panel plus full Apps UI.",
+  "ui": {
+    "enabled": true,
+    "title": "Neural Visualizer",
+    "default_placement": "apps"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "project_templates",
+  "title": "Project Templates",
+  "target": "7.7.4",
+  "kind": "service",
+  "ui": true,
+  "depends_on": [
+    "workspace_ide",
+    "app_sdk"
+  ],
+  "summary": "Verified starter foundations for Python apps, Arduino projects, websites and Apollo modules.",
+  "planned_tools": [
+    "list_templates",
+    "create_from_template",
+    "verify_template"
+  ],
+  "acceptance": [
+    "Templates are versioned",
+    "Generated project verifies",
+    "User files never overwritten silently"
+  ]
+}

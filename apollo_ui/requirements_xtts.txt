@@ -1,0 +1,8 @@
+# Apollo XTTS 7.5.12.10 known-good runtime contract
+# torch/torchvision/torchaudio are installed from the official PyTorch cu128 index.
+torch==2.11.0
+torchvision==0.26.0
+torchaudio==2.11.0
+torchcodec==0.16.0
+coqui-tts==0.27.5
+transformers==4.57.6

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "fleet_rollout_controller",
+  "title": "Fleet Rollout Controller",
+  "target": "7.5.12.5",
+  "kind": "ui_service",
+  "ui": true,
+  "depends_on": [
+    "update_manager",
+    "fleet_manager"
+  ],
+  "summary": "Central staged/canary update rollout across enrolled Apollo devices.",
+  "planned_tools": [
+    "start_rollout",
+    "pause_rollout",
+    "resume_rollout",
+    "rollout_status"
+  ],
+  "acceptance": [
+    "Works only with enrolled/authenticated devices",
+    "Failure does not corrupt worker or coordinator state",
+    "All state survives restart"
+  ]
+}

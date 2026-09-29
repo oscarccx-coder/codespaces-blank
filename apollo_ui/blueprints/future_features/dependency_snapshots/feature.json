@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "dependency_snapshots",
+  "title": "Dependency Snapshots",
+  "target": "7.14.1",
+  "kind": "service",
+  "ui": false,
+  "depends_on": [
+    "dependency_manager"
+  ],
+  "summary": "Record exact project/module Python environment and dependency versions for reproducible recovery.",
+  "planned_tools": [
+    "snapshot_dependencies",
+    "compare_dependencies",
+    "restore_dependency_snapshot"
+  ],
+  "acceptance": [
+    "Per-project snapshots",
+    "Diffs versions",
+    "Restores into isolated environment where possible"
+  ]
+}

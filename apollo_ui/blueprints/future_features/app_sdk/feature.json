@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "app_sdk",
+  "title": "Apollo App SDK",
+  "target": "7.7.3",
+  "kind": "developer_platform",
+  "ui": false,
+  "depends_on": [
+    "module_factory",
+    "apollo_shell"
+  ],
+  "summary": "Stable contracts, templates and validation rules for Apollo-created apps.",
+  "planned_tools": [
+    "sdk_contract",
+    "create_app_skeleton",
+    "validate_app_contract"
+  ],
+  "acceptance": [
+    "Core UI contract documented",
+    "Versioned compatibility",
+    "Generated apps pass validator"
+  ]
+}

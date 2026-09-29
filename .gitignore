@@ -1,0 +1,23 @@
+
+# Apollo generated/cache data
+apollo_ui/storage/cache/
+apollo_ui/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Build output
+apollo_ui/build/
+apollo_ui/dist/
+
+# Python environments
+.venv/
+venv/
+
+# Secrets/environment
+.env
+*.env
+
+# Large AI/model files
+*.gguf
+*.safetensors
+*.bin

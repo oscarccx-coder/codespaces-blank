@@ -1,0 +1,13 @@
+{
+  "id": "orchestrator",
+  "name": "Orchestrator",
+  "version": "1.5.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Persistent goals/shared state used by Context Manager, Task Engine and model routing so Apollo subsystems keep one intent.",
+  "ui": {
+    "enabled": true,
+    "title": "Orchestrator",
+    "default_placement": "apps"
+  }
+}

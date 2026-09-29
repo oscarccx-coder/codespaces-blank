@@ -1,0 +1,13 @@
+{
+  "id": "capability_graph",
+  "name": "Capability Graph",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Maps Apollo capabilities/providers and suggests real tool workflows from task words.",
+  "ui": {
+    "enabled": true,
+    "title": "Capability Graph",
+    "default_placement": "apps"
+  }
+}

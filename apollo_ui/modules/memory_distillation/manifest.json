@@ -1,0 +1,8 @@
+{
+  "id": "memory_distillation",
+  "name": "Memory Distillation",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Normalizes learned topics and distills source passages into compact long-term memories while raw source material stays in compiled knowledge."
+}

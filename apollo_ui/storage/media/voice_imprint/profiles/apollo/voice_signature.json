@@ -1,0 +1,30 @@
+{
+  "network": "numpy-acoustic-autoencoder-v1",
+  "input_dimensions": 64,
+  "embedding_dimensions": 16,
+  "training_clips": 84,
+  "epochs": 499,
+  "final_loss": 0.936029,
+  "consistency": 0.7502,
+  "embedding": [
+    0.142135,
+    0.044621,
+    0.115832,
+    0.051522,
+    0.061325,
+    0.158018,
+    -0.202689,
+    0.121265,
+    -0.212581,
+    -0.002021,
+    0.056971,
+    0.055958,
+    -0.044215,
+    0.006247,
+    0.048795,
+    0.041743
+  ],
+  "reference_clip": "clips/clip_00078.wav",
+  "model_file": "voice_signature_net.npz",
+  "trained_at": "2026-09-25T00:38:47"
+}

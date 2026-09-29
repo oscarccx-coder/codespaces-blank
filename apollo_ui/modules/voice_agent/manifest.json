@@ -1,0 +1,8 @@
+{
+  "id": "voice_agent",
+  "name": "Voice Agent",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Wake-word/hands-free voice monitor layered over Speech I/O; microphone use remains permission-controlled."
+}

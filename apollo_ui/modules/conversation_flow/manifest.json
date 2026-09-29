@@ -1,0 +1,13 @@
+{
+  "id": "conversation_flow",
+  "name": "Conversation Flow",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Deterministic continuity layer that recognises follow-ups/retries, preserves the previous user intent, and gives Apollo a compact conversational context packet without another LLM call.",
+  "ui": {
+    "enabled": true,
+    "title": "Conversation Flow",
+    "default_placement": "apps"
+  }
+}

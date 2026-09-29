@@ -1,0 +1,106 @@
+{
+  "version": 2,
+  "items": [
+    {
+      "app_id": "core.chat",
+      "size": "custom",
+      "section": "Main",
+      "order": 0,
+      "grid_row": 0,
+      "grid_col": 0,
+      "row_span": 3,
+      "col_span": 3
+    },
+    {
+      "app_id": "module.orchestrator",
+      "size": "custom",
+      "section": "Main",
+      "order": 1,
+      "grid_row": 0,
+      "grid_col": 3,
+      "row_span": 4,
+      "col_span": 1
+    },
+    {
+      "app_id": "core.workshop",
+      "size": "custom",
+      "section": "Main",
+      "order": 2,
+      "grid_row": 3,
+      "grid_col": 0,
+      "row_span": 3,
+      "col_span": 1
+    },
+    {
+      "app_id": "module.file_manager",
+      "size": "medium",
+      "section": "Main",
+      "order": 3,
+      "grid_row": 3,
+      "grid_col": 1,
+      "row_span": 1,
+      "col_span": 2
+    },
+    {
+      "app_id": "module.voice_imprint_trainer",
+      "size": "custom",
+      "section": "Main",
+      "order": 4,
+      "grid_row": 4,
+      "grid_col": 1,
+      "row_span": 3,
+      "col_span": 2
+    },
+    {
+      "app_id": "core.medical",
+      "size": "custom",
+      "section": "Main",
+      "order": 5,
+      "grid_row": 7,
+      "grid_col": 0,
+      "row_span": 2,
+      "col_span": 1
+    },
+    {
+      "app_id": "core.memory",
+      "size": "small",
+      "section": "System",
+      "order": 6,
+      "grid_row": null,
+      "grid_col": null,
+      "row_span": 1,
+      "col_span": 1
+    },
+    {
+      "app_id": "core.system",
+      "size": "small",
+      "section": "System",
+      "order": 7,
+      "grid_row": null,
+      "grid_col": null,
+      "row_span": 1,
+      "col_span": 1
+    },
+    {
+      "app_id": "core.modules",
+      "size": "small",
+      "section": "System",
+      "order": 8,
+      "grid_row": null,
+      "grid_col": null,
+      "row_span": 1,
+      "col_span": 1
+    },
+    {
+      "app_id": "module.neural_visualizer",
+      "size": "medium",
+      "section": "System",
+      "order": 9,
+      "grid_row": null,
+      "grid_col": null,
+      "row_span": 1,
+      "col_span": 2
+    }
+  ],
+  "updated_at": "2026-09-18T15:27:30.616567+00:00"
+}

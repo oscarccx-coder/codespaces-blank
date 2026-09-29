@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "image_editing",
+  "title": "Image Edit / Inpaint / Variations",
+  "target": "7.11.2",
+  "kind": "capability",
+  "ui": false,
+  "depends_on": [
+    "image_core",
+    "vision_core"
+  ],
+  "summary": "Image-to-image, masked editing, object/style changes and controlled variation generation.",
+  "planned_tools": [
+    "image_to_image",
+    "inpaint_image",
+    "outpaint_image",
+    "create_variations"
+  ],
+  "acceptance": [
+    "Preserves untouched regions when requested",
+    "Stores source image link",
+    "Supports masks/reference images"
+  ]
+}

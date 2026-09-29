@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "comfyui_backend",
+  "title": "ComfyUI Backend",
+  "target": "7.11.1",
+  "kind": "backend",
+  "ui": false,
+  "depends_on": [
+    "image_core",
+    "compute_broker"
+  ],
+  "summary": "Local ComfyUI workflow/API bridge for generation, editing, ControlNet-style workflows and upscaling.",
+  "planned_tools": [
+    "comfyui_status",
+    "submit_workflow",
+    "cancel_workflow",
+    "workflow_history"
+  ],
+  "acceptance": [
+    "Local-only mode",
+    "Queue/cancel support",
+    "Workflow errors returned to Apollo cleanly"
+  ]
+}

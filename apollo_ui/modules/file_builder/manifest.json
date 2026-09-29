@@ -1,0 +1,8 @@
+{
+  "id": "file_builder",
+  "name": "Apollo File Builder",
+  "version": "1.3.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Real multi-file Workspace builder with static verification, persistent active-project context, project discovery, and restart-safe follow-up support."
+}

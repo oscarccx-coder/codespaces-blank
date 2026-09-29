@@ -1,0 +1,8 @@
+{
+  "id": "device_bridge",
+  "name": "Device Bridge",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Serial/USB device layer for Arduino, OBD and sensors; writes are permission-gated."
+}

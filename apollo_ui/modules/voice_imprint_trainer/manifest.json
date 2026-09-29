@@ -1,0 +1,14 @@
+{
+  "id": "voice_imprint_trainer",
+  "name": "Voice Imprint Lab",
+  "version": "1.2.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Process-isolated XTTS Voice Imprint engine, surfaced through the unified Voice Center.",
+  "ui": {
+    "enabled": false,
+    "title": "Voice Imprint Lab",
+    "default_placement": "apps",
+    "replacement": "voice_center"
+  }
+}

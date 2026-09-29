@@ -1,0 +1,25 @@
+{
+  "id": "patrick_stewart",
+  "name": "Patrick Stewart",
+  "created_at": "2026-09-25T08:26:00",
+  "updated_at": "2026-09-25T08:26:00",
+  "rights_confirmed": null,
+  "personal_use_mode": true,
+  "source_filename": "line.mp3",
+  "source_copy": "source/original.mp3",
+  "normalized_wav": "source/normalized_24k_mono.wav",
+  "manifest": "manifest.jsonl",
+  "reference_clip": "clips/clip_00002.wav",
+  "analysis": {
+    "threshold_rms": 0.05481752492487431,
+    "source_seconds": 26.35,
+    "clip_count": 2,
+    "good_clips": 2,
+    "usable_seconds": 7.75
+  },
+  "signature_trained": false,
+  "signature": {},
+  "transcription": {
+    "status": "not_run"
+  }
+}

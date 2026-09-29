@@ -1,0 +1,13 @@
+{
+  "id": "roadmap",
+  "name": "Apollo Roadmap",
+  "version": "2.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Apollo development roadmap with persistent milestone merging and machine-readable future-feature blueprints.",
+  "ui": {
+    "enabled": true,
+    "title": "Apollo Roadmap",
+    "default_placement": "apps"
+  }
+}

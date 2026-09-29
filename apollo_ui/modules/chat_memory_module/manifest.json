@@ -1,0 +1,8 @@
+{
+  "id": "chat_memory_module",
+  "name": "Chat Memory Module",
+  "version": "2.3.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Persistent local conversation memory with recent chronological timeline, semantic recall, previous-request recovery, and automatic cross-restart conversation continuity."
+}

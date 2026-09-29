@@ -1,0 +1,13 @@
+{
+  "id": "voice_center",
+  "name": "Voice Center",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Unified Apollo voice control, Windows voice selection, Voice Imprint training/tuning and XTTS performance controls.",
+  "ui": {
+    "enabled": true,
+    "title": "Voice Center",
+    "default_placement": "apps"
+  }
+}

@@ -1,0 +1,1488 @@
+{
+  "generated_at": "2026-09-30T00:09:15+01:00",
+  "count": 247,
+  "capabilities": [
+    {
+      "capability": "activity_trace__recent_activity",
+      "description": "Apollo module Activity Trace. Return recent action-bus tasks and event-bus events.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "activity_trace__failed_actions",
+      "description": "Apollo module Activity Trace. Return recent failed Apollo actions.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "activity_trace__export_trace",
+      "description": "Apollo module Activity Trace. Export recent operational activity to Workspace.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "automation_engine__create_automation",
+      "description": "Apollo module Automation Engine. Create a one-shot or interval automation that calls an Apollo capability later.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "automation_engine__list_automations",
+      "description": "Apollo module Automation Engine. List saved automations.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "automation_engine__remove_automation",
+      "description": "Apollo module Automation Engine. Remove an automation by id.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "automation_engine__run_due",
+      "description": "Apollo module Automation Engine. Run due automations through Apollo's normal permission/action bus.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "background_intelligence__maintenance_pulse",
+      "description": "Apollo module Background Intelligence. Run read-mostly Apollo maintenance/health pulse.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "background_intelligence__maintenance_status",
+      "description": "Apollo module Background Intelligence. Read latest maintenance snapshot.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "benchmark_suite__run_benchmarks",
+      "description": "Apollo module Apollo Benchmark Suite. Run Apollo infrastructure regression checks without invoking an LLM.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "benchmark_suite__last_report",
+      "description": "Apollo module Apollo Benchmark Suite. Read most recent benchmark report.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "calculator__calculate",
+      "description": "Apollo module Calculator. Calculate a mathematical arithmetic expression accurately.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "capability_graph__graph",
+      "description": "Apollo module Capability Graph. Return capability nodes grouped by provider.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "capability_graph__find_workflow",
+      "description": "Apollo module Capability Graph. Rank capabilities that could form a workflow for a task.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "chat_memory_module__save_chat_memory",
+      "description": "Apollo module Chat Memory Module. Save a useful user/assistant exchange into Apollo's persistent local chat memory.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "chat_memory_module__search_chat_memory",
+      "description": "Apollo module Chat Memory Module. Search Apollo's stored conversation memories for exchanges relevant to a query.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "chat_memory_module__recent_chat_memories",
+      "description": "Apollo module Chat Memory Module. Return Apollo's most recent persistent chat memories.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "chat_memory_module__conversation_context",
+      "description": "Apollo module Chat Memory Module. Return a compact persistent conversation context containing recent exchanges in chronological order plus older exchanges relevant to the current query.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "chat_memory_module__previous_user_request",
+      "description": "Apollo module Chat Memory Module. Return the most recent meaningful user request from persistent conversation memory, skipping retry phrases and trivial acknowledgements.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "chat_memory_module__chat_memory_stats",
+      "description": "Apollo module Chat Memory Module. Return statistics for Apollo's persistent chat memory.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "cluster_manager__cluster_workers",
+      "description": "Apollo module Apollo Cluster Manager. List online Apollo worker nodes and capabilities.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "cluster_manager__cluster_plan",
+      "description": "Apollo module Apollo Cluster Manager. Plan assignments for explicit task envelopes without running them.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "cluster_manager__cluster_run_tasks",
+      "description": "Apollo module Apollo Cluster Manager. Run an explicit list of allow-listed worker tasks in parallel across capable Apollo nodes.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "cluster_manager__cluster_parallel_prompts",
+      "description": "Apollo module Apollo Cluster Manager. Send independent prompt subtasks to available Ollama worker nodes in parallel and aggregate results.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "context_manager__build_context",
+      "description": "Apollo module Context Manager. Build a compact internal coordination packet for a task.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "context_manager__context_status",
+      "description": "Apollo module Context Manager. Return Context Manager health/last task.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "conversation_flow__analyse_turn",
+      "description": "Apollo module Conversation Flow. Build a compact conversation-continuity packet from the current message and recent visible chat history.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "conversation_flow__flow_status",
+      "description": "Apollo module Conversation Flow. Describe Conversation Flow rules and readiness.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "core_services__list_capabilities",
+      "description": "Apollo module Core Services. List Apollo capabilities, risk levels and permission decisions.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "core_services__get_health",
+      "description": "Apollo module Core Services. Return Apollo runtime/module health.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "core_services__recent_events",
+      "description": "Apollo module Core Services. Read recent internal event-bus messages.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "core_services__blackboard_get",
+      "description": "Apollo module Core Services. Read shared Apollo blackboard state.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "core_services__blackboard_set",
+      "description": "Apollo module Core Services. Write shared Apollo blackboard state.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "core_services__create_snapshot",
+      "description": "Apollo module Core Services. Create a recovery ZIP of Apollo core and modules.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "core_services__set_permission",
+      "description": "Apollo module Core Services. Change one capability permission.",
+      "risk": "high",
+      "permission": "deny"
+    },
+    {
+      "capability": "core_services__apply_permission_profile",
+      "description": "Apollo module Core Services. Apply Safe, Normal or Developer permission profile.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "core_services__module_failures",
+      "description": "Apollo module Core Services. List installed-module failure/quarantine records.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "core_services__clear_module_quarantine",
+      "description": "Apollo module Core Services. Clear a module quarantine so Apollo can retry it.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "core_services__operational_summary",
+      "description": "Apollo module Core Services. Compact Apollo health/goals/actions/shared-state summary.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "dependency_manager__check_package",
+      "description": "Apollo module Dependency Manager. Check a package/import in Apollo main environment.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "dependency_manager__list_environment",
+      "description": "Apollo module Dependency Manager. List installed Python distributions.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "dependency_manager__plan_install",
+      "description": "Apollo module Dependency Manager. Return exact pip command without running it.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "dependency_manager__install_package",
+      "description": "Apollo module Dependency Manager. Install package into Apollo main environment; high-risk permission gated.",
+      "risk": "high",
+      "permission": "deny"
+    },
+    {
+      "capability": "dependency_manager__create_isolated_env",
+      "description": "Apollo module Dependency Manager. Create dedicated virtual environment under storage/environments/venvs.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "dependency_manager__list_isolated_envs",
+      "description": "Apollo module Dependency Manager. List Apollo virtual environments.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "dependency_manager__install_into_env",
+      "description": "Apollo module Dependency Manager. Install package into named isolated environment.",
+      "risk": "high",
+      "permission": "deny"
+    },
+    {
+      "capability": "desktop_services__get_clipboard",
+      "description": "Apollo module Desktop Services. Read current OS text clipboard.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "desktop_services__set_clipboard",
+      "description": "Apollo module Desktop Services. Set OS text clipboard.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "desktop_services__open_with_default",
+      "description": "Apollo module Desktop Services. Open an Apollo-managed path with the operating-system default application.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "desktop_services__file_association",
+      "description": "Apollo module Desktop Services. Inspect the Windows file association for an extension such as .py or .txt.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "device_agent__device_agent_status",
+      "description": "Apollo module Apollo Device Agent. Return this Apollo node identity/capabilities and worker-agent status.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "device_agent__start_device_agent",
+      "description": "Apollo module Apollo Device Agent. Start the authenticated Fleet/Cluster worker service.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "device_agent__stop_device_agent",
+      "description": "Apollo module Apollo Device Agent. Stop the local Fleet/Cluster worker service.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "device_agent__configure_device_agent",
+      "description": "Apollo module Apollo Device Agent. Configure node name, role, group, host, port and auto-start.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "device_agent__device_enrollment_token",
+      "description": "Apollo module Apollo Device Agent. Return this node's enrollment token for adding it to a trusted Fleet Authority.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "device_agent__rotate_device_token",
+      "description": "Apollo module Apollo Device Agent. Rotate this node's Fleet authentication token.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "device_bridge__list_serial_ports",
+      "description": "Apollo module Device Bridge. List available serial/USB devices for Arduino, OBD and sensor modules.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "device_bridge__read_serial",
+      "description": "Apollo module Device Bridge. Read lines from a serial port for a bounded time.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "device_bridge__write_serial",
+      "description": "Apollo module Device Bridge. Write text to a serial device. Hardware-changing action is permission-gated.",
+      "risk": "high",
+      "permission": "deny"
+    },
+    {
+      "capability": "file_builder__active_project",
+      "description": "Apollo module Apollo File Builder. Return Apollo's persistent active Workspace project. This survives restarts.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_builder__list_projects",
+      "description": "Apollo module Apollo File Builder. List real project folders currently under Apollo/workspace.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_builder__set_active_project",
+      "description": "Apollo module Apollo File Builder. Set the persistent active Workspace project by existing project name.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_builder__write_files",
+      "description": "Apollo module Apollo File Builder. Create or replace a complete multi-file coding project in ONE call. Use this for ordinary apps, scripts, websites and projects whose files must work together. Every supplied code block must become a real file. Apollo performs static syntax/local-link verification after writing. Do NOT use for Apollo extension modules; use module_factory.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_builder__write_file",
+      "description": "Apollo module Apollo File Builder. Create or replace one real text/code file inside Apollo/workspace.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_builder__verify_project",
+      "description": "Apollo module Apollo File Builder. Statically verify an existing workspace project without executing it. Checks Python syntax, relative/local Python imports and common local web-file references.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_builder__inspect_project",
+      "description": "Apollo module Apollo File Builder. Return the real project tree and Apollo project metadata.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_builder__create_folder",
+      "description": "Apollo module Apollo File Builder. Create a folder inside Apollo's workspace.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_builder__list_files",
+      "description": "Apollo module Apollo File Builder. List real files currently in Apollo's workspace.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_builder__read_file",
+      "description": "Apollo module Apollo File Builder. Read a text/code file from Apollo's workspace.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__list_roots",
+      "description": "Apollo module Apollo File Manager. List Apollo file-manager roots and real OS paths.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__list_directory",
+      "description": "Apollo module Apollo File Manager. List a real directory directly from disk.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__read_text",
+      "description": "Apollo module Apollo File Manager. Read a text/code file.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__write_text",
+      "description": "Apollo module Apollo File Manager. Write a text file; Apollo root is protected.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__move_item",
+      "description": "Apollo module Apollo File Manager. Move a real file/folder between Apollo roots; Windows changes immediately.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__copy_item",
+      "description": "Apollo module Apollo File Manager. Copy a real file/folder between Apollo roots without changing the source.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__import_external",
+      "description": "Apollo module Apollo File Manager. Copy explicitly supplied Windows/OS files or folders into an Apollo-managed location.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__rename_item",
+      "description": "Apollo module Apollo File Manager. Rename a real file/folder in place.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__create_folder",
+      "description": "Apollo module Apollo File Manager. Create a real folder.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__trash_item",
+      "description": "Apollo module Apollo File Manager. Move a real item into recoverable Apollo trash.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__list_trash",
+      "description": "Apollo module Apollo File Manager. List recoverable Apollo trash.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__restore_trash",
+      "description": "Apollo module Apollo File Manager. Restore a trash entry to its original path.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__find_files",
+      "description": "Apollo module Apollo File Manager. Find files by partial name across Apollo roots.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__scan_misplaced",
+      "description": "Apollo module Apollo File Manager. Detect likely misplaced projects/modules/code without moving anything.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "file_manager__reveal_in_explorer",
+      "description": "Apollo module Apollo File Manager. Reveal a real Apollo file/folder in Windows Explorer.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "fleet_manager__fleet_devices",
+      "description": "Apollo module Apollo Fleet Manager. List enrolled Apollo devices and their last known status.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "fleet_manager__enroll_fleet_device",
+      "description": "Apollo module Apollo Fleet Manager. Enroll a trusted Apollo Device Agent using its URL and enrollment token.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "fleet_manager__refresh_fleet",
+      "description": "Apollo module Apollo Fleet Manager. Refresh status for all enrolled devices.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "fleet_manager__update_fleet_device",
+      "description": "Apollo module Apollo Fleet Manager. Rename/regroup/change logical role of an enrolled device.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "fleet_manager__revoke_fleet_device",
+      "description": "Apollo module Apollo Fleet Manager. Revoke a device from Fleet/Cluster use.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "fleet_manager__remove_fleet_device",
+      "description": "Apollo module Apollo Fleet Manager. Remove a device record from the local Fleet registry.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "gpu_monitor__gpu_status",
+      "description": "Apollo module GPU Monitor. Read NVIDIA GPU name, utilization, VRAM, temperature and power using nvidia-smi.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "gpu_monitor__gpu_processes",
+      "description": "Apollo module GPU Monitor. List NVIDIA compute processes and their reported GPU memory usage.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "knowledge_graph__add_relation",
+      "description": "Apollo module Knowledge Graph. Add/update a source-linked relation in Apollo Knowledge Graph.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "knowledge_graph__neighbors",
+      "description": "Apollo module Knowledge Graph. Return graph edges touching a concept.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "knowledge_graph__search_graph",
+      "description": "Apollo module Knowledge Graph. Search graph subjects, relations and objects.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "knowledge_graph__graph_stats",
+      "description": "Apollo module Knowledge Graph. Return graph size.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "memory_bank__store_memory",
+      "description": "Apollo module Memory Bank. Store useful information in Apollo's named Memory Bank.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "memory_bank__search_memory_bank",
+      "description": "Apollo module Memory Bank. Search Apollo's named Memory Bank.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "memory_bank__list_memories",
+      "description": "Apollo module Memory Bank. List recent named memories.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "memory_bank__remove_memory",
+      "description": "Apollo module Memory Bank. Remove a Memory Bank entry by id or exact name.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "memory_bank__memory_bank_stats",
+      "description": "Apollo module Memory Bank. Return Memory Bank statistics.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "memory_distillation__normalize_topic",
+      "description": "Apollo module Memory Distillation. Remove command-wrapper junk and create a canonical display topic/fingerprint.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "memory_distillation__distill_pile_result",
+      "description": "Apollo module Memory Distillation. Turn accepted Pile passages into compact memory key points plus provenance.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "memory_intelligence__memory_health",
+      "description": "Apollo module Memory Intelligence. Inspect Memory Bank size/types/source distribution without modifying it.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "memory_intelligence__find_possible_conflicts",
+      "description": "Apollo module Memory Intelligence. Find same-name Memory Bank entries that may conflict or duplicate.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "memory_intelligence__memory_age_report",
+      "description": "Apollo module Memory Intelligence. Report learned/updated dates for oldest/newest named memories.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "model_runtime__list_models",
+      "description": "Apollo module Model Runtime. List Ollama models installed on configured local server.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "model_runtime__get_active_model",
+      "description": "Apollo module Model Runtime. Return current fallback model and specialist role profiles.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "model_runtime__set_active_model",
+      "description": "Apollo module Model Runtime. Persist fallback/general Ollama model.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "model_runtime__set_role_model",
+      "description": "Apollo module Model Runtime. Assign a model to a specialist role.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "model_runtime__set_role_profile",
+      "description": "Apollo module Model Runtime. Assign model, temperature and context size to a role.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "model_runtime__route_task",
+      "description": "Apollo module Model Runtime. Deterministically choose a role/profile for a task without asking another LLM.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "module_factory__get_contract",
+      "description": "Apollo module Apollo Module Factory. Read Apollo's official module manifest/module templates and rules. Use this BEFORE creating or repairing an Apollo module.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "module_factory__read_candidate",
+      "description": "Apollo module Apollo Module Factory. Read the current files of an existing pending Apollo module so you can diagnose and repair it.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "module_factory__create_candidate",
+      "description": "Apollo module Apollo Module Factory. Create a NEW Apollo module candidate in pending_modules. This does NOT install or enable the module. The candidate must pass validation/tests and then be explicitly approved by the user.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "module_factory__update_candidate_file",
+      "description": "Apollo module Apollo Module Factory. Modify a file in an existing PENDING module to repair it. Allowed files: module.py, manifest.json, tests.py, README.md. The module remains pending until validation and user approval.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "neural_learning__add_training_example",
+      "description": "Apollo module Neural Learning Module. Teach Apollo's auxiliary neural classifier a labelled text example. Use several different examples for every label before training.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "neural_learning__train_network",
+      "description": "Apollo module Neural Learning Module. Train and validate Apollo's small neural classifier. Training uses multiple restarts and a held-out validation set; a model is only marked ready_for_use when it clears the quality gate.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "neural_learning__predict_label",
+      "description": "Apollo module Neural Learning Module. Predict learned labels for text using the trained network.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "neural_learning__neural_status",
+      "description": "Apollo module Neural Learning Module. Show dataset quality, training progress and model evaluation.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "neural_learning__list_training_examples",
+      "description": "Apollo module Neural Learning Module. List recent labelled examples.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "neural_visualizer__visual_neural_status",
+      "description": "Apollo module Neural Visualizer. Return a summary of the neural_learning model available for visualization.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "neural_visualizer__visualize_input",
+      "description": "Apollo module Neural Visualizer. Run text through Apollo's trained neural network and return input features, hidden activations, output probabilities and strongest learned connections for visualization.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "notification_center__notify",
+      "description": "Apollo module Notification Center. Create a persistent Apollo notification.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "notification_center__list_notifications",
+      "description": "Apollo module Notification Center. List recent Apollo notifications.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "notification_center__mark_read",
+      "description": "Apollo module Notification Center. Mark a notification read.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "orchestrator__add_goal",
+      "description": "Apollo module Orchestrator. Add a persistent Apollo goal for cross-model/subsystem coordination.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "orchestrator__list_goals",
+      "description": "Apollo module Orchestrator. List persistent Apollo goals.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "orchestrator__update_goal",
+      "description": "Apollo module Orchestrator. Update persistent goal status/notes.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "orchestrator__context_packet",
+      "description": "Apollo module Orchestrator. Create a compact shared context packet for another Apollo model/subsystem.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "orchestrator__set_shared_state",
+      "description": "Apollo module Orchestrator. Put a named value on Apollo's persistent shared blackboard.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "pile_knowledge__search_knowledge",
+      "description": "Apollo module The Pile Knowledge. Search Apollo's persistent locally compiled knowledge.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "pile_knowledge__search_pile",
+      "description": "Apollo module The Pile Knowledge. Search The Pile. Apollo tries Hugging Face online first and falls back to any locally cached Pile Parquet shards.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "pile_knowledge__learn_from_pile",
+      "description": "Apollo module The Pile Knowledge. Search The Pile, reject unrelated passages and compile relevant passages into Apollo's persistent knowledge. auto_cache can download one Lite shard if every remote request times out.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "pile_knowledge__pile_cache_status",
+      "description": "Apollo module The Pile Knowledge. Show how many local Pile Parquet cache shards Apollo has.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "pile_knowledge__download_pile_cache",
+      "description": "Apollo module The Pile Knowledge. Download/resume local Pile cache shards. One shard is roughly 233-266 MB. shards=1 is the Lite cache.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "pile_knowledge__sync_research_files",
+      "description": "Apollo module The Pile Knowledge. Import Apollo's saved Research & Training files into compiled knowledge.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "pile_knowledge__add_knowledge",
+      "description": "Apollo module The Pile Knowledge. Add trusted text directly into Apollo's compiled knowledge.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "pile_knowledge__knowledge_stats",
+      "description": "Apollo module The Pile Knowledge. Return statistics for Apollo's compiled knowledge database.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "process_manager__list_processes",
+      "description": "Apollo module Process Manager. List running local processes with PID/CPU/memory.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "process_manager__process_info",
+      "description": "Apollo module Process Manager. Read one process by PID.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "process_manager__terminate_process",
+      "description": "Apollo module Process Manager. Terminate a process by PID. High-risk and blocked by default.",
+      "risk": "high",
+      "permission": "deny"
+    },
+    {
+      "capability": "roadmap__roadmap_status",
+      "description": "Apollo module Apollo Roadmap. Return Apollo's internal development roadmap.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "roadmap__update_roadmap_item",
+      "description": "Apollo module Apollo Roadmap. Update the status or summary of one roadmap milestone.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "roadmap__feature_placeholders",
+      "description": "Apollo module Apollo Roadmap. List machine-readable placeholders for planned Apollo features.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "roadmap__feature_placeholder",
+      "description": "Apollo module Apollo Roadmap. Read one planned feature blueprint.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "screen_vision__screen_info",
+      "description": "Apollo module Screen Vision. Report available Qt screens without capturing pixels.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "screen_vision__capture_screen",
+      "description": "Apollo module Screen Vision. Capture the primary screen to Apollo storage. Privacy-sensitive and permission-gated.",
+      "risk": "high",
+      "permission": "deny"
+    },
+    {
+      "capability": "self_awareness__describe_project",
+      "description": "Apollo module Apollo Self Awareness. Inspect Apollo's own project structure, including source files and installed module folders. Read-only.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "self_awareness__list_source_files",
+      "description": "Apollo module Apollo Self Awareness. List Apollo source/config files. Use this before reading a file when you need to understand Apollo's own implementation.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "self_awareness__read_source_file",
+      "description": "Apollo module Apollo Self Awareness. Read a text source/config file from Apollo's own project. This tool is deliberately read-only.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "self_awareness__search_source",
+      "description": "Apollo module Apollo Self Awareness. Search Apollo's source code for a word or phrase and return matching file names and line numbers.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "self_improvement_lab__audit_apollo",
+      "description": "Apollo module Self-Improvement Lab. Read-only audit of Apollo source/TODO/FIXME.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "self_improvement_lab__create_proposal",
+      "description": "Apollo module Self-Improvement Lab. Create approval-gated improvement proposal; does not alter core.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "self_improvement_lab__stage_multi_file_patch",
+      "description": "Apollo module Self-Improvement Lab. Write coordinated multi-file candidate under Workspace/self_improvement; never auto-applied.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "self_improvement_lab__verify_proposal",
+      "description": "Apollo module Self-Improvement Lab. Static-check staged Python and list hashes; does not execute/apply.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "self_improvement_lab__list_proposals",
+      "description": "Apollo module Self-Improvement Lab. List staged proposals.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "self_improvement_lab__snapshot_before_change",
+      "description": "Apollo module Self-Improvement Lab. Create recovery snapshot before user-approved change.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "system_info__status",
+      "description": "Apollo module System Information. Read current CPU, RAM, disk and operating-system status from this computer.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "task_engine__create_plan",
+      "description": "Apollo module Task & Goal Engine. Create a persistent multi-step plan; does not execute steps automatically.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "task_engine__list_plans",
+      "description": "Apollo module Task & Goal Engine. List persistent plans.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "task_engine__plan_detail",
+      "description": "Apollo module Task & Goal Engine. Return a plan and its steps.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "task_engine__update_step",
+      "description": "Apollo module Task & Goal Engine. Update one step after real work and attach evidence/capability.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "task_engine__next_steps",
+      "description": "Apollo module Task & Goal Engine. Return pending/blocked/failed steps from active plans.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "task_engine__complete_plan",
+      "description": "Apollo module Task & Goal Engine. Complete only when all steps are done/skipped.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "terminal_bridge__run_command",
+      "description": "Apollo module Terminal Bridge. Run a shell command inside Apollo workspace. High-risk and blocked by default.",
+      "risk": "high",
+      "permission": "deny"
+    },
+    {
+      "capability": "terminal_bridge__get_working_directory",
+      "description": "Apollo module Terminal Bridge. Return Apollo terminal workspace root.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__speak_text",
+      "description": "Apollo module Speech I/O + Voice Studio. Speak Apollo text aloud asynchronously using the saved Voice Studio profile. Optional arguments can temporarily override voice, gender, accent, emotion, depth, pitch, rate or volume.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__stop_speaking",
+      "description": "Apollo module Speech I/O + Voice Studio. Immediately stop the speech process started by Apollo.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__save_wav",
+      "description": "Apollo module Speech I/O + Voice Studio. Render text to a local WAV using the saved or temporarily overridden Voice Studio profile.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__list_voices",
+      "description": "Apollo module Speech I/O + Voice Studio. List installed Windows text-to-speech voice names.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__list_voice_profiles",
+      "description": "Apollo module Speech I/O + Voice Studio. List installed Windows voices with gender, age and culture metadata.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__get_voice_profile",
+      "description": "Apollo module Speech I/O + Voice Studio. Get Apollo's saved Voice Studio profile.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__set_voice_profile",
+      "description": "Apollo module Speech I/O + Voice Studio. Persist Apollo's default voice modulation profile for future replies.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__reset_voice_profile",
+      "description": "Apollo module Speech I/O + Voice Studio. Reset Voice Studio to the neutral defaults.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__preview_voice",
+      "description": "Apollo module Speech I/O + Voice Studio. Preview text using a temporary voice profile without changing the saved profile.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__record_dictation",
+      "description": "Apollo module Speech I/O + Voice Studio. Record one microphone utterance, transcribe it offline with Windows speech recognition, and when Voice Studio saving is enabled keep the WAV + transcript as future TinyVoice training data.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__voice_dataset_stats",
+      "description": "Apollo module Speech I/O + Voice Studio. Return saved dictation recording count, approved count and total recorded seconds.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__list_voice_dataset",
+      "description": "Apollo module Speech I/O + Voice Studio. List saved voice-training samples and transcripts.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__set_voice_sample_quality",
+      "description": "Apollo module Speech I/O + Voice Studio. Mark a saved voice sample good/bad and approve/unapprove it for future voice training.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__delete_voice_sample",
+      "description": "Apollo module Speech I/O + Voice Studio. Delete one saved dictation WAV and its manifest record.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__listen_once",
+      "description": "Apollo module Speech I/O + Voice Studio. Listen to the default microphone once and return offline Windows speech-recognition text. Intended for Apollo's Dictate button.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "text_to_speech__list_recognizers",
+      "description": "Apollo module Speech I/O + Voice Studio. List installed Windows offline speech recognizers.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "todo_list__add_to_do_item",
+      "description": "Apollo module To-Do List. Add a persistent item to Apollo's To-Do List.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "todo_list__remove_to_do_item",
+      "description": "Apollo module To-Do List. Remove a To-Do List item by id or title.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "todo_list__update_to_do_item",
+      "description": "Apollo module To-Do List. Edit a To-Do List item.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "todo_list__complete_to_do_item",
+      "description": "Apollo module To-Do List. Tick off a To-Do List item after its work actually succeeds.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "todo_list__reopen_to_do_item",
+      "description": "Apollo module To-Do List. Reopen a completed To-Do List item.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "todo_list__list_to_do_items",
+      "description": "Apollo module To-Do List. List Apollo's To-Do List items.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "todo_list__achieve_to_do_list",
+      "description": "Apollo module To-Do List. Return open To-Do List items as an execution plan. Perform real actions, then complete each successful item.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "training_module__search_web",
+      "description": "Apollo module Training Module. Search the public web for research sources and return titles, URLs and snippets.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "training_module__fetch_page",
+      "description": "Apollo module Training Module. Fetch readable text from a public HTTP/HTTPS webpage.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "training_module__save_to_file",
+      "description": "Apollo module Training Module. Save research text into Apollo's protected local training-module storage.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "training_module__read_from_file",
+      "description": "Apollo module Training Module. Read a saved research note from Apollo's training-module storage.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "training_module__list_research_files",
+      "description": "Apollo module Training Module. List locally saved research/training files.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "training_module__search_local_research",
+      "description": "Apollo module Training Module. Search Apollo's locally saved research files and return relevant snippets. Use this before re-researching a topic Apollo may already know.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "training_module__explore_web_and_save",
+      "description": "Apollo module Training Module. Perform real research: search the web, fetch readable text from several source pages, then save the source-backed research locally.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "update_manager__update_status",
+      "description": "Apollo module Apollo Update Manager. Return this Apollo device update configuration/status.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "update_manager__configure_update_source",
+      "description": "Apollo module Apollo Update Manager. Configure Apollo update server/channel/device name.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "update_manager__check_for_updates",
+      "description": "Apollo module Apollo Update Manager. Check the configured signed Apollo release channel.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "update_manager__stage_update",
+      "description": "Apollo module Apollo Update Manager. Download, verify and stage the latest signed Apollo update.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "update_manager__import_update_public_key",
+      "description": "Apollo module Apollo Update Manager. Trust an Apollo release public key PEM file.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "update_manager__install_staged_update",
+      "description": "Apollo module Apollo Update Manager. Launch the external updater for a staged signed release. Apollo must close for core files to restart cleanly.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "upgrade_history__record_release",
+      "description": "Apollo module Upgrade History. Append an Apollo release/change record.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "upgrade_history__list_history",
+      "description": "Apollo module Upgrade History. List recorded Apollo changes.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "upgrade_history__checkpoint",
+      "description": "Apollo module Upgrade History. Create recovery snapshot and core hashes.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "upgrade_history__core_hashes",
+      "description": "Apollo module Upgrade History. Hash important Apollo core files.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "verification_engine__verify_workspace_project",
+      "description": "Apollo module Verification Engine. Verify Python syntax and Apollo project metadata for a Workspace project.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "verification_engine__verify_pending_module",
+      "description": "Apollo module Verification Engine. Run Apollo real pending-module validator.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "verification_engine__verify_recent_action",
+      "description": "Apollo module Verification Engine. Inspect action-bus execution evidence.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_agent__get_voice_agent_settings",
+      "description": "Apollo module Voice Agent. Read hands-free voice/wake-word settings.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_agent__set_voice_agent_settings",
+      "description": "Apollo module Voice Agent. Set wake word and hands-free voice settings.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_agent__start_listening",
+      "description": "Apollo module Voice Agent. Start a background wake-word monitor using Speech I/O. Microphone access is permission-gated.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_agent__stop_listening",
+      "description": "Apollo module Voice Agent. Stop the background wake-word monitor.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_center__voice_center_status",
+      "description": "Apollo module Voice Center. Return the status of Apollo's unified voice modules.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__backend_status",
+      "description": "Apollo module Voice Imprint Lab. Check ffmpeg, optional transcription and local neural TTS backend readiness.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__xtts_worker_status",
+      "description": "Apollo module Voice Imprint Lab. Return isolated XTTS worker process status without importing the model in Apollo's GUI process.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__unload_xtts_worker",
+      "description": "Apollo module Voice Imprint Lab. Stop the isolated XTTS worker and free its CPU/GPU memory. It will restart on the next neural speech request.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__import_audio",
+      "description": "Apollo module Voice Imprint Lab. Import and analyse a local single-speaker voice source for Apollo's personal-use Voice Imprint workflow.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__build_voice_from_audio",
+      "description": "Apollo module Voice Imprint Lab. One-click personal-use workflow: import a local audio file, analyse/split it, train Apollo's acoustic voice signature, create an XTTS-ready reference pack, and optionally activate the finished profile.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__voice_readiness",
+      "description": "Apollo module Voice Imprint Lab. Report separately whether the selected voice profile is ready and whether the shared XTTS base speech engine is ready.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__launch_xtts_installer",
+      "description": "Apollo module Voice Imprint Lab. Launch Apollo's local XTTS v2 installer/repair utility in a separate console. The user must explicitly accept the XTTS model terms in that installer.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__find_xtts_model",
+      "description": "Apollo module Voice Imprint Lab. Search Apollo and common local Coqui TTS cache folders for an already-installed XTTS model containing config.json and model.pth.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__play_reference",
+      "description": "Apollo module Voice Imprint Lab. Play the extracted reference WAV for a prepared Voice Imprint profile.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__list_profiles",
+      "description": "Apollo module Voice Imprint Lab. List imported voice profiles and training status.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__profile_status",
+      "description": "Apollo module Voice Imprint Lab. Return one profile's dataset, quality, signature and backend status.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__train_voice_signature",
+      "description": "Apollo module Voice Imprint Lab. Train Apollo's small local acoustic autoencoder on the imported clips and save a compact voice/style embedding.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__training_status",
+      "description": "Apollo module Voice Imprint Lab. Return live Voice Imprint training state, progress, current epoch and loss.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__transcribe_profile",
+      "description": "Apollo module Voice Imprint Lab. Optionally transcribe prepared clips with faster-whisper if it is already installed/local. Useful for future fine-tuning datasets; not required for reference-conditioned XTTS synthesis.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__configure_backend",
+      "description": "Apollo module Voice Imprint Lab. Configure a local XTTS model directory and language. Apollo never downloads a voice model automatically.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__get_voice_tuning",
+      "description": "Apollo module Voice Imprint Lab. Get the selected/active Voice Imprint profile's saved XTTS and audio tuning controls.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__set_voice_tuning",
+      "description": "Apollo module Voice Imprint Lab. Save speed, depth/pitch, expressiveness, sampling and EQ controls for a Voice Imprint profile.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__reset_voice_tuning",
+      "description": "Apollo module Voice Imprint Lab. Reset one Voice Imprint profile to natural tuning defaults.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__activate_profile",
+      "description": "Apollo module Voice Imprint Lab. Activate a trained/imported profile as Apollo's preferred neural voice.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__deactivate_profile",
+      "description": "Apollo module Voice Imprint Lab. Disable Voice Imprint routing and return Apollo to the normal Voice Studio engine.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__synthesize",
+      "description": "Apollo module Voice Imprint Lab. Render text to WAV with the active/profile voice using the configured local neural backend.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__speak",
+      "description": "Apollo module Voice Imprint Lab. Synthesize then play text using the active Voice Imprint profile.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__stop_speaking",
+      "description": "Apollo module Voice Imprint Lab. Stop Voice Imprint playback.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "voice_imprint_trainer__export_training_dataset",
+      "description": "Apollo module Voice Imprint Lab. Export the prepared clips/transcripts manifest path for future TinyVoice/fine-tuning work.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "web_explorer__search_web",
+      "description": "Apollo module Web Explorer. Search the public web using DuckDuckGo and return result titles, URLs and snippets. Use this for current/public information.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "web_explorer__fetch_url",
+      "description": "Apollo module Web Explorer. Fetch a public HTTP/HTTPS webpage and extract readable text, title and final URL. Does not execute JavaScript.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "workspace_manager__list_projects",
+      "description": "Apollo module Workspace Manager. List folders/projects in Apollo workspace.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "workspace_manager__list_files",
+      "description": "Apollo module Workspace Manager. List files within a workspace project/path.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "workspace_manager__read_file",
+      "description": "Apollo module Workspace Manager. Read a UTF-8 workspace file.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "workspace_manager__write_file",
+      "description": "Apollo module Workspace Manager. Write one UTF-8 workspace file. Use file_builder for whole multi-file builds.",
+      "risk": "medium",
+      "permission": "allow"
+    },
+    {
+      "capability": "workspace_manager__search_files",
+      "description": "Apollo module Workspace Manager. Search text across workspace files.",
+      "risk": "low",
+      "permission": "allow"
+    },
+    {
+      "capability": "workspace_manager__run_python_project",
+      "description": "Apollo module Workspace Manager. Run a Python entry file inside workspace. High-risk execution is permission-gated.",
+      "risk": "low",
+      "permission": "allow"
+    }
+  ]
+}

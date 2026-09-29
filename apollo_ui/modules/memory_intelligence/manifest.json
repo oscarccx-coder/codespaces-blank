@@ -1,0 +1,8 @@
+{
+  "id": "memory_intelligence",
+  "name": "Memory Intelligence",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Health, ageing and conflict analysis for Apollo Memory Bank."
+}

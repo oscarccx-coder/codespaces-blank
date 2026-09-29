@@ -1,0 +1,75 @@
+{
+  "id": "apollo",
+  "name": "Apollo",
+  "created_at": "2026-09-25T00:37:50",
+  "updated_at": "2026-09-25T00:38:47",
+  "rights_confirmed": null,
+  "personal_use_mode": true,
+  "source_filename": "warofworlds_b1_ch01_wells_64kb.mp3",
+  "source_copy": "source/original.mp3",
+  "normalized_wav": "source/normalized_24k_mono.wav",
+  "manifest": "manifest.jsonl",
+  "reference_clip": "clips/clip_00078.wav",
+  "analysis": {
+    "threshold_rms": 0.011989343762397766,
+    "source_seconds": 939.91,
+    "clip_count": 84,
+    "good_clips": 84,
+    "usable_seconds": 873.15
+  },
+  "signature_trained": true,
+  "signature": {
+    "network": "numpy-acoustic-autoencoder-v1",
+    "input_dimensions": 64,
+    "embedding_dimensions": 16,
+    "training_clips": 84,
+    "epochs": 499,
+    "final_loss": 0.936029,
+    "consistency": 0.7502,
+    "embedding": [
+      0.142135,
+      0.044621,
+      0.115832,
+      0.051522,
+      0.061325,
+      0.158018,
+      -0.202689,
+      0.121265,
+      -0.212581,
+      -0.002021,
+      0.056971,
+      0.055958,
+      -0.044215,
+      0.006247,
+      0.048795,
+      0.041743
+    ],
+    "reference_clip": "clips/clip_00078.wav",
+    "model_file": "voice_signature_net.npz",
+    "trained_at": "2026-09-25T00:38:47"
+  },
+  "transcription": {
+    "status": "not_run"
+  },
+  "voice_pack": {
+    "ready": true,
+    "manifest": "voice_pack/voice_pack.json",
+    "reference_wav": "voice_pack/reference.wav",
+    "prepared_at": "2026-09-25T00:38:47"
+  },
+  "voice_tuning": {
+    "speed": 1.04,
+    "pitch_semitones": -0.7,
+    "temperature": 0.9,
+    "length_penalty": 1.0,
+    "repetition_penalty": 2.0,
+    "top_k": 50,
+    "top_p": 0.85,
+    "gpt_cond_len": 8,
+    "enable_text_splitting": true,
+    "bass_db": 0.0,
+    "treble_db": 0.5,
+    "volume_db": 0.0
+  },
+  "voice_tuning_updated_at": "2026-09-29T22:49:46"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "benchmark_suite",
+  "name": "Apollo Benchmark Suite",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Permanent infrastructure regression suite so self-improvement can prove it did not break Apollo.",
+  "ui": {
+    "enabled": true,
+    "title": "Benchmarks",
+    "default_placement": "apps"
+  }
+}

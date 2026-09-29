@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "profile_id": "captain_picards",
+  "profile_name": "Captain Picards",
+  "created_at": "2026-09-26T13:01:47",
+  "reference_wav": "voice_pack/reference.wav",
+  "reference_candidates": [
+    {
+      "file": "reference_01.wav",
+      "source_clip": "clips/clip_00025.wav",
+      "duration": 9.1,
+      "score": 100.0,
+      "quality": "good"
+    },
+    {
+      "file": "reference_02.wav",
+      "source_clip": "clips/clip_00045.wav",
+      "duration": 8.9,
+      "score": 100.0,
+      "quality": "good"
+    },
+    {
+      "file": "reference_03.wav",
+      "source_clip": "clips/clip_00004.wav",
+      "duration": 9.2,
+      "score": 100.0,
+      "quality": "good"
+    },
+    {
+      "file": "reference_04.wav",
+      "source_clip": "clips/clip_00048.wav",
+      "duration": 9.2,
+      "score": 100.0,
+      "quality": "good"
+    },
+    {
+      "file": "reference_05.wav",
+      "source_clip": "clips/clip_00003.wav",
+      "duration": 9.3,
+      "score": 100.0,
+      "quality": "good"
+    }
+  ],
+  "normalized_source": "source/normalized_24k_mono.wav",
+  "signature_file": "voice_signature.json",
+  "signature_model": "voice_signature_net.npz",
+  "speaker_files_ready": true,
+  "requires_shared_engine": {
+    "backend": "XTTS v2",
+    "files": [
+      "config.json",
+      "model.pth"
+    ],
+    "note": "These are pretrained XTTS engine files shared by every voice profile. They cannot be generated from the speaker recording."
+  }
+}

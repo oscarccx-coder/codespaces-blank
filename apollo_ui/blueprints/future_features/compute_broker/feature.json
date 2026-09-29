@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "compute_broker",
+  "title": "VRAM / Compute Broker",
+  "target": "7.10",
+  "kind": "service",
+  "ui": false,
+  "depends_on": [
+    "model_switcher",
+    "ollama_management"
+  ],
+  "summary": "Allocate GPU/CPU/RAM between LLM, image, vision, voice, video and training workloads.",
+  "planned_tools": [
+    "compute_status",
+    "request_compute_lease",
+    "release_compute_lease",
+    "unload_idle_models"
+  ],
+  "acceptance": [
+    "Never oversubscribe configured VRAM budget",
+    "Can unload/reload Ollama and image backends safely",
+    "Reports which workload owns compute"
+  ]
+}

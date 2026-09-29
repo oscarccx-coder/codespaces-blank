@@ -1,0 +1,9 @@
+{
+  "id": "device_agent",
+  "name": "Apollo Device Agent",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Authenticated LAN node agent for Apollo Fleet and distributed tasks.",
+  "ui": {"enabled": true, "title": "Device Agent", "default_placement": "apps"}
+}

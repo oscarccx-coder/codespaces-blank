@@ -1,0 +1,54 @@
+{
+  "id": "warofworlds_b1_ch01_wells_64kb_4",
+  "name": "warofworlds_b1_ch01_wells_64kb",
+  "created_at": "2026-09-18T16:45:31",
+  "updated_at": "2026-09-18T16:46:55",
+  "rights_confirmed": null,
+  "personal_use_mode": true,
+  "source_filename": "warofworlds_b1_ch02_wells_64kb.mp3",
+  "source_copy": "source/original.mp3",
+  "normalized_wav": "source/normalized_24k_mono.wav",
+  "manifest": "manifest.jsonl",
+  "reference_clip": "clips/clip_00045.wav",
+  "analysis": {
+    "threshold_rms": 0.010072293877601623,
+    "source_seconds": 566.97,
+    "clip_count": 48,
+    "good_clips": 48,
+    "usable_seconds": 512.05
+  },
+  "signature_trained": true,
+  "signature": {
+    "network": "numpy-acoustic-autoencoder-v1",
+    "input_dimensions": 64,
+    "embedding_dimensions": 16,
+    "training_clips": 48,
+    "epochs": 240,
+    "final_loss": 0.9321,
+    "consistency": 0.758,
+    "embedding": [
+      0.130517,
+      0.021743,
+      0.107721,
+      0.037808,
+      0.06976,
+      0.133572,
+      -0.191624,
+      0.135794,
+      -0.177676,
+      -0.039567,
+      0.032674,
+      0.062948,
+      -0.076098,
+      0.007536,
+      0.029819,
+      0.024522
+    ],
+    "reference_clip": "clips/clip_00045.wav",
+    "model_file": "voice_signature_net.npz",
+    "trained_at": "2026-09-18T16:46:55"
+  },
+  "transcription": {
+    "status": "not_run"
+  }
+}

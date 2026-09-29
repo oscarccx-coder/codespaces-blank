@@ -1,0 +1,698 @@
+# Apollo Research: Artificial Intelligence Learning
+
+Search results found: 5
+Source pages fetched: 3
+
+This file is Apollo's local research memory. It contains source URLs,
+search snippets, and readable text fetched from the source pages.
+
+## Source 1: MIT Artificial Intelligence - 8-Week Online AI Design Course
+URL: https://duckduckgo.com/y.js?ad_domain=emeritus.org&ad_provider=bingv7aa&ad_type=txad&click_metadata=rP4P6QS1MdHlcwNDeoWb1-sMG6qNuNuNRnJtxhK0uLTHyUl4EaistneWTyqbMPRxbqF7yS8QKNhKFKJC4lPau5u-hMek34FyHEz5dYixtNyyEoSRO19xXvgF5VgTQZ2BEQhJQllO11Ry4FGb5uMUHXfMRHkOpXVWmIy6TUDUDTc.kV3NC1vM3pZDvkdI1qHhuA&rut=cafe58c8fba50dd7e6add7a9ee9316c0772ef32257f8f3ca1eabff32fecc276c&u3=https://www.bing.com/aclick?ld=e8ZwbnAJ4tKdSLvsujsSCGNjVUCUzDFzHGv_-LUw0DghcIFXTOGWcbXt4kX9wCI9uv_k2FlMcolOzOzOWqvwo3qP9llHBeR3KrzYtk-fkvYFUPGRQLQ6wbM7j6AQBhqOqQA5ZKfBWFoiUOYRtPkAnbeztfqRUxyN2wFNy1yja7Z5_cePirUe4LzvDKKVn8nqSf9lxv0mU7Y6xUSFNkHDtRwRQ0WNM&u=aHR0cHMlM2ElMmYlMmZtaXQteHByby1vbmxpbmUtZWR1Y2F0aW9uLmVtZXJpdHVzLm9yZyUyZmRlc2lnbmluZy1idWlsZGluZy1haS1wcm9kdWN0cy1zZXJ2aWNlcyUzZnV0bV9zb3VyY2UlM2RiaW5nJTI2dXRtX21lZGl1bSUzZGMlMjZ1dG1fbG9jYXRpb24lM2QzMDAyODQlMjZ1dG1fY2FtcGFpZ24lM2RCLTM2NURfUk9XX0JHX1NFX0FJUF9CcmFuZCUyNnV0bV9jb250ZW50JTNkTUlUX0FJJTI2dXRtX3Rlcm0lM2RtaXQlMjUyMGFpJTI1MjBjbGFzcyUyNm1zY2xraWQlM2RiOGNjYzk3ZThkNTcxNGFmM2E4NGEzZDgwN2M1OWU1ZA&rlid=b8ccc97e8d5714af3a84a3d807c59e5d&vqd=4-163949706835318894084392194450650631432&iurl={1}IG=AB5879FCD30544BDBC2BC5F481A6DBD1&CID=04232FAEE4D165C83EDC387DE5A6644A&ID=DevEx,5036.1
+
+### Search snippet
+(No search snippet returned.)
+
+### Fetch error
+HTTPError: HTTP Error 400: Bad Request
+
+## Source 2: Top 10 Ai For Training - AI For Training - Best AI For Training
+URL: https://duckduckgo.com/y.js?ad_domain=capterra.com&ad_provider=bingv7aa&ad_type=txad&click_metadata=hmmC7Y-yRQxeUXkX0rO5LjkYmkUuxA--TF8EufhViQP_3rYfaDRQLXbbNHUFi7yzspxgGywxlnraA1b3KYP5pnGwdEPdCob5HarZNzlmI7vBnUkDOR5Ej3PH01Oexzv3jrk_Lr8GQvEJTut-ui9xMuQDbp4zfDfr9RG_Jdj-h9Q.s3N_grpP-1RvaIoZ8GrV5A&rut=c4f0f0a0cca45a7e27cda775858ac8ed53355df7caec5b5f012b108e50d88a2d&u3=https://www.bing.com/aclick?ld=e8zwAUyjzNvcpoBgvcvYJW-DVUCUyOXwPVu9dWZECuNGigc7moc8LheK_ffUYetHfb5RDKWDF9q-t41rd_HAoxGZcdhtmHlRA1F01QJ-DofoE61iJDHY9A1m4rZaOhU-Q7_ozfyDedb_wt6dvJCELRwd5A-9vixkZaKQ_gIpbwdcgzqyPNRg5d7OAjxKolJFn85oHsZuzEMqjZOHTWM1dX9DMhFU0&u=aHR0cHMlM2ElMmYlMmZ3d3cuY2FwdGVycmEuY29tJTJmc2VtLWNvbXBhcmUtYiUyZnRyYWluaW5nLXNvZnR3YXJlJTJmJTNmaGVhZGxpbmUlM2RBSSUyNTIwVHJhaW5pbmclMjUyMFNvZnR3YXJlJTI2YWNjb3VudF9jYW1wYWlnbl9pZCUzZDY5ODEzNzYzNCUyNmFjY291bnRfYWRncm91cF9pZCUzZDEyNTEyNDU1OTU0Mzg3NjAlMjZ0YXJnZXQlM2RBSSUyNTIwZm9yJTI1MjB0cmFpbmluZyUyNmFkX2lkJTNkJTI2bWF0Y2h0eXBlJTNkcCUyNnV0bV9zb3VyY2UlM2Rwcy1iaW5nJTI2dXRtX21lZGl1bSUzZHBwYyUyNnV0bV9jYW1wYWlnbiUzZCUzYTElM2FDQVAlM2EyJTNhQ09NJTNhMyUzYUFsbCUzYTQlM2FJTlRMJTNhNSUzYUJBVSUzYTYlM2FTT0YlM2E3JTNhRGVza3RvcCUzYTglM2FCUiUzYTklM2FUcmFpbmluZyUyNm5ldHdvcmslM2RzJTI2bXNjbGtpZCUzZGUwOTUwODcxNDVmNDFkOWM0MTZjNjJkN2NmNjZhZmM0&rlid=e095087145f41d9c416c62d7cf66afc4&vqd=4-297851840622439392378319443263880781536&iurl={1}IG=AB5879FCD30544BDBC2BC5F481A6DBD1&CID=04232FAEE4D165C83EDC387DE5A6644A&ID=DevEx,5041.1
+
+### Search snippet
+(No search snippet returned.)
+
+### Fetch error
+HTTPError: HTTP Error 400: Bad Request
+
+## Source 3: How to Learn Artificial Intelligence: A Beginner’s Guide | Coursera
+URL: https://www.coursera.org/articles/how-to-learn-artificial-intelligence
+
+### Search snippet
+(No search snippet returned.)
+
+### Readable source text
+How to Learn Artificial Intelligence: A Beginner’s Guide | Coursera
+For Individuals
+For Businesses
+For Universities
+For Governments
+Explore
+Degrees
+​
+Log In
+Join for Free
+Join for Free
+Ends soon! Grow on your schedule with big savings on Coursera Plus. Save 40% for 3 months .
+Data
+AI and Machine Learning
+How to Learn Artificial Intelligence: A Beginner’s Guide
+How to Learn Artificial Intelligence: A Beginner’s Guide
+Written by Coursera Staff • Updated on Mar 14, 2026
+This guide to learning artificial intelligence is suitable for any beginner, no matter where you’re starting from.
+Key Takeaways
+Learning artificial intelligence involves building foundational skills, choosing the right learning path, and applying AI tools to your goals.
+Start by assessing your current knowledge, defining your intention for learning, and following a learning plan that aligns with your personal or career goals.
+The amount of time it takes to learn AI depends on factors including your prerequisite knowledge, career intent, and background in technology.
+You can follow a learning plan (there's one outlined in this article!), enroll in a reputable online course, or practice with free to low cost tools.
+Read on for a full breakdown of each step, including prerequisite skills, essential AI concepts, and a sample learning plan you can follow at your own pace. If you're ready to start building your AI skills right away, consider enrolling in the Google AI Professional Certificate program on Coursera. In as little as eight hours, you could master in-demand skills like using AI for data analysis, research, and communication. By the end, you'll have earned a shareable certificate for your resume.
+How long does it take to learn AI?
+According to the World Economic Forum, beginner-level AI skills can be learned in about 30 hours [ 1 ]. Using a structured learning program, you can gain a deeper understanding of AI in 3-4 months. You’ll want to learn Python, data manipulation, deep learning, machine learning operations, and ethics. You may also gain familiarity with AI by spending time with free AI chatbots like Google Gemini, ChatGPT, Claude, and Perplexity. By using AI chatbots to support your research, synthesize information from multiple sources, answer questions, or assist with code generation, you’ll learn more about how AI processes requests, formulates answers, and works within the constraints provided.
+Where do I start with AI?
+Learning Python is a foundational step in learning AI. Once you’re comfortable with the essentials, you can begin to study machine learning and generative AI frameworks. You may find it helpful to begin projects at this stage, too. You’ll be able to learn concepts while applying them and gaining hands-on experience.
+Do I need to know how to code to learn AI?
+No, you don’t need to know how to code to understand the essentials of AI or use chatbots. There are no-code tools that can help you bring ideas to life, but if you want to build and deploy AI systems, you’ll need to know Python. Beginner knowledge can be supplemented by using a library like TensorFlow or PyTorch. To drive AI engineering, you’ll need to know Python, in addition to C++, Java, and R.
+How to learn AI for everyday use
+You don't need to become an AI engineer to benefit from understanding artificial intelligence. For most people, learning AI is less about writing algorithms and more about knowing how to work alongside the tools already reshaping every industry. Here are a few places to start:
+Get comfortable with AI tools you already have access to. ChatGPT , Google Gemini , Microsoft Copilot , and similar tools are free or low-cost entry points. Spend time experimenting with prompting, because the way you phrase a request dramatically changes the output you get. Learning to write clear, specific prompts is quickly becoming a baseline professional skill.
+Understand the basics of how AI works without the math. You don't need calculus to grasp that machine learning models find patterns in data, or that AI outputs are probabilistic, not certain. Andrew Ng's AI for Everyone on Coursera is a widely recommended starting point built specifically for non-technical learners and takes around seven hours to complete.
+Apply AI to your current role. Start by identifying workflows that are repetitive, high-volume, or time-consuming, such as drafting routine communications, summarizing documents, generating first drafts, pulling together research, or brainstorming ideas. These are areas where AI tools tend to add the most immediate value. Tasks that require heavy creative judgment or nuanced human context are better kept in your hands, but even there, AI can be a useful thought partner.
+How to learn artificial intelligence for your career
+To start your journey into AI, develop a learning plan by assessing your current level of knowledge and the amount of time and resources you can devote to learning.
+1. Create a learning plan.
+Before you take a class, we recommend developing a learning plan. This plan should include a tentative timeline, skill-building goals, and the activities, programs, and resources you’ll need to gain those skills. First, ask yourself the following questions:
+Your level of knowledge of artificial intelligence: Are you a true beginner? Do you have a foundation in math and statistical skills? Are you familiar with basic terminology and concepts?
+Your intention for learning: Are you pursuing a new career or supplementing your current career?
+How much time you can spend learning: Are you currently employed? Do you want to learn full-time or part-time?
+How much money you can spend: Do you want to invest in a boot camp, take professional courses online, or watch some videos on YouTube and TikTok?
+How do you want to learn: Are you interested in pursuing a degree program, a boot camp, or self-teaching through a variety of online courses?
+2. Master the prerequisite skills.
+Before starting your learning journey, you’ll want to have a foundation in the following areas. These skills form a base for learning complex AI skills and tools.
+Basic statistics: AI skills are much easier to learn when you have a firm grasp of statistics and interpreting data. You’ll want to know concepts such as statistical significance, regression, distribution, and likelihood, all of which play a role in AI applications.
+Basic math: Understanding AI, especially machine learning and deep learning , relies on knowing mathematical concepts such as calculus, probability, and linear algebra. These frequently appear in AI algorithms and models .
+Curiosity and adaptability: AI is complex and rapidly evolving, so there is a constant need to keep up with new techniques and tools. Those looking to pursue a career in AI should have an insatiable thirst for learning and an adaptable mindset for problem-solving.
+The depth to which you’ll need to learn these prerequisite skills depends on your career goals. An aspiring AI engineer will definitely need to master these, while a data analyst looking to expand their skill set may start with an introductory class in AI.
+3. Start learning AI skills.
+Once you’ve covered the prerequisites, let’s dive into the essential skills you’ll need for AI. Your level of mastery will depend on the type of role you’re pursuing.
+Programming
+Knowing how to code is essential to implementing AI applications because you can develop AI algorithms and models, manipulate data, and use AI programs. Python is one of the more popular languages due to its simplicity and adaptability. R is another favorite, and many others, such as Java and C++.
+Data structures
+A data structure is a specialized format for organizing, storing, retrieving, and manipulating data. Knowing the different types, such as trees, lists, and arrays, is necessary for writing code that can turn into complex AI algorithms and models.
+Data science
+Data science encompasses a wide variety of tools and algorithms used to find patterns in raw data. Data scientists have a deep understanding of the product or service user, as well as the comprehensive process of extracting insights from tons of data. AI professionals need to know data science so they can deliver the right algorithms.
+Machine learning
+This popular subset of AI is important because it powers many of our products and services today. Machines learn from data to make predictions and improve a product’s performance. AI professionals need to know different algorithms, how they work, and when to apply them.
+Deep learning
+Deep learning is a subset of machine learning that uses many layers of neural networks to understand patterns in data. It’s often used in the most advanced AI applications, such as self-driving cars.
+4. Get familiar with AI tools and programs.
+Along with building your AI skills, you’ll want to know how to use AI tools and programs, such as libraries and frameworks, that will be critical in your AI learning journey. When choosing the right AI tools, it’s wise to be familiar with which programming languages they align with, since many tools are dependent on the language used.
+Here are some popular tools and libraries specifically for Python:
+1. NumPy
+2. Scikit-learn
+3. Pandas
+4. Tensorflow
+5. Seaborn
+6. Theano
+7. Keras
+8. PyTorch
+9. Matplotlib
+How long does it take to learn AI?
+The amount of time it takes to learn artificial intelligence depends on several factors, including:
+Prerequisite knowledge: If you have general math and statistics knowledge, you can skip to learning AI skills and tools.
+Career intent: If you want to pursue a job in AI, you’ll want a more comprehensive education than someone who wants to add context to their data analytics role.
+Background knowledge: If you’re switching from another major or field, then it’ll take longer to learn than for someone already working in the technology field and has a basic understanding of its complex jargon.
+Projects & portfolios
+The skills you develop and how you choose to display them will depend on your goals. Whether you’re learning AI for fun, to advance your career, or to change careers, your portfolio will look differently.
+Beginner: Beginner AI projects can include non-technical tasks, like leveraging a chatbot to build a workflow.
+Advancing career: Showcase your AI skills by cleaning a dataset and building a predictive model to be utilized by a business.
+Changing career: AI portfolio ideas for established professionals may involve building autonomous AI agents to complete tasks related to their desired field of work.
+How to develop a learning plan
+Learning on your own and wondering how to stay on track? Develop a learning plan to outline how and where to focus your time. Below, we’ve provided a sample of a nine-month intensive learning plan, but your timeline may be longer or shorter depending on your career goals.
+Months 1-3: Basics of mathematics and statistics, programming, and data structures
+1. Math and statistics: Learn the basics by studying calculus, algebra, statistics, and probability, which will serve as a foundation for your AI journey.
+2. Programming: Learn a programming language, like Python or R. You’ll then become familiar with libraries and packages.
+3. Data structures: Start learning how to store, retrieve, and manipulate datasets, and then how to clean and prepare them, which is necessary for any AI project.
+Months 4-6: Dive into data science, machine learning, and deep learning
+1. Data science: Learn the basics of data science and how AI can help facilitate extracting and deriving insights from data.
+2. Machine learning: Dive into the various types of machine learning algorithms, such as supervised, unsupervised, and reinforcement learning.
+3. Deep learning: Understand neural networks and the concepts of deep learning.
+Months 7-9: Get familiar with AI tools and choose a specialization
+1. AI tools: Once you’ve mastered the basics, you can start using the different libraries associated with the programming language you learned, as well as other AI tools such as ChatGPT .
+2. Specialization: You may want to specialize in a specific area of AI, such as natural language processing, or perhaps how to apply AI to another field.
+3. Further learning and job search: Start looking for AI jobs , if that was part of your intention for learning. Continue to keep up with AI trends with blogs, podcasts , and more.
+Have career questions? We have answers.
+Subscribe to Coursera Career Chat on LinkedIn to receive our weekly, bite-sized newsletter for more work insights, tips, and updates from our in-house team.
+Why should you learn AI?
+Learning AI is increasingly important because it is a revolutionary technology that is transforming the way we live, work, and communicate with each other. With organizations across industries worldwide collecting big data , AI is an integral part of business today.
+AI engineers earn a median salary of $136,620 a year, according to the US Bureau of Labor Statistics [ 1 ]. Professionals in this field can expect the number of jobs to grow by 23 percent over the next decade.
+Besides being a lucrative career path, it is a fast-growing field and an intellectually stimulating discipline to learn.
+Hear more about AI in this lecture from Stanford and DeepLearning.AI's Machine Learning Specialization .
+Start your AI learning journey with these free resources
+Continue learning about AI and related topics, and explore new career paths.
+Subscribe to our newsletter: Career Chat
+Watch our video on YouTube: Generative AI 101
+Study our glossary: Python Syntax Cheat Sheet
+Your journey to a career in artificial intelligence can begin with a single step. With Coursera Plus , you can learn and earn credentials at your own pace from over 170 leading companies and universities. With a monthly or annual subscription, you’ll gain access to over 10,000 programs—just check the course page to confirm your selection is included.
+Break down barriers to learning with big savings
+Get Coursera Plus
+F
+
+## Source 4: Artificial intelligence - Wikipedia
+URL: https://en.wikipedia.org/wiki/Artificial_intelligence
+
+### Search snippet
+(No search snippet returned.)
+
+### Readable source text
+Artificial intelligence - Wikipedia
+Jump to content
+Main menu
+Main menu
+move to sidebar hide
+Navigation
+Main page
+Contents
+Current events
+Random article
+About Wikipedia
+Contact us
+Contribute
+Help
+Learn to edit
+Community portal
+Recent changes
+Upload file
+Special pages
+Search
+Search
+Appearance
+Donate
+Create account
+Log in
+Personal tools
+Donate
+Create account
+Log in
+Contents move to sidebar hide
+(Top)
+1 Goals
+Toggle Goals subsection
+1.1 Reasoning and problem-solving
+1.2 Knowledge representation
+1.3 Planning and decision-making
+1.4 Learning
+1.5 Natural language processing
+1.6 Perception
+1.7 Social intelligence
+1.8 General intelligence
+2 Techniques
+Toggle Techniques subsection
+2.1 Search and optimisation
+2.1.1 State space search
+2.1.2 Local search
+2.2 Logic
+2.3 Probabilistic methods for uncertain reasoning
+2.4 Classifiers and statistical learning methods
+2.5 Artificial neural networks
+2.6 Deep learning
+2.7 GPT
+2.8 Hardware and software
+3 Applications
+Toggle Applications subsection
+3.1 AI-assisted software development
+3.2 Chatbots
+3.3 Physical AI
+3.4 Health and medicine
+3.5 Gaming
+3.6 Mathematics
+3.7 Finance
+3.8 Military
+3.9 Generative AI
+3.10 Agents
+3.11 Web search
+3.12 Sexuality
+3.13 Other industry-specific tasks
+4 Ethics
+Toggle Ethics subsection
+4.1 Risks and harm
+4.1.1 Privacy and copyright
+4.1.2 Dominance by tech giants
+4.1.3 Power needs and environmental impacts
+4.1.4 Misinformation
+4.1.5 Algorithmic bias and fairness
+4.1.6 Lack of transparency
+4.1.7 Bad actors
+4.1.8 Democratic backsliding
+4.1.9 Technological unemployment
+4.1.10 Substitution for human–human interaction
+4.1.11 Weaponised AI
+4.1.12 Existential risk
+4.2 Ethical machines and alignment
+4.3 Open source
+4.4 Frameworks
+4.5 Regulation
+5 History
+6 Philosophy
+Toggle Philosophy subsection
+6.1 Defining artificial intelligence
+6.1.1 Legal definitions
+6.2 Evaluating approaches to AI
+6.2.1 Symbolic AI and its limits
+6.2.2 Neat vs. scruffy
+6.2.3 Soft vs. hard computing
+6.2.4 Narrow vs. general AI
+6.3 Machine consciousness, sentience, and mind
+6.3.1 Consciousness
+6.3.2 Computationalism and functionalism
+6.3.3 AI welfare and rights
+7 Future
+Toggle Future subsection
+7.1 Superintelligence and the singularity
+7.2 Transhumanism
+8 In fiction
+9 See also
+10 Explanatory notes
+11 References
+12 Further reading
+Toggle Further reading subsection
+12.1 Textbooks
+12.2 History of AI
+12.3 Other sources
+13 External links
+Toggle the table of contents
+Artificial intelligence
+181 languages
+Afrikaans
+Alemannisch
+አማርኛ
+Aragonés
+अंगिका
+العربية
+الدارجة
+مصرى
+অসমীয়া
+Asturianu
+Azərbaycanca
+تۆرکجه
+Башҡортса
+Boarisch
+Žemaitėška
+Bikol Central
+Беларуская (тарашкевіца)
+Беларуская
+Betawi
+Български
+भोजपुरी
+ပအိုဝ်ႏဘာႏသာႏ
+বাংলা
+བོད་ཡིག
+Brezhoneg
+Bosanski
+Буряад
+Català
+Нохчийн
+Cebuano
+کوردی
+Qırımtatarca
+Čeština
+Kaszëbsczi
+Чӑвашла
+Cymraeg
+Dansk
+Deutsch
+Zazaki
+Kadazandusun
+Ελληνικά
+Esperanto
+Español
+Eesti
+Euskara
+Estremeñu
+فارسی
+Suomi
+Võro
+Fɔ̀ngbè
+Français
+Nordfriisk
+Furlan
+Frysk
+Gaeilge
+贛語
+Kriyòl gwiyannen
+Gàidhlig
+Galego
+Avañe'ẽ
+गोंयची कोंकणी / Gõychi Konknni
+Gaelg
+Hausa
+עברית
+हिन्दी
+Fiji Hindi
+Hrvatski
+Kreyòl ayisyen
+Magyar
+Հայերեն
+Արեւմտահայերէն
+Interlingua
+Jaku Iban
+Bahasa Indonesia
+Interlingue
+Igbo
+Ilokano
+Ido
+Íslenska
+Medžuslovjansky
+Italiano
+日本語
+Patois
+La .lojban.
+Jawa
+ქართული
+Qaraqalpaqsha
+Taqbaylit
+Gĩkũyũ
+Қазақша
+ភាសាខ្មែរ
+ಕನ್ನಡ
+한국어
+کٲشُر
+Ripoarisch
+Kurdî
+Кыргызча
+Latina
+Lëtzebuergesch
+Limburgs
+Ligure
+Lombard
+ລາວ
+Lietuvių
+Latviešu
+Madhurâ
+Malagasy
+Minangkabau
+Македонски
+മലയാളം
+Монгол
+ဘာသာမန်
+मराठी
+Bahasa Melayu
+Malti
+မြန်မာဘာသာ
+Nedersaksies
+Plattdüütsch
+नेपाली
+नेपाल भाषा
+Nederlands
+Norsk nynorsk
+Norsk bokmål
+Sesotho sa Leboa
+Occitan
+ଓଡ଼ିଆ
+ਪੰਜਾਬੀ
+Picard
+Polski
+Piemontèis
+پنجابی
+پښتو
+Português
+Runa Simi
+Română
+Руски
+Русский
+Русиньскый
+संस्कृतम्
+Саха тыла
+Sicilianu
+Scots
+سنڌي
+Sängö
+Srpskohrvatski / српскохрватски
+සිංහල
+Simple English
+Slovenčina
+Slovenščina
+Shqip
+Српски / srpski
+Svenska
+Kiswahili
+ꠍꠤꠟꠐꠤ
+தமிழ்
+తెలుగు
+Тоҷикӣ
+ไทย
+Türkmençe
+Tagalog
+Toki pona
+Türkçe
+Татарча / tatarça
+Reo tahiti
+ئۇيغۇرچە / Uyghurche
+Українська
+اردو
+Oʻzbekcha / ўзбекча
+Vèneto
+Tiếng Việt
+Walon
+Winaray
+吴语
+მარგალური
+ייִדיש
+ⵜⴰⵎⴰⵣⵉⵖⵜ ⵜⴰⵏⴰⵡⴰⵢⵜ
+文言
+閩南語 / Bân-lâm-gí
+粵語
+中文
+IsiZulu
+Edit links
+Article
+Talk
+English
+Read
+View source
+View history
+Tools
+Tools
+move to sidebar hide
+Actions
+Read
+View source
+View history
+General
+What links here
+Related changes
+Upload file
+Permanent link
+Page information
+Cite this page
+Get shortened URL
+Switch to legacy parser
+Print/export
+Download as PDF
+Printable version
+In other projects
+Abstract Wikipedia
+Wikimedia Commons
+Wikibooks
+Wikiquote
+Wikiversity
+Wikidata item
+Appearance
+move to sidebar hide
+From Wikipedia, the free encyclopedia
+Intelligence of machines
+"AI" redirects here. For other uses, see AI (disambiguation) and Artificial intelligence (disambiguation) .
+Part of a series on Artificial intelligence (AI)
+Major goals
+Artificial general intelligence
+superintelligence
+Intelligent agent
+Recursive self-improvement
+Planning
+Computer vision
+General game playing
+Knowledge representation
+Natural language processing
+Robotics
+AI safety
+Approaches
+Machine learning
+Data mining
+Symbolic
+Deep learning
+Bayesian networks
+Evolutionary algorithms
+Neuro-symbolic AI
+Systems integration
+Open-source
+Open weights
+AI data centers
+Applications
+Art
+Music
+Bioinformatics
+Deepfake
+Earth sciences
+Finance
+Generative AI
+Audio
+Images
+Government
+Healthcare
+Industry
+Software development
+Translation
+Military
+Physics
+Projects
+Philosophy
+AI alignment
+Artificial consciousness
+The bitter lesson
+Chinese room
+Friendly AI
+Ethics
+Existential risk
+Turing test
+Uncanny valley
+Human–AI interaction
+History
+Timeline
+Progress
+AI winter
+AI boom
+AI build-out financing
+AI bubble
+Controversies
+Deepfake pornography
+Taylor Swift deepfake pornography controversy
+Grok sexual deepfake scandal
+Google Gemini image generation controversy
+It's the Most Terrible Time of the Year
+Pause Giant AI Experiments
+Removal of Sam Altman from OpenAI
+Statement on AI Risk
+Tay (chatbot)
+Théâtre D'opéra Spatial
+Voiceverse NFT plagiarism scandal
+Glossary
+v
+t
+e
+Artificial intelligence ( AI ) is the capability of computational systems to perform tasks typically associated with human intelligence , such as learning , reasoning , problem-solving , perception , and decision-making . It is a field of research in engineering , mathematics , and computer science that develops and studies methods and software that enable machines to perceive their environment and use learning and intelligence to take actions that maximise their chances of achieving defined goals. [ 1 ]
+High-profile applications of AI include advanced web search engines , chatbots , virtual assistants , autonomous vehicles , play and analysis in strategy games (e.g., chess and Go ), and content generation (e.g. images, audio, and videos).
+The traditional goals of AI research include learning, reasoning , knowledge representation , planning , natural language processing , and perception , as well as support for robotics . [ a ] To reach these goals, AI researchers use techniques including state space search and mathematical optimisation , formal logic , artificial neural networks , and methods based on statistics , operations research , and economics . [ b ] AI also draws upon psychology , linguistics , philosophy , neuroscience , and other fields. [ 2 ] Some companies, such as OpenAI , Google DeepMind , and Meta , aim to create artificial general intelligence (AGI)—AI that can complete nearly any cognitive task at least as well as a human. [ 3 ]
+Artificial intelligence was founded as an academic discipline in 1956. [ 4 ] The field went through multiple cycles of optimism throughout its history , [ 5 ] [ 6 ] followed by periods of disappointment and loss of funding, known as AI winters . [ 7 ] [ 8 ] Funding and interest increased substantially after 2012, when graphics processing units (GPUs) started being used to accelerate neural networks, and deep learning outperformed previous AI techniques. [ 9 ] This growth accelerated further after 2017 with the transformer architecture . [ 10 ] In the 2020s, an AI boom coincided with advances in generative AI , which became widespread and allowed for the creation and modification of media. In addition to AI safety and unintended consequences and harms from the use of AI, ethical concerns , AI's long-term effects , environmental effects , [ 11 ] and potential existential risks have prompted discussions of AI regulation .
+Goals
+The general problem of simulating (or creating) intelligence has been broken down into subproblems. These consist of specific traits or capabilities that researchers expect an intelligent system to display. The traits described below have received the most attention and cover the scope of AI research. [ a ]
+Reasoning and problem-solving
+Early researchers developed algorithms that imitated step-by-step reasoning that humans use when solving puzzles or making logical deductions . [ 12 ] By the late 1980s and 1990s, methods were developed for dealing with uncertain or incomplete information, employing concepts from probability and economics . [ 13 ]
+Many of these algorithms were insufficient for solving large reasoning problems because they experienced a "combinatorial explosion", meaning they become exponentially slower as the problems grow. [ 14 ] Even humans rarely use the step-by-step deduction that early AI research could model. Humans solve most of their problems using fast, intuitive judgments. [ 15 ]
+Reasoning models , a type of large language model (LLM) trained to generate intermediate chains-of-thought, emerged in 2024 and allowed improved performance on complex problems in mathematics and coding. [ 16 ] These models can produce incorrect outputs or " hallucinations ," unlike symbolic reasoning systems . [ 17 ]
+Knowledge representation
+An ontology represents knowledge as a set of concepts within a domain and the relationships between those concepts.
+AI programs use knowledge to answer questions intelligently and make deductions about real-world facts.
+Formal knowledge representation and knowledge engineering use symbols to represent words, concepts and things in the world. [ 18 ] [ c ] A knowledge base is a body of knowledge represented in a form that can be used by a program. An ontology is the set of objects, relations, concepts, and properties used by a particular domain of knowledge. [ 24 ] Formal knowledge has been studied extensively since the 1970s and researchers have developed formalisms for a wide variety of difficult domains. [ d ]
+The symbolic approach has difficulty with several problems: the breadth of commonsense knowledge (the set of atomic facts the average person knows is enormous), [ 30 ] the sub-symbolic form of most commonsense knowledge (much of what people know is not represented as "facts" or "statements" they can express verbally), [ 15 ] and knowledge acquisition (the problem of obtaining knowledge for AI applications). [ e ]
+Large language models (and some other AI programs developed since 2012) do not require explicit, symbolic knowledge. They acquire knowledge by being trained on the combined text of millions of books and billions of websites. Modern AI can also learn about a domain by running experiments (as when AlphaZero learns game strategy by playing against itself). Machine learning solves the problems of general knowledge, commonsense knowledge and knowledge acquisition, however this approach has struggled with accurate recall and valid reasoning. [ citation needed ]
+Planning and decision-making
+An "agent" is any entity (artificial or not) that perceives and takes actions in the world. A rational agent has goals or preferences and takes actions to make them happen. [ f ] [ 33 ] In automated planning , the agent has a specific goal. [ 34 ] In automated decision-making , the agent has preferences—there are some situations it would prefer to be in, and some situations it is trying to avoid. The decision-making agent assigns a number to each situation (called its " utility ") that measures how much the agent prefers it. For each possible action, it can calculate the " expected utility ": the utility of all possible outcomes of the action, weighted by the probability that the outcome will occur. It can then choose the action with the maximum expected utility. [ 35 ]
+In classical planning , the agent knows exactly what the effect of any action will be. [ 36 ] In most real-world problems, however, the agent may not be certain about the situation it is in (it is "unknown" or "unobservable") and it may not know for certain what will happen after each possible action (it is not "deterministic"). It must choose an action by making a probabilistic guess and then reassess the situation to see if the action worked. [ 37 ]
+Alongside thorough testing and improvement based on previous decisions, having an explanation for why the agent took certain decisions is a way to build trust, especially when the decisions have to be relied upon. [ 38 ]
+In some problems, the agent's preferences may be uncertain, especially if there are other agents or humans involved. These preferences may be learned (e.g., with inverse reinforcement learning ), or the agent can seek information to improve them. [ 39 ] Information value theory can be used to weigh the value of exploratory or experimental actions. [ 40 ] The space of possible future actions and situations is typically intractably large, so the agents must take actions and evaluate situations while being uncertain of the outcome.
+A Markov decision process has a transition model that describes the probability that a particular action will change the state in a particular way and a reward function that supplies the utility of each state and the cost of each action. A policy associates a decision with each possible state. The policy could be calculated (e.g., by policy iteration ), determined by a heuristic , or learned. [ 41 ]
+Game theory describes the rational behaviour of multiple interacting agents and is used 
+
+## Source 5: How to Learn AI From Scratch in 2026: A Complete Expert Guide | DataCamp
+URL: https://www.datacamp.com/blog/how-to-learn-ai
+
+### Search snippet
+(No search snippet returned.)
+
+### Readable source text
+How to Learn AI From Scratch in 2026: A Complete Expert Guide | DataCamp
+Skip to main content
+Blogs Tutorials docs Podcasts Cheat Sheets code-alongs Newsletter
+Category
+Category
+About DataCamp
+Latest news about our products and team
+Certification DataCamp Classrooms DataCamp Donates For Business Learner Stories Life at DataCamp Product News
+Category
+Industries
+Learn about how data is applied by industry leaders
+Enterprise Solutions
+Category
+Roles
+How different roles contribute to data.
+Data Leader L&D
+Category
+Technologies
+Discover content by tools and technology
+AI Agents AI News Airflow Alteryx Artificial Intelligence AWS Azure Business Intelligence ChatGPT Databricks dbt Docker Excel Flink Generative AI Git Google Cloud Platform Hadoop Hugging Face Java Julia Kafka Kubernetes Large Language Models MongoDB MySQL NoSQL OpenAI PostgreSQL Power BI PySpark Python R Scala Sigma Snowflake Spreadsheets SQL SQLite Tableau
+Category
+Topics
+Discover content by data science topics
+AI for Business Big Data Career Development Career Services Cloud Data Analysis Data Engineering Data Governance Data Literacy Data Science Data Skills and Training Data Storytelling Data Transformation Data Visualization DataCamp Product DataLab Deep Learning Machine Learning Machine Learning and AI MLOps Thought Leadership
+Category
+EN
+English Español Português Deutsch Beta Français Beta Italiano Beta Türkçe Beta Bahasa Indonesia Beta Tiếng Việt Beta Nederlands Beta हिन्दी Beta 日本語 Beta 한국어 Beta Polski Beta Română Beta Русский Beta Svenska Beta ไทย Beta 中文(简体) Beta
+More Information
+Home
+Blog
+Artificial Intelligence
+How to Learn AI From Scratch in 2026: A Complete Guide From the Experts
+Find out everything you need to know about learning AI in 2026, from tips to get you started, helpful resources, and insights from industry experts.
+Updated May 11, 2026 · 15 min read
+Explore with AI
+ChatGPT Claude Perplexity
+TL;DR: How to Learn AI From Scratch in 2026
+If you're short on time and want to know how to learn AI from scratch, check out our quick summary. Remember, learning AI takes time, but with the right plan, you can progress efficiently:
+Months 1-3: Build foundational skills in Python, data manipulation, prompt engineering, and collaborating with AI coding assistants.
+Months 4-6: Transition to applied AI by integrating APIs, building Retrieval-Augmented Generation (RAG) pipelines, and exploring tool use.
+Months 7-9: Dive into autonomous agents and orchestration, building multi-agent systems with frameworks like LangGraph and OpenClaw.
+Months 10+: Keep improving! Deploy your projects with MLOps, focus on agent safety, and specialize further in traditional deep learning or AI ethics.
+The rest of this guide provides the best resources, expert insights, and a structured plan to take you from beginner to AI practitioner in under a year. If you want to get started right away, check out our Introduction to AI for Work course , which uses our AI-native experience, so you'll learn faster and smarter with courses built uniquely for you
+AI is changing the world we live in. We now have access to artificial intelligence tools that are making certain areas of work and life faster and more productive. The pace of change is startling, making many more people want to learn AI.
+We've already seen the importance of AI in The State of Data & AI Literacy Report 2026 , where we found that 69% of leaders believe that AI literacy is important for their teams' daily tasks. Professionals across industries are using generative AI tools like ChatGPT, Claude Code, and Gemini to transform their workflows. As such, the art and science of AI are more relevant today than ever before.
+Whether you want to become a data scientist, a machine learning engineer, an AI researcher, or you're simply an AI enthusiast, this guide is for you. We'll cover how to learn AI from scratch and provide practical advice and tips from industry experts to help your learning journey. As well as covering the skills and tools you need to master, we'll also explore how businesses can use AI to be more productive.
+Watch and learn more about the basics of AI in this video from our course.
+What is Artificial Intelligence (AI)?
+AI, or Artificial Intelligence, is a branch of computer science that focuses on creating systems capable of performing tasks that would normally require human-level intelligence. This includes things like understanding natural language, recognizing patterns, making decisions, and learning from experience. AI is a wide discipline with numerous subfields, each with unique objectives and specializations. We have a full guide, What is AI? , which covers this definition in more detail. You can also explore how AI is different from machine learning in a separate article.
+AI Upskilling for Beginners
+Learn the fundamentals of AI and ChatGPT from scratch.
+Learn AI for Free
+What are the different types of artificial intelligence?
+You'll find that AI technology is discussed in various ways, with various acronyms and phrases. To help simplify the remainder of the article, it’s important to look at the main different types of AI. AI can be categorized into three levels based on its capabilities:
+Artificial Narrow Intelligence (ANI): This is the most common form of AI we interact with today. ANI is designed to perform a single task, like voice recognition or recommendations on streaming services.
+Artificial General Intelligence (AGI): An AI with AGI possesses the ability to understand, learn, adapt, and implement knowledge across a wide range of tasks at a human level. While large language models and tools such as ChatGPT have shown the ability to generalize across many tasks, as of 2026, AGI is still a theoretical concept, although one that is certainly gaining more traction.
+Artificial Super Intelligence (ASI): The final level of AI, ASI, refers to a future scenario where AI surpasses human intelligence in nearly all economically valuable work. This concept, while intriguing, remains largely speculative.
+The difference between data science, artificial intelligence, machine learning & deep learning
+AI is a broad field with several subsets, including Machine Learning (ML) and Deep Learning (DL) .
+While there isn't an official definition for any of these terms, and while experts argue over the exact boundaries, there is a growing consensus on the broad scope of each term. Here’s a breakdown of these terms:
+Artificial intelligence refers to computer systems that can behave intelligently, reason, and learn like humans.
+Machine learning is a subset of artificial intelligence focused on developing algorithms with the ability to learn without being explicitly programmed.
+Deep learning is a subset of machine learning. It is responsible for many of the awe-inspiring news stories about AI in the news (e.g., self-driving cars, ChatGPT). Deep learning algorithms are inspired by the brain's structure and work exceptionally well with unstructured data such as images, videos, or text.
+Data science is a cross-disciplinary field that uses all of the above, amongst other skills like data analysis , statistics, data visualization, and more, to get insight from data.
+Why Should You Learn Artificial Intelligence in 2026?
+Artificial Intelligence is changing how we work, live, and interact. It is no longer an option to be AI-literate; many organizations and job descriptions require AI skills from employees. With the explosion of data and the need to make sense of it, the demand for AI skills is skyrocketing in so many fields. There's no better time than now to start learning AI. Here's why:
+AI is a fast-growing field
+Artificial Intelligence isn't the future; it's the present. The number of AI jobs has seen significant growth over recent years. According to the World Economic Forum’s Future of Jobs report , AI and information processing technologies will drive business transformation between 2025 and 2030. As they highlight, investment flows into AI have increased nearly eightfold since 2022, and 'the demand for GenAI skills by both businesses and individuals has also grown significantly' in that time.
+​​AI and machine learning specialists are third on the list of fast-growing jobs over the next five years, behind only big data specialists and fintech engineers, both roles that are likely to embrace AI.
+As industries continue to adopt AI technologies to streamline their operations and make better decisions, the demand for AI specialists will likely only increase.
+Statista's statistics project considerable AI market size growth , further emphasizing this point . They estimate that the market size in Artificial Intelligence will reach US$320 .13 bn in 2026 and US$826.73bn by 2030.
+Image Source
+AI is a high-paying job
+Naturally, the surge in demand for AI skills comes with attractive compensation. According to Glassdoor data , as of May 2026, the average salary of an AI engineer in the United States is $134,000 per annum, with the potential for bonuses and profit-sharing . Machine learning engineers and data scientists are similarly well-paid, with average salaries of $ 124,000 per year and $150,000 per annum, respectively. This financial compensation reflects the value and impact of AI skills in the marketplace.
+You can read our guide about how to become an AI engineer to learn more about this exciting and rapidly developing career.
+AI is intellectually challenging
+Artificial Intelligence is not just about high-paying jobs and significant market demand. It's also an intellectually stimulating field that promises to challenge you in exciting ways. It involves building algorithms to solve complex problems, designing models that simulate human intelligence, and creatively applying these technologies to various real-world scenarios.
+AI professionals continuously learn, adapt, and innovate. The field is constantly evolving, meaning there's always something new to learn, a problem to solve, or a system to improve. This dynamic nature makes AI an exciting field for those who thrive on challenges and continuous learning.
+How Long Does it Take to Learn AI?
+The time it takes to learn AI will often depend on the route you take; whether it's self-taught or through formal education such as a university program.
+In a self-taught route, the duration can vary significantly as it largely depends on your prior knowledge, dedication, and available learning resources. It can take several months to a year or more to gain a solid understanding of AI concepts, programming languages such as Python, mathematics, and various machine learning algorithms through self-study. Self-paced online courses, tutorials, and practical projects can accelerate the learning process.
+On the other hand, a university route typically involves pursuing a formal education in computer science, data science, or related fields. A bachelor's degree in these disciplines typically takes around three to four years to complete, during which students receive comprehensive training in AI and related subjects.
+Whichever route you choose, continuous learning, practical application, and staying up-to-date with advancements are essential for pursuing a career in AI.
+How to Learn AI From Scratch in 2026
+Learning AI can be an exciting endeavor, but it’s not without its challenges. It’s a broad field with many subtopics. However, with a clear roadmap, the right resources, and a strategic approach, you can navigate this landscape effectively. Here’s how to learn AI in 2026:
+1. Master the prerequisite skills
+Succeeding in AI requires mastery of three critical areas:
+Mathematics : At it's core, AI relies heavily on mathematical concepts, particularly its subfields like machine learning and deep learning. Of course, you don't have to be a mathematician to succeed in AI, particularly to use the latest AI tools, but a basic understanding of linear algebra, calculus, and probability is essential. For instance, concepts such as matrices and linear transformations from linear algebra are frequently used in AI algorithms.
+Basic statistics : AI makes a lot of sense when you understand statistics. Knowing how to interpret data and derive insights is crucial in this field. Concepts like statistical significance, distribution, regression, and likelihood play a significant role in different AI applications.
+A willingness to learn: AI is changing alarmingly fast, with new advancements, techniques, and tools constantly emerging. Therefore, a proactive mindset and an enthusiasm for learning and adapting to new knowledge and technologies are pivotal for anyone looking to break into and advance in AI.
+It's important to note that the depth of understanding and mastery required in these prerequisite areas can vary depending on the AI role you aim to pursue. For instance, a data scientist might not need an in-depth understanding of every mathematical concept used in AI, but a research scientist aiming to create new AI algorithms might need a more profound grasp of mathematics.
+The key is to align your learning path with your career goals and adjust the depth of your learning in different areas accordingly.
+Statistics
+Statistics is the discipline that concerns the collection, organization, analysis, interpretation, and presentation of data. It provides the backbone for understanding and working with data in AI.
+Learn more about statistics in the resources below:
+Statistics Fundamentals with Python Skill Track , where you'll learn the four fundamentals of statistics using Python, including summary statistics and probability, statistical models such as linear and logistic regression, techniques for sampling, how to perform hypothesis tests, and draw conclusions from a wide variety of data sets.
+Introduction to Statistics Course , which teaches the fundamentals of statistics, including measures of center and spread, probability distributions, and hypothesis testing.
+Introduction to Statistics in R Course , for learning how to work

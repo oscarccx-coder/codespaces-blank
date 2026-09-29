@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "notification_center",
+  "title": "Notification Centre",
+  "target": "7.9.1",
+  "kind": "ui_service",
+  "ui": true,
+  "depends_on": [
+    "event_bus",
+    "background_intelligence"
+  ],
+  "summary": "Central place for mission completion, failures, hardware disconnects and update notices.",
+  "planned_tools": [
+    "notify",
+    "list_notifications",
+    "dismiss_notification",
+    "notification_settings"
+  ],
+  "acceptance": [
+    "Persistent unread state",
+    "Priority levels",
+    "No notification storms"
+  ]
+}

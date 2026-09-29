@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "style_lora_manager",
+  "title": "Style / LoRA Manager",
+  "target": "7.11.4",
+  "kind": "ui_module",
+  "ui": true,
+  "depends_on": [
+    "image_core",
+    "asset_library"
+  ],
+  "summary": "Manage optional local style adapters/reference presets for consistent Apollo visual output.",
+  "planned_tools": [
+    "list_styles",
+    "activate_style",
+    "import_style",
+    "style_status"
+  ],
+  "acceptance": [
+    "Clear model compatibility",
+    "Per-project style selection",
+    "No automatic external downloads"
+  ]
+}

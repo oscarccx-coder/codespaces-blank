@@ -1,0 +1,8 @@
+{
+  "id": "self_awareness",
+  "name": "Apollo Self Awareness",
+  "version": "1.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Read-only access to Apollo's own source tree so Apollo can inspect and reason about its architecture and code."
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "capability_discovery",
+  "title": "Capability Discovery",
+  "target": "7.15.2",
+  "kind": "service",
+  "ui": true,
+  "depends_on": [
+    "capability_registry"
+  ],
+  "summary": "Apollo answers what it can actually do from the loaded capability registry, not from model imagination.",
+  "planned_tools": [
+    "list_capabilities",
+    "explain_capability",
+    "find_capability"
+  ],
+  "acceptance": [
+    "Reflects live installed modules",
+    "Shows unavailable/disabled state",
+    "No invented capabilities"
+  ]
+}

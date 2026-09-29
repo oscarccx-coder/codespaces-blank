@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "vision_core",
+  "title": "Vision Core",
+  "target": "7.11",
+  "kind": "service",
+  "ui": false,
+  "depends_on": [
+    "compute_broker"
+  ],
+  "summary": "Understand screenshots, photos, diagrams and UI states and expose structured visual observations.",
+  "planned_tools": [
+    "analyse_image",
+    "analyse_screen",
+    "compare_images",
+    "describe_region"
+  ],
+  "acceptance": [
+    "Works on local images",
+    "Can hand structured observations to tools",
+    "Does not require cloud by default"
+  ]
+}

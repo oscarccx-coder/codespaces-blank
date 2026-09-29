@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "image_upscaler",
+  "title": "Image Upscaler",
+  "target": "7.11.2",
+  "kind": "capability",
+  "ui": false,
+  "depends_on": [
+    "image_core"
+  ],
+  "summary": "Local enlargement/restoration stage with explicit before/after asset tracking.",
+  "planned_tools": [
+    "upscale_image",
+    "upscaler_status"
+  ],
+  "acceptance": [
+    "Does not overwrite source",
+    "Reports output dimensions",
+    "Selectable backend"
+  ]
+}

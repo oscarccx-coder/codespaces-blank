@@ -1,0 +1,19 @@
+# Placeholder: Recovery Console
+# Target: 7.14.2
+
+# Apollo future feature module template
+# This file is intentionally outside /modules, so it is NOT loaded by Apollo.
+# Promote through Module Factory / certification when implementation begins.
+
+class Module:
+    def __init__(self, context=None):
+        self.context = context or {}
+
+    def tools(self):
+        return []
+
+    def run(self, action, arguments):
+        raise NotImplementedError("Future feature placeholder — implementation not started.")
+
+    def self_test(self):
+        return True

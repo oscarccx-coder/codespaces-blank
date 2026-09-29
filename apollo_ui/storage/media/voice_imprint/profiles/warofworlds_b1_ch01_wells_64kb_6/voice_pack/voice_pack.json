@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "profile_id": "warofworlds_b1_ch01_wells_64kb_6",
+  "profile_name": "warofworlds_b1_ch01_wells_64kb",
+  "created_at": "2026-09-18T17:09:08",
+  "reference_wav": "voice_pack/reference.wav",
+  "reference_candidates": [
+    {
+      "file": "reference_01.wav",
+      "source_clip": "clips/clip_00015.wav",
+      "duration": 9.45,
+      "score": 100.0,
+      "quality": "good"
+    },
+    {
+      "file": "reference_02.wav",
+      "source_clip": "clips/clip_00029.wav",
+      "duration": 10.25,
+      "score": 100.0,
+      "quality": "good"
+    },
+    {
+      "file": "reference_03.wav",
+      "source_clip": "clips/clip_00040.wav",
+      "duration": 12.2,
+      "score": 99.2,
+      "quality": "good"
+    },
+    {
+      "file": "reference_04.wav",
+      "source_clip": "clips/clip_00013.wav",
+      "duration": 8.9,
+      "score": 99.06,
+      "quality": "good"
+    },
+    {
+      "file": "reference_05.wav",
+      "source_clip": "clips/clip_00039.wav",
+      "duration": 11.8,
+      "score": 98.96,
+      "quality": "good"
+    }
+  ],
+  "normalized_source": "source/normalized_24k_mono.wav",
+  "signature_file": "voice_signature.json",
+  "signature_model": "voice_signature_net.npz",
+  "speaker_files_ready": true,
+  "requires_shared_engine": {
+    "backend": "XTTS v2",
+    "files": [
+      "config.json",
+      "model.pth"
+    ],
+    "note": "These are pretrained XTTS engine files shared by every voice profile. They cannot be generated from the speaker recording."
+  }
+}

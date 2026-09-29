@@ -1,0 +1,9 @@
+{
+  "id": "fleet_manager",
+  "name": "Apollo Fleet Manager",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Registry and status manager for trusted Apollo devices on the LAN.",
+  "ui": {"enabled": true, "title": "Fleet Manager", "default_placement": "apps"}
+}

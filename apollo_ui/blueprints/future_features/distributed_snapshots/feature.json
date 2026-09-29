@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "distributed_snapshots",
+  "title": "Distributed Project Snapshots",
+  "target": "7.5.12.6",
+  "kind": "service",
+  "ui": false,
+  "depends_on": [
+    "cluster_manager",
+    "workspace_ide"
+  ],
+  "summary": "Content-addressed project/object transfer with isolated worker workspaces.",
+  "planned_tools": [
+    "create_cluster_snapshot",
+    "fetch_object",
+    "submit_worker_diff"
+  ],
+  "acceptance": [
+    "Works only with enrolled/authenticated devices",
+    "Failure does not corrupt worker or coordinator state",
+    "All state survives restart"
+  ]
+}

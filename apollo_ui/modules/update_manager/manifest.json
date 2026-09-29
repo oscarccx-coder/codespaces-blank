@@ -1,0 +1,13 @@
+{
+  "id": "update_manager",
+  "name": "Apollo Update Manager",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Signed update client for Apollo devices with staging and safe restart installation.",
+  "ui": {
+    "enabled": true,
+    "title": "Update Manager",
+    "default_placement": "apps"
+  }
+}

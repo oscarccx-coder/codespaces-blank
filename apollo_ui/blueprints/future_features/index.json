@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "description": "Machine-readable placeholders for planned Apollo features. These are blueprints, not installed/live modules.",
+  "features": [
+    {
+      "id": "compute_broker",
+      "title": "VRAM / Compute Broker",
+      "target": "7.10",
+      "kind": "service",
+      "ui": false,
+      "path": "blueprints/future_features/compute_broker/feature.json"
+    },
+    {
+      "id": "model_benchmark_lab",
+      "title": "Model Benchmark Lab",
+      "target": "7.10.1",
+      "kind": "ui_module",
+      "ui": true,
+      "path": "blueprints/future_features/model_benchmark_lab/feature.json"
+    },
+    {
+      "id": "experiment_lab",
+      "title": "Experiment Lab",
+      "target": "7.10.2",
+      "kind": "ui_module",
+      "ui": true,
+      "path": "blueprints/future_features/experiment_lab/feature.json"
+    },
+    {
+      "id": "vision_core",
+      "title": "Vision Core",
+      "target": "7.11",
+      "kind": "service",
+      "ui": false,
+      "path": "blueprints/future_features/vision_core/feature.json"
+    },
+    {
+      "id": "image_core",
+      "title": "Image Core",
+      "target": "7.11.1",
+      "kind": "service",
+      "ui": false,
+      "path": "blueprints/future_features/image_core/feature.json"
+    },
+    {
+      "id": "comfyui_backend",
+      "title": "ComfyUI Backend",
+      "target": "7.11.1",
+      "kind": "backend",
+      "ui": false,
+      "path": "blueprints/future_features/comfyui_backend/feature.json"
+    },
+    {
+      "id": "diffusers_backend",
+      "title": "Diffusers Backend",
+      "target": "7.11.1",
+      "kind": "backend",
+      "ui": false,
+      "path": "blueprints/future_features/diffusers_backend/feature.json"
+    },
+    {
+      "id": "media_studio",
+      "title": "Media Studio",
+      "target": "7.11.2",
+      "kind": "ui_module",
+      "ui": true,
+      "path": "blueprints/future_features/media_studio/feature.json"
+    },
+    {
+      "id": "image_editing",
+      "title": "Image Edit / Inpaint / Variations",
+      "target": "7.11.2",
+      "kind": "capability",
+      "ui": false,
+      "path": "blueprints/future_features/image_editing/feature.json"
+    },
+    {
+      "id": "image_upscaler",
+      "title": "Image Upscaler",
+      "target": "7.11.2",
+      "kind": "capability",
+      "ui": false,
+      "path": "blueprints/future_features/image_upscaler/feature.json"
+    },
+    {
+      "id": "asset_library",
+      "title": "Asset Library",
+      "target": "7.11.3",
+      "kind": "ui_module",
+      "ui": true,
+      "path": "blueprints/future_features/asset_library/feature.json"
+    },
+    {
+      "id": "style_lora_manager",
+      "title": "Style / LoRA Manager",
+      "target": "7.11.4",
+      "kind": "ui_module",
+      "ui": true,
+      "path": "blueprints/future_features/style_lora_manager/feature.json"
+    },
+    {
+      "id": "app_sdk",
+      "title": "Apollo App SDK",
+      "target": "7.7.3",
+      "kind": "developer_platform",
+      "ui": false,
+      "path": "blueprints/future_features/app_sdk/feature.json"
+    },
+    {
+      "id": "project_templates",
+      "title": "Project Templates",
+      "target": "7.7.4",
+      "kind": "service",
+      "ui": true,
+      "path": "blueprints/future_features/project_templates/feature.json"
+    },
+    {
+      "id": "data_provenance",
+      "title": "Data Provenance",
+      "target": "7.8.3",
+      "kind": "service",
+      "ui": false,
+      "path": "blueprints/future_features/data_provenance/feature.json"
+    },
+    {
+      "id": "trust_layer",
+      "title": "Trust / Confidence Layer",
+      "target": "7.8.4",
+      "kind": "service",
+      "ui": false,
+      "path": "blueprints/future_features/trust_layer/feature.json"
+    },
+    {
+      "id": "knowledge_provenance_ui",
+      "title": "Knowledge Provenance UI",
+      "target": "7.8.5",
+      "kind": "ui_module",
+      "ui": true,
+      "path": "blueprints/future_features/knowledge_provenance_ui/feature.json"
+    },
+    {
+      "id": "notification_center",
+      "title": "Notification Centre",
+      "target": "7.9.1",
+      "kind": "ui_service",
+      "ui": true,
+      "path": "blueprints/future_features/notification_center/feature.json"
+    },
+    {
+      "id": "secrets_vault",
+      "title": "Secrets Vault",
+      "target": "7.14",
+      "kind": "security_service",
+      "ui": true,
+      "path": "blueprints/future_features/secrets_vault/feature.json"
+    },
+    {
+      "id": "dependency_snapshots",
+      "title": "Dependency Snapshots",
+      "target": "7.14.1",
+      "kind": "service",
+      "ui": false,
+      "path": "blueprints/future_features/dependency_snapshots/feature.json"
+    },
+    {
+      "id": "recovery_console",
+      "title": "Recovery Console",
+      "target": "7.14.2",
+      "kind": "ui_module",
+      "ui": true,
+      "path": "blueprints/future_features/recovery_console/feature.json"
+    },
+    {
+      "id": "backup_export",
+      "title": "Backup / Export",
+      "target": "7.14.3",
+      "kind": "ui_module",
+      "ui": true,
+      "path": "blueprints/future_features/backup_export/feature.json"
+    },
+    {
+      "id": "global_search",
+      "title": "Global Search",
+      "target": "7.15.1",
+      "kind": "ui_service",
+      "ui": true,
+      "path": "blueprints/future_features/global_search/feature.json"
+    },
+    {
+      "id": "capability_discovery",
+      "title": "Capability Discovery",
+      "target": "7.15.2",
+      "kind": "service",
+      "ui": true,
+      "path": "blueprints/future_features/capability_discovery/feature.json"
+    },
+    {
+      "id": "local_usage_analytics",
+      "title": "Local Usage Analytics",
+      "target": "7.15.3",
+      "kind": "ui_module",
+      "ui": true,
+      "path": "blueprints/future_features/local_usage_analytics/feature.json"
+    },
+    {
+      "id": "fleet_rollout_controller",
+      "title": "Fleet Rollout Controller",
+      "target": "7.5.12.5",
+      "kind": "ui_service",
+      "ui": true,
+      "path": "blueprints/future_features/fleet_rollout_controller/feature.json"
+    },
+    {
+      "id": "distributed_snapshots",
+      "title": "Distributed Project Snapshots",
+      "target": "7.5.12.6",
+      "kind": "service",
+      "ui": false,
+      "path": "blueprints/future_features/distributed_snapshots/feature.json"
+    },
+    {
+      "id": "cluster_reassignment_verification",
+      "title": "Cluster Reassignment + Verification",
+      "target": "7.5.12.7",
+      "kind": "service",
+      "ui": false,
+      "path": "blueprints/future_features/cluster_reassignment_verification/feature.json"
+    },
+    {
+      "id": "mission_cluster_integration",
+      "title": "Development Missions + Cluster",
+      "target": "7.5.12.8",
+      "kind": "service",
+      "ui": false,
+      "path": "blueprints/future_features/mission_cluster_integration/feature.json"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "training_module",
+  "name": "Training Module",
+  "version": "2.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Research public webpages, save useful information locally, and read/list Apollo's saved research notes.",
+  "ui": {
+    "enabled": true,
+    "title": "Research & Training",
+    "default_placement": "apps"
+  }
+}

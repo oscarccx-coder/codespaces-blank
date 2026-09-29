@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "profile_id": "apollo",
+  "profile_name": "Apollo",
+  "voice_tuning": {
+    "speed": 1.04,
+    "pitch_semitones": -0.7,
+    "temperature": 0.9,
+    "length_penalty": 1.0,
+    "repetition_penalty": 2.0,
+    "top_k": 50,
+    "top_p": 0.85,
+    "gpt_cond_len": 8,
+    "enable_text_splitting": true,
+    "bass_db": 0.0,
+    "treble_db": 0.5,
+    "volume_db": 0.0
+  },
+  "activated_at": "2026-09-29T22:49:46"
+}

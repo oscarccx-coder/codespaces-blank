@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "current_page": "Settings",
+  "settings_tab": 2,
+  "current_app_module": "voice_center",
+  "current_app_open": true,
+  "selected_module": "automation_engine",
+  "selected_pending_module": null,
+  "speech": {
+    "muted": true
+  },
+  "window": {
+    "x": 237,
+    "y": -39,
+    "width": 1590,
+    "height": 908
+  }
+}

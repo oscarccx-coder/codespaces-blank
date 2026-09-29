@@ -1,0 +1,9 @@
+{
+  "id": "cluster_manager",
+  "name": "Apollo Cluster Manager",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Task-parallel scheduler for distributing approved subtasks across enrolled Apollo worker nodes.",
+  "ui": {"enabled": true, "title": "Cluster Manager", "default_placement": "apps"}
+}

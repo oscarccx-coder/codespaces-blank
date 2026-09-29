@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "F:\Apollo\apollo 1\apollo_ui\launch_apollo.pyw", line 17, in <module>
+    main.main()
+    ~~~~~~~~~^^
+  File "F:\Apollo\apollo 1\apollo_ui\main.py", line 6063, in main
+    sys.exit(app.exec())
+    ~~~~~~~~^^^^^^^^^^^^
+SystemExit: 0

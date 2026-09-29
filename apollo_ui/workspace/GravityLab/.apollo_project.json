@@ -1,0 +1,17 @@
+{
+  "project": "GravityLab",
+  "updated_at": "2026-09-15T16:55:02.411245+00:00",
+  "files": [
+    "gravity.py",
+    "README.md",
+    "requirements.txt"
+  ],
+  "verification": {
+    "ok": true,
+    "errors": [],
+    "warnings": [],
+    "checked_files": 3,
+    "note": "Static verification only; generated code is never executed automatically."
+  },
+  "managed_by": "Apollo Workshop / file_builder"
+}

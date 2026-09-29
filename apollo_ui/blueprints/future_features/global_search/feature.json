@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "global_search",
+  "title": "Global Search",
+  "target": "7.15.1",
+  "kind": "ui_service",
+  "ui": true,
+  "depends_on": [
+    "capability_registry",
+    "memory_bank",
+    "file_manager"
+  ],
+  "summary": "Search apps, files, projects, memories, conversations and capabilities from one bar.",
+  "planned_tools": [
+    "global_search",
+    "open_search_result"
+  ],
+  "acceptance": [
+    "Result type/source clearly identified",
+    "Keyboard accessible",
+    "No hidden destructive actions"
+  ]
+}

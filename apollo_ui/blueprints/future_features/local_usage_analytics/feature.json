@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "local_usage_analytics",
+  "title": "Local Usage Analytics",
+  "target": "7.15.3",
+  "kind": "ui_module",
+  "ui": true,
+  "depends_on": [
+    "activity_trace",
+    "verification_engine"
+  ],
+  "summary": "Private local metrics showing failures, latency, frequently used tools and improvement targets.",
+  "planned_tools": [
+    "usage_summary",
+    "failure_hotspots",
+    "performance_history"
+  ],
+  "acceptance": [
+    "Local-only by default",
+    "Can be disabled",
+    "No secret contents captured"
+  ]
+}

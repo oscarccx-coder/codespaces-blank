@@ -1,0 +1,8 @@
+{
+  "id": "automation_engine",
+  "name": "Automation Engine",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Persistent scheduled/recurring Apollo capability execution through the permission bus."
+}

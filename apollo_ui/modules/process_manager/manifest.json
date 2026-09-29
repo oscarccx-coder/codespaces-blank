@@ -1,0 +1,8 @@
+{
+  "id": "process_manager",
+  "name": "Process Manager",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Local process inspection plus permission-gated termination."
+}

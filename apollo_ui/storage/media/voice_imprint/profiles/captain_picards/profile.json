@@ -1,0 +1,75 @@
+{
+  "id": "captain_picards",
+  "name": "Captain Picards",
+  "created_at": "2026-09-26T11:37:43",
+  "updated_at": "2026-09-26T13:01:47",
+  "rights_confirmed": null,
+  "personal_use_mode": true,
+  "source_filename": "Y2Mate.is - Captain Picards best inspirational speeches.mp3",
+  "source_copy": "source/original.mp3",
+  "normalized_wav": "source/normalized_24k_mono.wav",
+  "manifest": "manifest.jsonl",
+  "reference_clip": "clips/clip_00036.wav",
+  "analysis": {
+    "threshold_rms": 0.05597339272499085,
+    "source_seconds": 899.66,
+    "clip_count": 76,
+    "good_clips": 76,
+    "usable_seconds": 563.5
+  },
+  "signature_trained": true,
+  "signature": {
+    "network": "numpy-acoustic-autoencoder-v1",
+    "input_dimensions": 64,
+    "embedding_dimensions": 16,
+    "training_clips": 76,
+    "epochs": 500,
+    "final_loss": 0.932378,
+    "consistency": 0.7532,
+    "embedding": [
+      0.125627,
+      0.024505,
+      0.094836,
+      0.071977,
+      0.042166,
+      0.116775,
+      -0.19685,
+      0.137445,
+      -0.182383,
+      -0.032716,
+      0.007181,
+      0.045032,
+      -0.057847,
+      -0.016046,
+      0.049766,
+      0.01412
+    ],
+    "reference_clip": "clips/clip_00036.wav",
+    "model_file": "voice_signature_net.npz",
+    "trained_at": "2026-09-26T13:01:47"
+  },
+  "transcription": {
+    "status": "not_run"
+  },
+  "voice_pack": {
+    "ready": true,
+    "manifest": "voice_pack/voice_pack.json",
+    "reference_wav": "voice_pack/reference.wav",
+    "prepared_at": "2026-09-26T13:01:47"
+  },
+  "voice_tuning": {
+    "speed": 1.0,
+    "pitch_semitones": 0.0,
+    "temperature": 0.65,
+    "length_penalty": 1.0,
+    "repetition_penalty": 2.0,
+    "top_k": 50,
+    "top_p": 0.85,
+    "gpt_cond_len": 6,
+    "enable_text_splitting": false,
+    "bass_db": 0.0,
+    "treble_db": 0.0,
+    "volume_db": 0.0
+  },
+  "voice_tuning_updated_at": "2026-09-26T13:01:54"
+}

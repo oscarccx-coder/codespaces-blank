@@ -1,0 +1,13 @@
+{
+  "id": "gpu_monitor",
+  "name": "GPU Monitor",
+  "version": "1.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "NVIDIA GPU usage, VRAM, temperature, power and Ollama process monitoring.",
+  "ui": {
+    "enabled": true,
+    "title": "GPU Monitor",
+    "default_placement": "apps"
+  }
+}

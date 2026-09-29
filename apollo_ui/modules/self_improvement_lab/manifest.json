@@ -1,0 +1,13 @@
+{
+  "id": "self_improvement_lab",
+  "name": "Self-Improvement Lab",
+  "version": "1.5.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Audits Apollo and stages coordinated multi-file improvement candidates; application remains user-approved.",
+  "ui": {
+    "enabled": true,
+    "title": "Self-Improvement Lab",
+    "default_placement": "apps"
+  }
+}

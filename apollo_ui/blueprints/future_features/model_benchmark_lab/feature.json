@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "placeholder",
+  "id": "model_benchmark_lab",
+  "title": "Model Benchmark Lab",
+  "target": "7.10.1",
+  "kind": "ui_module",
+  "ui": true,
+  "depends_on": [
+    "compute_broker",
+    "benchmark_suite"
+  ],
+  "summary": "Compare local models on real Apollo tasks before changing defaults.",
+  "planned_tools": [
+    "create_benchmark",
+    "run_benchmark",
+    "compare_models",
+    "benchmark_history"
+  ],
+  "acceptance": [
+    "Repeatable benchmark set",
+    "No automatic promotion without approval",
+    "Stores latency, quality and resource use"
+  ]
+}

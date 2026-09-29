@@ -1,0 +1,8 @@
+{
+  "id": "background_intelligence",
+  "name": "Background Intelligence",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Low-impact maintenance pulse: capability refresh, health and shared diagnostics without silently moving/modifying user files."
+}

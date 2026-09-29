@@ -1,0 +1,13 @@
+{
+  "id": "notification_center",
+  "name": "Notification Center",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Persistent internal/user notifications shared across Apollo.",
+  "ui": {
+    "enabled": true,
+    "title": "Notification Center",
+    "default_placement": "apps"
+  }
+}

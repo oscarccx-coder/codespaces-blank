@@ -1,0 +1,8 @@
+{
+  "id": "screen_vision",
+  "name": "Screen Vision",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Screen metadata and privacy-gated local screenshot capture for future vision-model analysis."
+}

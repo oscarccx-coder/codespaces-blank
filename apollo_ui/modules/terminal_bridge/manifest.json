@@ -1,0 +1,8 @@
+{
+  "id": "terminal_bridge",
+  "name": "Terminal Bridge",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Permission-gated shell execution restricted to Apollo workspace."
+}

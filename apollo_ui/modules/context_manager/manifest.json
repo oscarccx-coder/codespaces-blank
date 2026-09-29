@@ -1,0 +1,13 @@
+{
+  "id": "context_manager",
+  "name": "Context Manager",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Builds compact task context from goals, shared state, failures and relevant capabilities so model swaps keep one intent.",
+  "ui": {
+    "enabled": true,
+    "title": "Context Manager",
+    "default_placement": "apps"
+  }
+}

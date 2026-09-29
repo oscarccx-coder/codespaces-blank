@@ -1,0 +1,13 @@
+{
+  "id": "dependency_manager",
+  "name": "Dependency Manager",
+  "version": "1.5.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Package inventory plus isolated virtual environments for Workspace projects/specialist tools.",
+  "ui": {
+    "enabled": true,
+    "title": "Dependencies",
+    "default_placement": "apps"
+  }
+}

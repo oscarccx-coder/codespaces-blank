@@ -1,0 +1,8 @@
+# Optional neural synthesis/transcription dependencies.
+# Do not install these blindly into Apollo's main environment if they conflict
+# with your Python/CUDA versions; Apollo 7.5 Dependency Manager can create an
+# isolated environment for experimentation.
+#
+# torch
+# TTS
+# faster-whisper
