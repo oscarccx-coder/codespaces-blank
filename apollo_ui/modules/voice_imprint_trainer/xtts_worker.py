@@ -360,7 +360,7 @@ def main() -> int:
                 raise TypeError("XTTS worker input must be a JSON object.")
 
             command = str(
-                request.get("command", request.get("cmd", ""))
+                request.get("op", request.get("command", request.get("cmd", "")))
             ).lower().strip()
 
             # Compatibility with the previous Apollo worker.
@@ -389,20 +389,31 @@ def main() -> int:
                 result = engine.synthesize(request)
 
             elif command in ("stop", "shutdown", "quit"):
-                _send({"ok": True, "shutdown": True})
+                _send({
+                    "id": request.get("id"),
+                    "ok": True,
+                    "result": {"shutdown": True},
+                })
                 break
 
             else:
                 raise ValueError(f"Unknown XTTS worker command: {command!r}")
 
-            _send(result)
+            _send({
+                "id": request.get("id"),
+                "ok": True,
+                "result": result,
+            })
 
         except Exception as exc:
-            print(traceback.format_exc(), file=sys.stderr, flush=True)
+            trace = traceback.format_exc()
+            print(trace, file=sys.stderr, flush=True)
             _send({
+                "id": request.get("id") if isinstance(request, dict) else None,
                 "ok": False,
                 "error": str(exc),
                 "error_type": type(exc).__name__,
+                "traceback": trace,
             })
 
     return 0
