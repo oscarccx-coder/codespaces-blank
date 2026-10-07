@@ -77,10 +77,16 @@ class XTTSEngine:
         coqui = _version("coqui-tts")
         legacy = _version("TTS")
 
-        if coqui is None and legacy is not None:
+        # `TTS` (legacy) and `coqui-tts` expose the same top-level TTS namespace.
+        # Coexistence can create mixed imports and misleading circular-import errors.
+        if legacy is not None:
+            state = (
+                f"Conflicting legacy TTS package detected ({legacy}) alongside coqui-tts {coqui}."
+                if coqui is not None
+                else f"Old TTS package detected ({legacy})."
+            )
             raise RuntimeError(
-                f"Old TTS package detected ({legacy}). "
-                "Apollo Voice needs the maintained coqui-tts fork. "
+                state + " Apollo Voice requires a clean maintained coqui-tts install. "
                 "Run: python -m pip uninstall -y TTS coqui-tts && "
                 "python -m pip install --no-cache-dir \"coqui-tts>=0.27.5\""
             )
