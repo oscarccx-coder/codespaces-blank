@@ -77,7 +77,21 @@ class XTTSEngine:
         coqui = _version("coqui-tts")
         legacy = _version("TTS")
 
-        # `TTS` (legacy) and `coqui-tts` expose the same top-level TTS namespace.\n        # Coexistence can create mixed imports and misleading circular-import errors.\n        if legacy is not None:\n            state = (\n                f"Conflicting legacy TTS package detected ({legacy}) alongside coqui-tts {coqui}."\n                if coqui is not None\n                else f"Old TTS package detected ({legacy})."\n            )\n            raise RuntimeError(\n                state + " Apollo Voice requires a clean maintained coqui-tts install. "\n                "Run: python -m pip uninstall -y TTS coqui-tts && "\n                "python -m pip install --no-cache-dir \\"coqui-tts>=0.27.5\\""\n            )\n\n        if coqui is None:
+        # `TTS` (legacy) and `coqui-tts` expose the same top-level TTS namespace.
+        # Coexistence can create mixed imports and misleading circular-import errors.
+        if legacy is not None:
+            state = (
+                f"Conflicting legacy TTS package detected ({legacy}) alongside coqui-tts {coqui}."
+                if coqui is not None
+                else f"Old TTS package detected ({legacy})."
+            )
+            raise RuntimeError(
+                state + " Apollo Voice requires a clean maintained coqui-tts install. "
+                "Run: python -m pip uninstall -y TTS coqui-tts && "
+                "python -m pip install --no-cache-dir \"coqui-tts>=0.27.5\""
+            )
+
+        if coqui is None:
             raise RuntimeError(
                 "coqui-tts is not installed in Apollo's XTTS environment. "
                 "Run: python -m pip install --no-cache-dir \"coqui-tts>=0.27.5\""
