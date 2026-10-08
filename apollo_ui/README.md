@@ -30,6 +30,14 @@ Python entry point: `main.py`. The application requires the dependencies listed 
 | `docs/legacy_notes/` | Archived historical update instructions |
 | `tools/legacy_updates/` | Historical obsolete version-setting batch files, archived as text, **do not execute** |
 
+## XTTS model and GitHub updates
+
+- Shared drop-in folder: `models/voice/xtts_v2/` (add your own `config.json`, `model.pth`, `vocab.json`).
+- Your existing `%LOCALAPPDATA%\\Apollo\\models\\voice\\xtts_v2` installation can stay where it is. Voice Lab can remember a different model location on another drive.
+- Go to **Settings → Updates → Open Update Centre** to check signed GitHub Releases, download/verify and **Update & Restart** without downloading XTTS again.
+- GitHub Releases must contain a signed Apollo ZIP and public key; there is not yet a published release. First run requires one-time key-fingerprint approval.
+- [Full setup, signing and safe publishing instructions](docs/architecture/GITHUB_UPDATES_AND_XTTS.md).
+
 ## Sidebar and Workstation upgrade
 
 See [Apollo Workstation Roadmap](docs/architecture/APOLLO_WORKSTATION_ROADMAP.md).
