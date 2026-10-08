@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QPushButton, QStackedWidget, QFrame, QLineEdit, QTextEdit, QGridLayout,
     QProgressBar, QListWidget, QListWidgetItem, QScrollArea, QMessageBox,
     QComboBox, QTextBrowser, QTabWidget, QInputDialog, QCheckBox, QDialog,
-    QPlainTextEdit, QAbstractSpinBox, QSizePolicy
+    QPlainTextEdit, QAbstractSpinBox, QSizePolicy, QAbstractItemView
 )
 
 from memory import MemoryStore
@@ -27,6 +27,7 @@ from module_manager import ModuleManager
 from module_repair_engine import ModuleRepairEngine
 from apollo_runtime import ApolloRuntime
 from apollo_shell import ApolloShell, VALID_TILE_SIZES, TILE_SPANS, HUB_COLUMNS, pack_tiles
+from apollo_sidebar import SidebarLayoutStore
 from apollo_docs import PatchDocs
 from apollo_storage import StorageLayout
 
@@ -588,6 +589,7 @@ class ApolloWindow(QMainWindow):
         # Apollo 7.5.11 OS shell backbone: core pages and module UIs are now
         # represented by one logical app registry with a persistent custom Hub.
         self.shell = ApolloShell(BASE_DIR, self.module_manager)
+        self.sidebar_state = SidebarLayoutStore(BASE_DIR)
         self.hub_manager_dialog = None
         self.hub_edit_mode = False
 
@@ -1008,59 +1010,197 @@ class ApolloWindow(QMainWindow):
     def _build_sidebar(self):
         side = QFrame()
         side.setObjectName("sidebar")
-        side.setFixedWidth(220)
+        self.sidebar_frame = side
 
         v = QVBoxLayout(side)
         self.sidebar_layout = v
-        v.setContentsMargins(14, 20, 14, 20)
-        v.setSpacing(8)
+        v.setContentsMargins(10, 16, 10, 12)
+        v.setSpacing(7)
 
-        logo = label("△  A P O L L O", 20, "#dffbf5", True)
-        v.addWidget(logo)
-        v.addWidget(label(
+        self.sidebar_logo = label("△  A P O L L O", 20, "#dffbf5", True)
+        v.addWidget(self.sidebar_logo)
+        self.sidebar_tagline = label(
             "Adaptive Personal Orchestrated\nLearning & Logic Overseer",
             9, "#8bbab3"
-        ))
-        v.addSpacing(16)
+        )
+        v.addWidget(self.sidebar_tagline)
+        v.addSpacing(12)
 
-        nav_items = [
-            ("⌂", "Hub"),
-            ("▣", "Chat"),
-            ("✚", "Medical"),
-            ("◈", "Train"),
-            ("◎", "Web"),
-            ("</>", "Coding"),
-            ("◇", "Modules"),
-            ("▤", "System"),
-            ("◉", "Memory"),
-            ("⚙", "Settings"),
-        ]
-
+        self.sidebar_default_labels = {
+            "Hub": "Home", "Chat": "Chat", "Medical": "Medical",
+            "Train": "Train", "Web": "Web", "Coding": "Workshop",
+            "Modules": "Modules", "System": "System", "Memory": "Memory",
+            "Settings": "Settings",
+        }
+        self.sidebar_icons = {
+            "Hub": "⌂", "Chat": "▣", "Medical": "✚", "Train": "◈",
+            "Web": "◎", "Coding": "</>", "Modules": "◇", "System": "▤",
+            "Memory": "◉", "Settings": "⚙",
+        }
         self.nav_buttons = {}
-
-        for icon, name in nav_items:
-            display_name = "Workshop" if name == "Coding" else name
-            b = QPushButton(f"{icon}    {display_name}")
+        for name in ("Hub", "Chat", "Medical", "Train", "Web",
+                     "Coding", "Modules", "System", "Memory", "Settings"):
+            b = QPushButton()
             b.setObjectName("nav")
             b.setCheckable(True)
+            b.setMinimumHeight(34)
             b.clicked.connect(lambda checked=False, n=name: self.switch_page(n))
             self.nav_buttons[name] = b
-            v.addWidget(b)
 
-        # Dynamic module tabs live in their own host. This is the missing piece in
-        # V6.6: rebuild_module_ui previously tried to use self.sidebar_layout even
-        # though the layout was never saved on self.
-        self.dynamic_nav_host = QWidget()
-        self.dynamic_nav_layout = QVBoxLayout(self.dynamic_nav_host)
-        self.dynamic_nav_layout.setContentsMargins(0, 0, 0, 0)
-        self.dynamic_nav_layout.setSpacing(6)
-        v.addWidget(self.dynamic_nav_host)
+        # Permanent Home: it cannot be hidden, renamed or moved.
+        v.addWidget(self.nav_buttons["Hub"])
 
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.sidebar_nav_host = QWidget()
+        self.sidebar_nav_layout = QVBoxLayout(self.sidebar_nav_host)
+        self.sidebar_nav_layout.setContentsMargins(0, 0, 0, 0)
+        self.sidebar_nav_layout.setSpacing(5)
+        self.sidebar_nav_layout.setAlignment(Qt.AlignTop)
+        scroll.setWidget(self.sidebar_nav_host)
+        v.addWidget(scroll, 1)
+
+        # Preserve the established dynamic module UI hooks, but use the same
+        # reorderable host as the built-in pages.
+        self.dynamic_nav_host = self.sidebar_nav_host
+        self.dynamic_nav_layout = self.sidebar_nav_layout
+
+        self.sidebar_customize_btn = QPushButton("⚙  Customise Sidebar")
+        self.sidebar_customize_btn.setToolTip("Reorder, rename or hide navigation items")
+        self.sidebar_customize_btn.clicked.connect(self.open_sidebar_manager)
+        v.addWidget(self.sidebar_customize_btn)
+
+        # Permanent Settings: it cannot be hidden, renamed or moved.
+        v.addWidget(self.nav_buttons["Settings"])
+        self.sidebar_privacy_label = label("Local. Private. Yours.", 10, "#8cc7be")
+        v.addWidget(self.sidebar_privacy_label)
         self.nav_buttons["Hub"].setChecked(True)
-        v.addStretch()
-        v.addWidget(label("Local. Private.\nYours.", 11, "#8cc7be"))
-        v.addWidget(label("Smarter living.\nHealthier tomorrows.", 9, "#5f918a"))
+        self._refresh_sidebar()
         return side
+
+    def _refresh_sidebar(self):
+        if not hasattr(self, "sidebar_nav_layout"):
+            return
+
+        ordered = self.sidebar_state.ordered(self.nav_buttons.keys())
+        # Remove layout references, not the widgets or their signal connections.
+        while self.sidebar_nav_layout.count():
+            self.sidebar_nav_layout.takeAt(0)
+
+        collapsed = bool(self.sidebar_state.state()["collapsed"])
+        width = 76 if collapsed else self.sidebar_state.state()["width"]
+        self.sidebar_frame.setFixedWidth(width)
+        self.sidebar_logo.setText("△" if collapsed else "△  A P O L L O")
+        self.sidebar_tagline.setVisible(not collapsed)
+        self.sidebar_privacy_label.setVisible(not collapsed)
+        self.sidebar_customize_btn.setText("⚙" if collapsed else "⚙  Customise Sidebar")
+
+        for key in ("Hub", *ordered, "Settings"):
+            button = self.nav_buttons.get(key)
+            if button is None:
+                continue
+            icon = self.sidebar_icons.get(key, "◈")
+            default = self.sidebar_default_labels.get(key, key)
+            title = self.sidebar_state.display_label(key, default)
+            button.setText(icon if collapsed else f"{icon}    {title}")
+            button.setToolTip(title)
+            if key not in ("Hub", "Settings"):
+                self.sidebar_nav_layout.addWidget(button)
+                button.setVisible(self.sidebar_state.is_visible(key))
+            else:
+                button.setVisible(True)
+
+    def open_sidebar_manager(self):
+        """Edit the navigation without modifying, uninstalling or disabling modules."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Apollo Sidebar Manager")
+        dialog.resize(470, 590)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(label(
+            "Drag to reorder. Untick to hide. Home and Settings are locked.",
+            11, "#a5d1c8"
+        ))
+
+        listing = QListWidget()
+        listing.setAlternatingRowColors(True)
+        listing.setDragDropMode(QAbstractItemView.InternalMove)
+        listing.setDefaultDropAction(Qt.MoveAction)
+        for key in self.sidebar_state.ordered(self.nav_buttons.keys()):
+            item = QListWidgetItem(
+                self.sidebar_state.display_label(
+                    key, self.sidebar_default_labels.get(key, key)
+                )
+            )
+            item.setData(Qt.UserRole, key)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.Checked if self.sidebar_state.is_visible(key) else Qt.Unchecked
+            )
+            listing.addItem(item)
+        layout.addWidget(listing, 1)
+
+        rename = QPushButton("Rename selected")
+        def rename_selected():
+            item = listing.currentItem()
+            if item is None:
+                return
+            text, accepted = QInputDialog.getText(
+                dialog, "Rename Shortcut", "Sidebar label:", text=item.text()
+            )
+            if accepted and text.strip():
+                item.setText(" ".join(text.split())[:36])
+        rename.clicked.connect(rename_selected)
+        layout.addWidget(rename)
+
+        width_selector = QComboBox()
+        widths = (180, 220, 260, 300, 360)
+        for width in widths:
+            width_selector.addItem(f"{width} px", width)
+        current_width = self.sidebar_state.state()["width"]
+        if current_width not in widths:
+            width_selector.addItem(f"{current_width} px", current_width)
+        width_selector.setCurrentIndex(width_selector.findData(current_width))
+        layout.addWidget(label("Expanded sidebar width", 10, "#a5d1c8"))
+        layout.addWidget(width_selector)
+
+        collapsed_checkbox = QCheckBox("Collapse sidebar to icons")
+        collapsed_checkbox.setChecked(self.sidebar_state.state()["collapsed"])
+        layout.addWidget(collapsed_checkbox)
+
+        actions = QHBoxLayout()
+        reset_button = QPushButton("Reset to defaults")
+        cancel_button = QPushButton("Cancel")
+        apply_button = QPushButton("Save layout")
+        def reset_layout():
+            self.sidebar_state.reset()
+            self._refresh_sidebar()
+            dialog.accept()
+        def save_layout():
+            order, hidden, labels = [], [], {}
+            for index in range(listing.count()):
+                item = listing.item(index)
+                key = item.data(Qt.UserRole)
+                order.append(key)
+                if item.checkState() != Qt.Checked:
+                    hidden.append(key)
+                labels[key] = item.text()
+            self.sidebar_state.apply(
+                order, hidden, labels,
+                width_selector.currentData(), collapsed_checkbox.isChecked()
+            )
+            self._refresh_sidebar()
+            dialog.accept()
+        reset_button.clicked.connect(reset_layout)
+        cancel_button.clicked.connect(dialog.reject)
+        apply_button.clicked.connect(save_layout)
+        actions.addWidget(reset_button)
+        actions.addStretch()
+        actions.addWidget(cancel_button)
+        actions.addWidget(apply_button)
+        layout.addLayout(actions)
+        dialog.exec()
 
     def _build_topbar(self):
         bar = QWidget()
@@ -3946,6 +4086,7 @@ class ApolloWindow(QMainWindow):
 
         if hasattr(self, "hub_apps_layout"):
             self._refresh_hub_tiles()
+        self._refresh_sidebar()
         self._queue_ui_state_save()
 
     def open_selected_app_module(self, item=None):
