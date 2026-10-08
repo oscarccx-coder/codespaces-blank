@@ -36,6 +36,9 @@ jobs:
         run: |
           python test_apollo_shell.py
           python test_module_manager_surfaces.py
+      - name: Validate staged Coding Team module without installation
+        working-directory: apollo_ui
+        run: python pending_modules/coding_team/tests.py
       - name: Test signed update rollback
         working-directory: apollo_ui
         run: python test_update_system.py
