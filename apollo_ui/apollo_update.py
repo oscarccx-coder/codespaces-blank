@@ -107,7 +107,12 @@ class UpdateService:
         if not isinstance(data, dict):
             raise ValueError("Update settings must be an object.")
         # Existing local-server installs keep their configured transport.
-        data.setdefault("source", "server" if data.get("server_url") else "github")
+        # A legacy blank server URL was never functional; migrate that client
+        # to GitHub Stable rather than silently sticking it on Development.
+        if "source" not in data:
+            data["source"] = "server" if data.get("server_url") else "github"
+            if data["source"] == "github" and data.get("channel") == "development":
+                data["channel"] = "stable"
         data.setdefault("channel", "stable")
         return data
 
