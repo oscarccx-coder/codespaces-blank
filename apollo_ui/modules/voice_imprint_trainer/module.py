@@ -131,6 +131,7 @@ class Module:
         self._xtts_worker_reader = None
         self._xtts_worker_responses = queue.Queue()
         self._xtts_worker_request_lock = threading.Lock()
+        self._xtts_worker_cancelled = threading.Event()
         self._xtts_worker_log_handle = None
         self._xtts_worker_last_error = ""
         self._dll_directory_handles = []
@@ -1706,6 +1707,8 @@ class Module:
             "process_isolation": bool(self._settings().get("process_isolation", True)),
             "running": running,
             "pid": proc.pid if running else None,
+            "generating": self._xtts_worker_request_lock.locked(),
+            "cancel_requested": self._xtts_worker_cancelled.is_set(),
             "last_error": self._xtts_worker_last_error,
             "log": str((self.base / "storage" / "logs" / "xtts_worker.log").resolve()),
         }
@@ -1786,6 +1789,11 @@ class Module:
         return proc
 
     def _stop_xtts_worker(self, graceful=False):
+        # Wake any waiter immediately, even when a model is still importing or
+        # CUDA has stopped responding. Never wait for its 900s synth timeout.
+        self._xtts_worker_cancelled.set()
+        response_queue = self._xtts_worker_responses
+        response_queue.put({"_cancelled": True})
         proc = self._xtts_worker_process
         self._xtts_worker_process = None
         if proc is None:
@@ -1836,7 +1844,9 @@ class Module:
         message = {"id": request_id, **dict(payload or {})}
 
         with self._xtts_worker_request_lock:
+            self._xtts_worker_cancelled.clear()
             proc = self._start_xtts_worker()
+            response_queue = self._xtts_worker_responses
             try:
                 proc.stdin.write(json.dumps(message, ensure_ascii=False) + "\n")
                 proc.stdin.flush()
@@ -1852,14 +1862,18 @@ class Module:
                     self._xtts_worker_last_error = f"XTTS worker timed out after {timeout}s"
                     self._stop_xtts_worker(False)
                     raise TimeoutError(self._xtts_worker_last_error)
+                if self._xtts_worker_cancelled.is_set():
+                    raise RuntimeError("XTTS generation cancelled")
                 try:
-                    response = self._xtts_worker_responses.get(timeout=min(1.0, remaining))
+                    response = response_queue.get(timeout=min(0.25, remaining))
                 except queue.Empty:
                     if proc.poll() is not None:
                         self._xtts_worker_last_error = f"XTTS worker exited with code {proc.returncode}"
                         self._stop_xtts_worker(False)
                         raise RuntimeError(self._xtts_worker_last_error)
                     continue
+                if response.get("_cancelled"):
+                    raise RuntimeError("XTTS generation cancelled")
                 if response.get("_worker_exit"):
                     self._xtts_worker_last_error = f"XTTS worker exited with code {response.get('returncode')}"
                     self._stop_xtts_worker(False)
@@ -3218,6 +3232,9 @@ class Module:
         def synthesis_failed(message):
             set_synthesis_busy(False)
             update_worker_label()
+            if "cancelled" in str(message).lower():
+                output.setPlainText("Voice generation cancelled.")
+                return
             output.setPlainText("Voice synthesis failed:\n" + str(message))
             QMessageBox.warning(page, "Voice Imprint", str(message))
 
@@ -3315,7 +3332,12 @@ class Module:
         reference_button.clicked.connect(do_play_reference)
         synth_button.clicked.connect(lambda: do_synth(False))
         speak_button.clicked.connect(lambda: do_synth(True))
-        stop_button.clicked.connect(lambda: show(self.run("stop_speaking", {})))
+        def stop_voice():
+            result = self.run("stop_speaking", {})
+            output.setPlainText("Stopping voice generation..." if synthesis_running["value"] else "Playback stopped.")
+            update_worker_label()
+            return result
+        stop_button.clicked.connect(stop_voice)
         profiles_list.itemSelectionChanged.connect(lambda: load_selected_tuning(True))
         apply_tuning_controls(VOICE_TUNING_DEFAULTS)
         refresh()
