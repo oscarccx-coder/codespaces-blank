@@ -417,6 +417,7 @@ class Module:
                 arguments.get("tags",[]),arguments.get("importance",1.0))
         if action=="search_memory_bank": return self.search_memory(arguments.get("query"),arguments.get("limit",5))
         if action=="list_memories": return self.list_memories(arguments.get("limit",20),arguments.get("memory_type",""))
+        if action=="update_memory": return self.update_memory(arguments.get("id"),arguments.get("content"))
         if action=="remove_memory": return self.remove_memory(arguments.get("memory"))
         if action=="memory_bank_stats": return self.stats()
         raise KeyError(action)
