@@ -3838,6 +3838,7 @@ class ApolloWindow(QMainWindow):
         for module_id, button in list(self.dynamic_sidebar_buttons.items()):
             page_key = f"module::{module_id}"
             self.nav_buttons.pop(page_key, None)
+            self.sidebar_default_labels.pop(page_key, None)
             try:
                 self.dynamic_nav_layout.removeWidget(button)
                 button.deleteLater()
@@ -4036,6 +4037,7 @@ class ApolloWindow(QMainWindow):
                 self.dynamic_nav_layout.addWidget(button)
                 self.dynamic_sidebar_buttons[module_id] = button
                 self.nav_buttons[page_key] = button
+                self.sidebar_default_labels[page_key] = str(module_info.get("title", module_id))
 
             elif placement == "apps":
                 self.apps_host.addWidget(page)
