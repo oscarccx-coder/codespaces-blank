@@ -17,6 +17,7 @@ Python entry point: `main.py`. The application requires the dependencies listed 
 | Path | Role |
 |---|---|
 | `main.py`, `apollo_shell.py`, `apollo_sidebar.py` | Qt interface, application registry and saved sidebar layout |
+| `apollo_config.py`, `apollo_personality.py` | Protected local settings and configurable conversation style |
 | `apollo_runtime.py`, `module_manager.py` | Permissions, tasks, recoverability and module lifecycle |
 | `modules/` | Installed modules and their manifests |
 | `pending_modules/` | Untrusted candidate modules awaiting validation and approval |
@@ -32,6 +33,8 @@ Python entry point: `main.py`. The application requires the dependencies listed 
 ## Sidebar and Workstation upgrade
 
 See [Apollo Workstation Roadmap](docs/architecture/APOLLO_WORKSTATION_ROADMAP.md).
+
+Model and personality preferences are saved in `storage/state/user_config.json`, not back into the Git-tracked `config.json`. Existing older installs with local edits to `config.json` may still need a one-time manual migration before pulling changes; back up and review those edits before restoring any tracked file.
 
 The experimental custom sidebar is developed on `feature/apollo-workstation-sidebar`. Home and Settings remain pinned, while other page and module shortcuts can be reordered, hidden or renamed. Do not deploy from a development branch without tests.
 
