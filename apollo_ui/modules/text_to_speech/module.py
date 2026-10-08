@@ -1073,7 +1073,11 @@ class Module:
                             current = self._imprint_pending
                             self._imprint_pending = None
                             if current is None:
-                                break
+                                # Hand off ownership before releasing the lock.
+                                # Otherwise an incoming job can be stranded
+                                # between checking "pending" and thread exit.
+                                self._imprint_worker_thread = None
+                                return
                             if current["generation"] == self._imprint_generation:
                                 self._imprint_status = {
                                     "state": "generating", "job_id": current["id"],
@@ -1100,7 +1104,8 @@ class Module:
                                     }
                 finally:
                     with self._imprint_worker_lock:
-                        self._imprint_worker_thread = None
+                        if self._imprint_worker_thread is threading.current_thread():
+                            self._imprint_worker_thread = None
 
             worker = threading.Thread(
                 target=loop, name="ApolloVoiceImprintTTS", daemon=True
