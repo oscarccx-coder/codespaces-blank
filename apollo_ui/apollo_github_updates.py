@@ -92,7 +92,17 @@ def latest_release(channel, releases=None):
                 continue
         except (TypeError, ValueError):
             continue
+        key_asset = next((a for a in assets
+                          if isinstance(a, dict) and a.get("name") == "release_public.pem"
+                          and 0 < int(a.get("size") or 0) <= 65536), None)
+        key_url = None
+        if key_asset:
+            try:
+                key_url = _asset_url(key_asset.get("browser_download_url"))
+            except ValueError:
+                pass
         matches.append({
+            "key_url": key_url,
             "version": version,
             "package_url": address,
             "size": asset_size,
@@ -104,7 +114,7 @@ def latest_release(channel, releases=None):
     return max(matches, key=lambda item: version_key(item["version"])) if matches else None
 
 
-def download_release_asset(url, destination, progress=None):
+def download_release_asset(url, destination, progress=None, max_bytes=MAX_PACKAGE_BYTES):
     """Bounded atomic download; redirects may only end on GitHub's asset CDN."""
     url = _asset_url(url)
     destination = Path(destination)
@@ -119,7 +129,7 @@ def download_release_asset(url, destination, progress=None):
             }):
                 raise ValueError("GitHub asset redirect left the allowed HTTPS hosts.")
             length = response.headers.get("Content-Length")
-            if length and int(length) > MAX_PACKAGE_BYTES:
+            if length and int(length) > max_bytes:
                 raise ValueError("GitHub update package exceeds the download limit.")
             amount = 0
             with tmp.open("wb") as output:
@@ -128,7 +138,7 @@ def download_release_asset(url, destination, progress=None):
                     if not chunk:
                         break
                     amount += len(chunk)
-                    if amount > MAX_PACKAGE_BYTES:
+                    if amount > max_bytes:
                         raise ValueError("GitHub update package exceeds the download limit.")
                     output.write(chunk)
                     if progress:
