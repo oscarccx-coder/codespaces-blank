@@ -156,6 +156,8 @@ class Module:
         self._imprint_worker_thread = None
         self._imprint_pending = None
         self._imprint_last_error = ""
+        self._imprint_generation = 0
+        self._imprint_status = {"state": "idle", "job_id": None, "updated_at": time.time()}
         self._imprint_active_cache = (0, False)
         self.profile = self._load_profile()
 
@@ -216,6 +218,11 @@ class Module:
             {
                 "name": "stop_speaking",
                 "description": "Immediately stop the speech process started by Apollo.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+            {
+                "name": "speech_status",
+                "description": "Inspect the current speech job and last voice error.",
                 "parameters": {"type": "object", "properties": {}},
             },
             {
@@ -1039,18 +1046,25 @@ class Module:
         )
 
     def _queue_voice_imprint(self, text):
-        """Generate Voice Imprint speech off the caller/UI thread.
+        """Run voice on a daemon worker; keep only the newest queued request.
 
-        If several speech requests arrive while XTTS is busy, Apollo keeps only
-        the newest pending request. That prevents a backlog from making the app
-        progressively slower during a long conversation.
+        Every request has an ID and a visible terminal state. A cancelled or
+        superseded worker cannot mark the newer job as complete.
         """
-        job = {"text": str(text or "")}
+        job = {"text": str(text or ""), "id": uuid.uuid4().hex}
         with self._imprint_worker_lock:
+            self._imprint_generation += 1
+            job["generation"] = self._imprint_generation
             self._imprint_pending = job
             worker = self._imprint_worker_thread
-            if worker is not None and worker.is_alive():
-                return {"started": True, "queued": True, "generating": True, "characters": len(job["text"])}
+            queued = worker is not None and worker.is_alive()
+            self._imprint_status = {
+                "state": "queued" if queued else "starting",
+                "job_id": job["id"], "updated_at": time.time(),
+            }
+            if queued:
+                return {"started": True, "queued": True, "generating": True,
+                        "job_id": job["id"], "characters": len(job["text"])}
 
             def loop():
                 try:
@@ -1058,21 +1072,57 @@ class Module:
                         with self._imprint_worker_lock:
                             current = self._imprint_pending
                             self._imprint_pending = None
-                        if current is None:
-                            break
+                            if current is None:
+                                # Hand off ownership before releasing the lock.
+                                # Otherwise an incoming job can be stranded
+                                # between checking "pending" and thread exit.
+                                self._imprint_worker_thread = None
+                                return
+                            if current["generation"] == self._imprint_generation:
+                                self._imprint_status = {
+                                    "state": "generating", "job_id": current["id"],
+                                    "updated_at": time.time(),
+                                }
                         try:
-                            self._voice_imprint_call("speak", current)
-                            self._imprint_last_error = ""
+                            self._voice_imprint_call("speak", {"text": current["text"]})
                         except Exception as exc:
-                            self._imprint_last_error = f"{type(exc).__name__}: {exc}"
+                            error = f"{type(exc).__name__}: {exc}"
+                            with self._imprint_worker_lock:
+                                self._imprint_last_error = error
+                                if current["generation"] == self._imprint_generation:
+                                    self._imprint_status = {
+                                        "state": "failed", "job_id": current["id"],
+                                        "updated_at": time.time(), "error": error,
+                                    }
+                        else:
+                            with self._imprint_worker_lock:
+                                if current["generation"] == self._imprint_generation:
+                                    self._imprint_last_error = ""
+                                    self._imprint_status = {
+                                        "state": "completed", "job_id": current["id"],
+                                        "updated_at": time.time(),
+                                    }
                 finally:
                     with self._imprint_worker_lock:
-                        self._imprint_worker_thread = None
+                        if self._imprint_worker_thread is threading.current_thread():
+                            self._imprint_worker_thread = None
 
-            worker = threading.Thread(target=loop, name="ApolloVoiceImprintTTS", daemon=True)
+            worker = threading.Thread(
+                target=loop, name="ApolloVoiceImprintTTS", daemon=True
+            )
             self._imprint_worker_thread = worker
             worker.start()
-        return {"started": True, "queued": False, "generating": True, "characters": len(job["text"])}
+        return {"started": True, "queued": False, "generating": True,
+                "job_id": job["id"], "characters": len(job["text"])}
+
+    def _speech_status(self):
+        with self._imprint_worker_lock:
+            snapshot = dict(self._imprint_status)
+            worker = self._imprint_worker_thread
+            snapshot["worker_alive"] = bool(worker and worker.is_alive())
+            snapshot["pending"] = bool(self._imprint_pending)
+            snapshot["last_error"] = self._imprint_last_error
+        return snapshot
 
     def run(self, action, arguments):
         arguments = arguments or {}
@@ -1153,9 +1203,17 @@ class Module:
                 "offline": True,
             }
 
+        if action == "speech_status":
+            return self._speech_status()
+
         if action == "stop_speaking":
             with self._imprint_worker_lock:
+                self._imprint_generation += 1
                 self._imprint_pending = None
+                self._imprint_status = {
+                    "state": "cancelled", "job_id": self._imprint_status.get("job_id"),
+                    "updated_at": time.time(),
+                }
             imprint_stopped = False
             try:
                 result = self._voice_imprint_call("stop_speaking", {})

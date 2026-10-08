@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QPushButton, QStackedWidget, QFrame, QLineEdit, QTextEdit, QGridLayout,
     QProgressBar, QListWidget, QListWidgetItem, QScrollArea, QMessageBox,
     QComboBox, QTextBrowser, QTabWidget, QInputDialog, QCheckBox, QDialog,
-    QPlainTextEdit, QAbstractSpinBox, QSizePolicy
+    QPlainTextEdit, QAbstractSpinBox, QSizePolicy, QAbstractItemView
 )
 
 from memory import MemoryStore
@@ -27,11 +27,15 @@ from module_manager import ModuleManager
 from module_repair_engine import ModuleRepairEngine
 from apollo_runtime import ApolloRuntime
 from apollo_shell import ApolloShell, VALID_TILE_SIZES, TILE_SPANS, HUB_COLUMNS, pack_tiles
+from apollo_sidebar import SidebarLayoutStore
+from apollo_personality import personality_instruction, normalize_sarcasm_level, LEVELS
+from apollo_config import ApolloConfigStore
 from apollo_docs import PatchDocs
 from apollo_storage import StorageLayout
 
 
 BASE_DIR = Path(__file__).resolve().parent
+APOLLO_CONFIG = ApolloConfigStore(BASE_DIR)
 STORAGE = StorageLayout(BASE_DIR)
 STORAGE.ensure_layout()
 PATCH_DOCS = PatchDocs(BASE_DIR)
@@ -554,9 +558,7 @@ class ApolloWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.config = json.loads(
-            (BASE_DIR / "config.json").read_text(encoding="utf-8")
-        )
+        self.config = APOLLO_CONFIG.load()
 
         self.memory = MemoryStore(STORAGE.database(self.config["database"]))
         self.client = OllamaClient(
@@ -588,6 +590,7 @@ class ApolloWindow(QMainWindow):
         # Apollo 7.5.11 OS shell backbone: core pages and module UIs are now
         # represented by one logical app registry with a persistent custom Hub.
         self.shell = ApolloShell(BASE_DIR, self.module_manager)
+        self.sidebar_state = SidebarLayoutStore(BASE_DIR)
         self.hub_manager_dialog = None
         self.hub_edit_mode = False
 
@@ -1008,59 +1011,199 @@ class ApolloWindow(QMainWindow):
     def _build_sidebar(self):
         side = QFrame()
         side.setObjectName("sidebar")
-        side.setFixedWidth(220)
+        self.sidebar_frame = side
 
         v = QVBoxLayout(side)
         self.sidebar_layout = v
-        v.setContentsMargins(14, 20, 14, 20)
-        v.setSpacing(8)
+        v.setContentsMargins(10, 16, 10, 12)
+        v.setSpacing(7)
 
-        logo = label("△  A P O L L O", 20, "#dffbf5", True)
-        v.addWidget(logo)
-        v.addWidget(label(
+        self.sidebar_logo = label("△  A P O L L O", 20, "#dffbf5", True)
+        v.addWidget(self.sidebar_logo)
+        self.sidebar_tagline = label(
             "Adaptive Personal Orchestrated\nLearning & Logic Overseer",
             9, "#8bbab3"
-        ))
-        v.addSpacing(16)
+        )
+        v.addWidget(self.sidebar_tagline)
+        v.addSpacing(12)
 
-        nav_items = [
-            ("⌂", "Hub"),
-            ("▣", "Chat"),
-            ("✚", "Medical"),
-            ("◈", "Train"),
-            ("◎", "Web"),
-            ("</>", "Coding"),
-            ("◇", "Modules"),
-            ("▤", "System"),
-            ("◉", "Memory"),
-            ("⚙", "Settings"),
-        ]
-
+        self.sidebar_default_labels = {
+            "Hub": "Home", "Chat": "Chat", "Medical": "Medical",
+            "Train": "Train", "Web": "Web", "Coding": "Workshop",
+            "Modules": "Modules", "System": "System", "Memory": "Memory",
+            "Settings": "Settings",
+        }
+        self.sidebar_icons = {
+            "Hub": "⌂", "Chat": "▣", "Medical": "✚", "Train": "◈",
+            "Web": "◎", "Coding": "</>", "Modules": "◇", "System": "▤",
+            "Memory": "◉", "Settings": "⚙",
+        }
         self.nav_buttons = {}
-
-        for icon, name in nav_items:
-            display_name = "Workshop" if name == "Coding" else name
-            b = QPushButton(f"{icon}    {display_name}")
+        for name in ("Hub", "Chat", "Medical", "Train", "Web",
+                     "Coding", "Modules", "System", "Memory", "Settings"):
+            b = QPushButton()
             b.setObjectName("nav")
             b.setCheckable(True)
+            b.setMinimumHeight(34)
             b.clicked.connect(lambda checked=False, n=name: self.switch_page(n))
             self.nav_buttons[name] = b
-            v.addWidget(b)
 
-        # Dynamic module tabs live in their own host. This is the missing piece in
-        # V6.6: rebuild_module_ui previously tried to use self.sidebar_layout even
-        # though the layout was never saved on self.
-        self.dynamic_nav_host = QWidget()
-        self.dynamic_nav_layout = QVBoxLayout(self.dynamic_nav_host)
-        self.dynamic_nav_layout.setContentsMargins(0, 0, 0, 0)
-        self.dynamic_nav_layout.setSpacing(6)
-        v.addWidget(self.dynamic_nav_host)
+        # Permanent Home: it cannot be hidden, renamed or moved.
+        v.addWidget(self.nav_buttons["Hub"])
 
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: 0px; }")
+        self.sidebar_nav_host = QWidget()
+        self.sidebar_nav_host.setStyleSheet("background: transparent;")
+        self.sidebar_nav_layout = QVBoxLayout(self.sidebar_nav_host)
+        self.sidebar_nav_layout.setContentsMargins(0, 0, 0, 0)
+        self.sidebar_nav_layout.setSpacing(5)
+        self.sidebar_nav_layout.setAlignment(Qt.AlignTop)
+        scroll.setWidget(self.sidebar_nav_host)
+        v.addWidget(scroll, 1)
+
+        # Preserve the established dynamic module UI hooks, but use the same
+        # reorderable host as the built-in pages.
+        self.dynamic_nav_host = self.sidebar_nav_host
+        self.dynamic_nav_layout = self.sidebar_nav_layout
+
+        self.sidebar_customize_btn = QPushButton("⚙  Customise Sidebar")
+        self.sidebar_customize_btn.setToolTip("Reorder, rename or hide navigation items")
+        self.sidebar_customize_btn.clicked.connect(self.open_sidebar_manager)
+        v.addWidget(self.sidebar_customize_btn)
+
+        # Permanent Settings: it cannot be hidden, renamed or moved.
+        v.addWidget(self.nav_buttons["Settings"])
+        self.sidebar_privacy_label = label("Local. Private. Yours.", 10, "#8cc7be")
+        v.addWidget(self.sidebar_privacy_label)
         self.nav_buttons["Hub"].setChecked(True)
-        v.addStretch()
-        v.addWidget(label("Local. Private.\nYours.", 11, "#8cc7be"))
-        v.addWidget(label("Smarter living.\nHealthier tomorrows.", 9, "#5f918a"))
+        self._refresh_sidebar()
         return side
+
+    def _refresh_sidebar(self):
+        if not hasattr(self, "sidebar_nav_layout"):
+            return
+
+        ordered = self.sidebar_state.ordered(self.nav_buttons.keys())
+        # Remove layout references, not the widgets or their signal connections.
+        while self.sidebar_nav_layout.count():
+            self.sidebar_nav_layout.takeAt(0)
+
+        collapsed = bool(self.sidebar_state.state()["collapsed"])
+        width = 76 if collapsed else self.sidebar_state.state()["width"]
+        self.sidebar_frame.setFixedWidth(width)
+        self.sidebar_logo.setText("△" if collapsed else "△  A P O L L O")
+        self.sidebar_tagline.setVisible(not collapsed)
+        self.sidebar_privacy_label.setVisible(not collapsed)
+        self.sidebar_customize_btn.setText("⚙" if collapsed else "⚙  Customise Sidebar")
+
+        for key in ("Hub", *ordered, "Settings"):
+            button = self.nav_buttons.get(key)
+            if button is None:
+                continue
+            icon = self.sidebar_icons.get(key, "◈")
+            default = self.sidebar_default_labels.get(key, key)
+            title = self.sidebar_state.display_label(key, default)
+            button.setText(icon if collapsed else f"{icon}    {title}")
+            button.setToolTip(title)
+            if key not in ("Hub", "Settings"):
+                self.sidebar_nav_layout.addWidget(button)
+                button.setVisible(self.sidebar_state.is_visible(key))
+            else:
+                button.setVisible(True)
+
+    def open_sidebar_manager(self):
+        """Edit the navigation without modifying, uninstalling or disabling modules."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Apollo Sidebar Manager")
+        dialog.resize(470, 590)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(label(
+            "Drag to reorder. Untick to hide. Home and Settings are locked.",
+            11, "#a5d1c8"
+        ))
+
+        listing = QListWidget()
+        listing.setAlternatingRowColors(True)
+        listing.setDragDropMode(QAbstractItemView.InternalMove)
+        listing.setDefaultDropAction(Qt.MoveAction)
+        for key in self.sidebar_state.ordered(self.nav_buttons.keys()):
+            item = QListWidgetItem(
+                self.sidebar_state.display_label(
+                    key, self.sidebar_default_labels.get(key, key)
+                )
+            )
+            item.setData(Qt.UserRole, key)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.Checked if self.sidebar_state.is_visible(key) else Qt.Unchecked
+            )
+            listing.addItem(item)
+        layout.addWidget(listing, 1)
+
+        rename = QPushButton("Rename selected")
+        def rename_selected():
+            item = listing.currentItem()
+            if item is None:
+                return
+            text, accepted = QInputDialog.getText(
+                dialog, "Rename Shortcut", "Sidebar label:", text=item.text()
+            )
+            if accepted and text.strip():
+                item.setText(" ".join(text.split())[:36])
+        rename.clicked.connect(rename_selected)
+        layout.addWidget(rename)
+
+        width_selector = QComboBox()
+        widths = (180, 220, 260, 300, 360)
+        for width in widths:
+            width_selector.addItem(f"{width} px", width)
+        current_width = self.sidebar_state.state()["width"]
+        if current_width not in widths:
+            width_selector.addItem(f"{current_width} px", current_width)
+        width_selector.setCurrentIndex(width_selector.findData(current_width))
+        layout.addWidget(label("Expanded sidebar width", 10, "#a5d1c8"))
+        layout.addWidget(width_selector)
+
+        collapsed_checkbox = QCheckBox("Collapse sidebar to icons")
+        collapsed_checkbox.setChecked(self.sidebar_state.state()["collapsed"])
+        layout.addWidget(collapsed_checkbox)
+
+        actions = QHBoxLayout()
+        reset_button = QPushButton("Reset to defaults")
+        cancel_button = QPushButton("Cancel")
+        apply_button = QPushButton("Save layout")
+        def reset_layout():
+            self.sidebar_state.reset()
+            self._refresh_sidebar()
+            dialog.accept()
+        def save_layout():
+            order, hidden, labels = [], [], {}
+            for index in range(listing.count()):
+                item = listing.item(index)
+                key = item.data(Qt.UserRole)
+                order.append(key)
+                if item.checkState() != Qt.Checked:
+                    hidden.append(key)
+                labels[key] = item.text()
+            self.sidebar_state.apply(
+                order, hidden, labels,
+                width_selector.currentData(), collapsed_checkbox.isChecked()
+            )
+            self._refresh_sidebar()
+            dialog.accept()
+        reset_button.clicked.connect(reset_layout)
+        cancel_button.clicked.connect(dialog.reject)
+        apply_button.clicked.connect(save_layout)
+        actions.addWidget(reset_button)
+        actions.addStretch()
+        actions.addWidget(cancel_button)
+        actions.addWidget(apply_button)
+        layout.addLayout(actions)
+        dialog.exec()
 
     def _build_topbar(self):
         bar = QWidget()
@@ -2997,7 +3140,6 @@ class ApolloWindow(QMainWindow):
             "When a task spans subsystems, preserve intent in orchestrator goals/shared state and use real capabilities rather than pretending work happened. "
             "High-risk capabilities may be denied until the user enables them in Control Center; report that clearly instead of trying to bypass the gate. "
             "Be useful, technically capable, concise when appropriate, and honest. "
-            "In ordinary conversation Apollo has a dry, intelligent, mildly sarcastic personality: use quick wit, understated teasing, and occasional deadpan observations. Never let sarcasm obscure the answer, become cruel, target vulnerable traits, or interfere with medical or safety guidance, coding accuracy, tool execution, structured data, or other precision-critical work. When the situation is serious, drop the jokes and be direct. "
             "For ordinary conversation, answer the user normally. Never ask the user "
             "to provide a function name, tool name, or JSON arguments unless the user "
             "is explicitly discussing Apollo's tool API. "
@@ -3048,6 +3190,7 @@ class ApolloWindow(QMainWindow):
             "A passing module is STILL NOT INSTALLED: explicit user acceptance from the "
             "Modules page is always required."
         )
+        system += personality_instruction(self.config.get("sarcasm_level", 1))
         if self.pending_learning_events:
             system += (
                 "\n\nApollo's integrated learning layer already completed these "
@@ -3698,6 +3841,7 @@ class ApolloWindow(QMainWindow):
         for module_id, button in list(self.dynamic_sidebar_buttons.items()):
             page_key = f"module::{module_id}"
             self.nav_buttons.pop(page_key, None)
+            self.sidebar_default_labels.pop(page_key, None)
             try:
                 self.dynamic_nav_layout.removeWidget(button)
                 button.deleteLater()
@@ -3896,6 +4040,7 @@ class ApolloWindow(QMainWindow):
                 self.dynamic_nav_layout.addWidget(button)
                 self.dynamic_sidebar_buttons[module_id] = button
                 self.nav_buttons[page_key] = button
+                self.sidebar_default_labels[page_key] = str(module_info.get("title", module_id))
 
             elif placement == "apps":
                 self.apps_host.addWidget(page)
@@ -3946,6 +4091,7 @@ class ApolloWindow(QMainWindow):
 
         if hasattr(self, "hub_apps_layout"):
             self._refresh_hub_tiles()
+        self._refresh_sidebar()
         self._queue_ui_state_save()
 
     def open_selected_app_module(self, item=None):
@@ -5253,7 +5399,6 @@ class ApolloWindow(QMainWindow):
         c.layout.addWidget(self.sys_ollama)
 
         v.addWidget(c)
-        v.addStretch()
         gpu = Card("NVIDIA GPU")
         self.gpu_name_label = label("GPU: checking...", 12, "#dffbf5", True)
         self.gpu_usage_label = label("Usage: —", 10, "#91bdb6")
@@ -5277,9 +5422,90 @@ class ApolloWindow(QMainWindow):
 
         v.addWidget(gpu)
 
+        jobs = Card("Apollo Job History")
+        self.system_job_list = QListWidget()
+        self.system_job_list.setMaximumHeight(130)
+        self.system_job_details = label("Select a job for details.", 10, "#91bdb6")
+        self.system_job_details.setWordWrap(True)
+        jobs.layout.addWidget(self.system_job_list)
+        jobs.layout.addWidget(self.system_job_details)
+        job_actions = QHBoxLayout()
+        refresh_jobs = QPushButton("Refresh Jobs")
+        refresh_jobs.clicked.connect(self.refresh_job_history)
+        stop_voice = QPushButton("Stop Voice Generation")
+        stop_voice.clicked.connect(self.stop_voice_job)
+        job_actions.addWidget(refresh_jobs)
+        job_actions.addWidget(stop_voice)
+        jobs.layout.addLayout(job_actions)
+        self.system_job_list.itemSelectionChanged.connect(self._show_selected_job)
+        v.addWidget(jobs)
+        v.addStretch()
+
+        self.system_jobs_timer = QTimer(self)
+        self.system_jobs_timer.setInterval(4000)
+        self.system_jobs_timer.timeout.connect(self.refresh_job_history)
+        self.system_jobs_timer.start()
+        self.refresh_job_history()
         self.refresh_gpu_status()
 
         return page
+
+    def refresh_job_history(self):
+        if not hasattr(self, "system_job_list"):
+            return
+        chosen = self.system_job_list.currentItem()
+        selected_id = chosen.data(Qt.UserRole)["id"] if chosen is not None else None
+        try:
+            rows = self.runtime.task_history(40)
+        except Exception as exc:
+            self.system_job_details.setText(f"Job history unavailable: {exc}")
+            return
+        self.system_job_list.blockSignals(True)
+        self.system_job_list.clear()
+        for row in rows:
+            item = QListWidgetItem(
+                f"#{row['id']}  [{row['status']}]  {row['capability']}  ({row['actor']})"
+            )
+            item.setData(Qt.UserRole, row)
+            self.system_job_list.addItem(item)
+            if row["id"] == selected_id:
+                self.system_job_list.setCurrentItem(item)
+        self.system_job_list.blockSignals(False)
+        if selected_id is not None:
+            self._show_selected_job()
+        elif not rows:
+            self.system_job_details.setText("No recorded jobs yet.")
+
+    def _show_selected_job(self):
+        selected = self.system_job_list.currentItem()
+        if selected is None:
+            return
+        row = selected.data(Qt.UserRole)
+        self.system_job_details.setText(
+            f"Job #{row['id']}  •  {row['status']}  •  {row['started_at']}\n"
+            + str(row.get("detail") or "No additional details.")[-1800:]
+        )
+
+    def stop_voice_job(self):
+        # ModuleActionTask runs potentially slow subprocess termination off the
+        # Qt UI thread, keeping the Stop control responsive during XTTS shutdown.
+        if getattr(self, "system_voice_stop_task", None) is not None:
+            return
+        self.system_job_details.setText("Requesting voice cancellation...")
+        task = ModuleActionTask(self.module_manager, "text_to_speech", "stop_speaking", {})
+        self.system_voice_stop_task = task
+        task.signals.finished.connect(
+            lambda result: self.system_job_details.setText(
+                "Voice stop request completed: " + str(result)[:300]
+            )
+        )
+        task.signals.failed.connect(
+            lambda error: self.system_job_details.setText("Voice stop failed: " + error)
+        )
+        task.signals.completed.connect(
+            lambda: setattr(self, "system_voice_stop_task", None)
+        )
+        self.thread_pool.start(task)
 
     def _build_memory(self):
         page = QWidget()
@@ -5449,7 +5675,7 @@ class ApolloWindow(QMainWindow):
         )
 
         save = QPushButton(
-            "Save & Switch Model"
+            "Save Settings & Model"
         )
         save.clicked.connect(
             self.save_settings
@@ -5522,6 +5748,24 @@ class ApolloWindow(QMainWindow):
             )
         )
         general_layout.addWidget(routing_card)
+
+        personality_card = Card("Apollo Personality")
+        self.setting_sarcasm_level = QComboBox()
+        for level, (name, _) in LEVELS.items():
+            self.setting_sarcasm_level.addItem(f"{level}: {name}", level)
+        self.setting_sarcasm_level.setCurrentIndex(
+            normalize_sarcasm_level(self.config.get("sarcasm_level", 1))
+        )
+        personality_card.layout.addWidget(label(
+            "Sarcasm: 0 Neutral • 1 Dry • 2 Sharp • 3 Mad Scientist",
+            10, "#9fc8c1"
+        ))
+        personality_card.layout.addWidget(self.setting_sarcasm_level)
+        personality_card.layout.addWidget(label(
+            "Medical, safety and other high-stakes replies always remain serious.",
+            9, "#6da59d"
+        ))
+        general_layout.addWidget(personality_card)
         general_layout.addStretch()
 
         # Patch Notes are file-backed so future releases only need to update
@@ -5604,6 +5848,33 @@ class ApolloWindow(QMainWindow):
             self.settings_apps_tab,
             "Apps",
         )
+
+        # Same Sidebar Manager as the sidebar shortcut; no duplicate settings.
+        self.settings_sidebar_tab = QWidget()
+        sidebar_settings = QVBoxLayout(self.settings_sidebar_tab)
+        sidebar_settings.addWidget(label(
+            "Choose which built-in pages and installed module shortcuts appear, "
+            "change their order and labels, or collapse the sidebar to icons.",
+            11, "#a5d1c8"
+        ))
+        sidebar_settings_btn = QPushButton("Open Sidebar Manager")
+        sidebar_settings_btn.clicked.connect(self.open_sidebar_manager)
+        sidebar_settings.addWidget(sidebar_settings_btn)
+        sidebar_settings.addStretch()
+        self.settings_tabs.addTab(self.settings_sidebar_tab, "Sidebar")
+
+        self.settings_updates_tab = QWidget()
+        updates_layout = QVBoxLayout(self.settings_updates_tab)
+        updates_layout.addWidget(label(
+            "Apollo can check GitHub Releases, download verified signed code updates, "
+            "install them with a recovery backup and restart automatically.",
+            11, "#a5d1c8"
+        ))
+        open_updates = QPushButton("Open Update Centre")
+        open_updates.clicked.connect(lambda: self.open_module_app("update_manager"))
+        updates_layout.addWidget(open_updates)
+        updates_layout.addStretch()
+        self.settings_tabs.addTab(self.settings_updates_tab, "Updates")
 
         self.settings_tabs.currentChanged.connect(
             self._settings_tab_changed
@@ -5862,14 +6133,11 @@ class ApolloWindow(QMainWindow):
         self.config["auto_model_routing"] = bool(
             self.setting_auto_model_routing.isChecked()
         )
-
-        (BASE_DIR / "config.json").write_text(
-            json.dumps(
-                self.config,
-                indent=2,
-            ),
-            encoding="utf-8",
+        self.config["sarcasm_level"] = normalize_sarcasm_level(
+            self.setting_sarcasm_level.currentData()
         )
+
+        APOLLO_CONFIG.save_user(self.config)
 
         # Hot-swap the client used by new ChatTask instances.
         self.client = OllamaClient(

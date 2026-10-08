@@ -1,0 +1,13 @@
+{
+  "id": "coding_team",
+  "name": "Apollo Coding Team",
+  "version": "0.1.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Staged human-approved multi-role coding workflow: assignments, evidence review, role turns and explicit release approval. Does not execute code or modify core files.",
+  "ui": {
+    "enabled": true,
+    "title": "Coding Team",
+    "default_placement": "apps"
+  }
+}

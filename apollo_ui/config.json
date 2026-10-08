@@ -7,5 +7,5 @@
   "num_ctx": 8192,
   "database": "apollo_memory.db",
   "auto_model_routing": false,
-  "version": "7.5.12.14"
+  "version": "7.5.13.0"
 }

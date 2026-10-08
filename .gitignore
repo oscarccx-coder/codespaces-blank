@@ -21,3 +21,17 @@ venv/
 *.gguf
 *.safetensors
 *.bin
+
+# Apollo workstation private data - do not add new user recordings/state
+# NOTE: .gitignore does not untrack previously committed files.
+apollo_ui/storage/
+apollo_ui/Audio/
+apollo_ui/workspace/
+apollo_ui/config.local.json
+apollo_ui/*.log
+apollo_ui/*.db
+apollo_ui/*.sqlite
+apollo_ui/*.sqlite3
+
+# Locally installed XTTS weights live here or in %LOCALAPPDATA%; never commit.
+apollo_ui/models/**

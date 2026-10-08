@@ -92,6 +92,8 @@ class Module:
              "parameters":{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer"}},"required":["query"]}},
             {"name":"list_memories","description":"List recent named memories.",
              "parameters":{"type":"object","properties":{"limit":{"type":"integer"},"memory_type":{"type":"string"}}}},
+            {"name":"update_memory","description":"Correct content of a named memory by numeric ID.",
+             "parameters":{"type":"object","properties":{"id":{"type":"integer"},"content":{"type":"string"}},"required":["id","content"]}},
             {"name":"remove_memory","description":"Remove a Memory Bank entry by id or exact name.",
              "parameters":{"type":"object","properties":{"memory":{"type":"string"}},"required":["memory"]}},
             {"name":"memory_bank_stats","description":"Return Memory Bank statistics.",
@@ -251,6 +253,33 @@ class Module:
                     ORDER BY updated_at DESC,id DESC LIMIT ?""",(limit,)).fetchall()
         return [self._row(r) for r in rows]
 
+    def update_memory(self, memory_id, content):
+        """Correct one stored fact without accidentally replacing another record."""
+        try: memory_id = int(memory_id)
+        except (ValueError, TypeError): raise ValueError("Memory ID must be a number.")
+        content = str(content or "").strip()
+        if not content: raise ValueError("Memory content cannot be empty.")
+        with self._lock:
+            row = self.conn.execute(
+                "SELECT * FROM memories WHERE id=?", (memory_id,)
+            ).fetchone()
+            if row is None: raise KeyError(f"Memory ID {memory_id} was not found.")
+            digest = hashlib.sha256(
+                (row["source"] + "\n" + row["source_ref"] + "\n" + content
+                ).encode("utf-8", "replace")
+            ).hexdigest()
+            conflict = self.conn.execute(
+                "SELECT id FROM memories WHERE content_hash=? AND id<>?",
+                (digest, memory_id)
+            ).fetchone()
+            if conflict: raise ValueError("An identical memory already exists.")
+            self.conn.execute(
+                "UPDATE memories SET content=?, content_hash=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (content, digest, memory_id)
+            )
+            self.conn.commit()
+            return {"updated": True, "id": memory_id, "name": row["name"]}
+
     def remove_memory(self, memory):
         value = str(memory or "").strip()
         if not value: raise ValueError("memory cannot be empty.")
@@ -309,14 +338,14 @@ class Module:
 
     def build_ui(self, parent=None, ui_context=None):
         from PySide6.QtCore import Qt
-        from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QPushButton,QListWidget,QListWidgetItem,QTextBrowser,QMessageBox
+        from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QPushButton,QListWidget,QListWidgetItem,QTextBrowser,QMessageBox,QInputDialog
         page = QWidget(parent); layout = QVBoxLayout(page)
         title = QLabel("Memory Bank"); title.setStyleSheet("font-size:22px;font-weight:700;color:#e7fffb;")
         layout.addWidget(title)
         subtitle = QLabel("Named, dated memories Apollo has deliberately kept."); subtitle.setStyleSheet("color:#91bdb6;"); layout.addWidget(subtitle)
         row = QHBoxLayout(); search = QLineEdit(); search.setPlaceholderText("Search memories...")
-        search_btn = QPushButton("Search"); recent_btn = QPushButton("Recent"); remove_btn = QPushButton("Remove Selected")
-        row.addWidget(search,1); row.addWidget(search_btn); row.addWidget(recent_btn); row.addWidget(remove_btn); layout.addLayout(row)
+        search_btn = QPushButton("Search"); recent_btn = QPushButton("Recent"); edit_btn = QPushButton("Edit Selected"); remove_btn = QPushButton("Remove Selected")
+        row.addWidget(search,1); row.addWidget(search_btn); row.addWidget(recent_btn); row.addWidget(edit_btn); row.addWidget(remove_btn); layout.addLayout(row)
         lst = QListWidget(); details = QTextBrowser(); layout.addWidget(lst,1); layout.addWidget(details,1)
         state={"rows":[]}
         def display(rows):
@@ -336,12 +365,25 @@ class Module:
             r=next((x for x in state["rows"] if x["id"]==ident),None)
             if r:
                 details.setPlainText(f"Name: {r['name']}\nType: {r['memory_type']}\nLearned: {r['learned_at']}\nUpdated: {r['updated_at']}\nSource: {r['source']}\nSource reference: {r['source_ref']}\nTags: {', '.join(r['tags'])}\nImportance: {r['importance']}\n\nSummary:\n{r['summary']}\n\nMemory:\n{r['content']}")
+        def edit():
+            sel=lst.selectedItems()
+            if not sel: return
+            ident=sel[0].data(Qt.UserRole)
+            row_data=next((r for r in state["rows"] if r["id"]==ident),None)
+            if row_data is None: return
+            changed, ok=QInputDialog.getMultiLineText(page, "Correct Memory", "Memory content:", row_data["content"])
+            if not ok or changed.strip()==row_data["content"].strip(): return
+            try:
+                self.update_memory(ident,changed)
+                recent()
+            except (ValueError, KeyError) as exc:
+                QMessageBox.warning(page, "Memory correction failed", str(exc))
         def remove():
             sel=lst.selectedItems()
             if not sel: return
             if QMessageBox.question(page,"Remove Memory","Remove the selected memory?",QMessageBox.Yes|QMessageBox.No,QMessageBox.No)==QMessageBox.Yes:
                 self.remove_memory(str(sel[0].data(Qt.UserRole))); recent()
-        search_btn.clicked.connect(do_search); recent_btn.clicked.connect(recent); remove_btn.clicked.connect(remove)
+        search_btn.clicked.connect(do_search); recent_btn.clicked.connect(recent); edit_btn.clicked.connect(edit); remove_btn.clicked.connect(remove)
         search.returnPressed.connect(do_search); lst.itemSelectionChanged.connect(show); recent()
         return page
 
@@ -375,6 +417,7 @@ class Module:
                 arguments.get("tags",[]),arguments.get("importance",1.0))
         if action=="search_memory_bank": return self.search_memory(arguments.get("query"),arguments.get("limit",5))
         if action=="list_memories": return self.list_memories(arguments.get("limit",20),arguments.get("memory_type",""))
+        if action=="update_memory": return self.update_memory(arguments.get("id"),arguments.get("content"))
         if action=="remove_memory": return self.remove_memory(arguments.get("memory"))
         if action=="memory_bank_stats": return self.stats()
         raise KeyError(action)
