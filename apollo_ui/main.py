@@ -5863,6 +5863,19 @@ class ApolloWindow(QMainWindow):
         sidebar_settings.addStretch()
         self.settings_tabs.addTab(self.settings_sidebar_tab, "Sidebar")
 
+        self.settings_updates_tab = QWidget()
+        updates_layout = QVBoxLayout(self.settings_updates_tab)
+        updates_layout.addWidget(label(
+            "Apollo can check GitHub Releases, download verified signed code updates, "
+            "install them with a recovery backup and restart automatically.",
+            11, "#a5d1c8"
+        ))
+        open_updates = QPushButton("Open Update Centre")
+        open_updates.clicked.connect(lambda: self.open_module_app("update_manager"))
+        updates_layout.addWidget(open_updates)
+        updates_layout.addStretch()
+        self.settings_tabs.addTab(self.settings_updates_tab, "Updates")
+
         self.settings_tabs.currentChanged.connect(
             self._settings_tab_changed
         )
