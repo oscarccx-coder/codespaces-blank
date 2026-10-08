@@ -17,11 +17,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
       - name: Install signed updater test dependency
         run: python -m pip install cryptography
+      - name: Reject newly tracked private runtime files
+        run: python apollo_ui/tools/audit_repository.py --check-new --base origin/main
       - name: Validate source syntax and module manifests
         working-directory: apollo_ui
         run: python apollo_health_check.py --root .
