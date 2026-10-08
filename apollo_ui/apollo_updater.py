@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from datetime import datetime
 import argparse
 import json
@@ -12,7 +12,7 @@ from apollo_storage import StorageLayout
 from apollo_update import sha256_file, verify_manifest_signature
 
 
-PROTECTED_TOP_LEVEL = {"storage", "workspace", "pending_modules", "config.json"}
+PROTECTED_TOP_LEVEL = {"storage", "workspace", "pending_modules", "config.json", "Audio", "models", "venv", ".venv", ".git"}
 
 
 def wait_for_pid(pid, timeout=90):
@@ -29,12 +29,61 @@ def wait_for_pid(pid, timeout=90):
 
 
 def safe_relative(value):
-    rel = Path(str(value).replace("\\", "/"))
-    if rel.is_absolute() or ".." in rel.parts or not rel.parts:
+    """Reject traversal and Windows device/drive paths on every host platform."""
+    if not isinstance(value, str) or not value.strip() or "\\x00" in value:
+        raise ValueError("Unsafe empty or binary update path")
+    value = value.replace("\\\\", "/").replace("\\", "/")
+    windows = PureWindowsPath(value)
+    if value.startswith("/") or windows.drive or windows.root or value.endswith("/"):
         raise ValueError(f"Unsafe update path: {value}")
-    if rel.parts[0] in PROTECTED_TOP_LEVEL:
+    parts = value.split("/")
+    reserved = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+    if any(not p or p in {".", ".."} or ":" in p or p.endswith((" ", ".")) or p.split(".")[0].upper() in reserved for p in parts):
+        raise ValueError(f"Unsafe update path: {value}")
+    if parts[0].casefold() in {p.casefold() for p in PROTECTED_TOP_LEVEL}:
         raise ValueError(f"Protected update path: {value}")
-    return rel
+    return Path(*parts)
+
+
+def ensure_inside(root, rel):
+    """Also reject symlinked directories that escape the signed update root."""
+    root = Path(root).resolve()
+    candidate = (root / rel).resolve()
+    if not candidate.is_relative_to(root):
+        raise ValueError(f"Update path escapes expected directory: {rel}")
+    return candidate
+
+
+def preflight_manifest(stage, target, manifest):
+    """Validate all signed entries and staged hashes BEFORE touching live files."""
+    if not isinstance(manifest.get("files"), list) or not isinstance(manifest.get("remove", []), list):
+        raise ValueError("Malformed update manifest lists")
+    checked, paths = [], set()
+    for entry in manifest["files"]:
+        if not isinstance(entry, dict):
+            raise ValueError("Malformed update entry")
+        rel = safe_relative(entry.get("path"))
+        key = str(rel).casefold()
+        if key in paths:
+            raise ValueError(f"Duplicate update path: {rel}")
+        paths.add(key)
+        source = ensure_inside(Path(stage) / "payload", rel)
+        dest = ensure_inside(target, rel)
+        if not source.is_file() or dest.is_dir():
+            raise ValueError(f"Missing or invalid staged file: {rel}")
+        if sha256_file(source) != str(entry.get("sha256")):
+            raise ValueError(f"Staged hash mismatch: {rel}")
+        checked.append((rel, source))
+    removed = []
+    for value in manifest.get("remove", []):
+        rel = safe_relative(value)
+        key = str(rel).casefold()
+        if key in paths:
+            raise ValueError(f"Conflicting update/remove path: {rel}")
+        paths.add(key)
+        ensure_inside(target, rel)
+        removed.append(rel)
+    return checked, removed
 
 
 def apply_update(target, stage, restart=False, wait_pid=None):
@@ -47,6 +96,12 @@ def apply_update(target, stage, restart=False, wait_pid=None):
     ok, detail = verify_manifest_signature(manifest, public_key)
     if not ok:
         return {"ok": False, "stage": "signature", "error": detail}
+
+    # Validate all files before creating a backup or changing a single byte.
+    try:
+        update_files, remove_files = preflight_manifest(stage, target, manifest)
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "stage": "preflight", "error": str(exc)}
 
     if wait_pid and not wait_for_pid(wait_pid):
         return {"ok": False, "stage": "wait", "error": "Apollo did not exit before updater timeout."}
@@ -72,11 +127,7 @@ def apply_update(target, stage, restart=False, wait_pid=None):
         transaction["replaced"].append(str(rel).replace("\\", "/"))
 
     try:
-        for item in manifest.get("files", []):
-            rel = safe_relative(item.get("path"))
-            source = stage / "payload" / rel
-            if sha256_file(source) != str(item.get("sha256")):
-                raise ValueError(f"Staged hash mismatch: {rel}")
+        for rel, source in update_files:
             backup_existing(rel)
             destination = target / rel
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -84,8 +135,7 @@ def apply_update(target, stage, restart=False, wait_pid=None):
             shutil.copy2(source, temp)
             os.replace(temp, destination)
 
-        for item in manifest.get("remove", []):
-            rel = safe_relative(item)
+        for rel in remove_files:
             destination = target / rel
             if destination.exists() and destination.is_file():
                 backup_existing(rel)
@@ -118,29 +168,36 @@ def apply_update(target, stage, restart=False, wait_pid=None):
         return {"ok": True, "version": version, "backup": str(backup)}
 
     except Exception as exc:
+        rollback_errors = []
         for rel_text in transaction["created"]:
             path = target / Path(rel_text)
             try:
                 if path.exists() and path.is_file():
                     path.unlink()
-            except Exception:
-                pass
+            except Exception as rollback_exc:
+                rollback_errors.append(str(rollback_exc))
         for rel_text in transaction["replaced"]:
             rel = Path(rel_text)
             source = backup / "files" / rel
             destination = target / rel
             if source.exists():
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, destination)
+                try:
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, destination)
+                except OSError as rollback_exc:
+                    rollback_errors.append(str(rollback_exc))
         if (backup / "config.json").exists():
-            shutil.copy2(backup / "config.json", config_path)
+            try:
+                shutil.copy2(backup / "config.json", config_path)
+            except OSError as rollback_exc:
+                rollback_errors.append(str(rollback_exc))
         log_dir = storage.updates / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         (log_dir / f"rollback-{version}-{stamp}.json").write_text(json.dumps({
             "ok": False, "error": f"{type(exc).__name__}: {exc}",
             "transaction": transaction, "backup": str(backup),
         }, indent=2) + "\n", encoding="utf-8")
-        return {"ok": False, "stage": "rollback", "error": f"{type(exc).__name__}: {exc}", "restored": True}
+        return {"ok": False, "stage": "rollback", "error": f"{type(exc).__name__}: {exc}", "restored": not rollback_errors, "rollback_errors": rollback_errors}
 
 
 if __name__ == "__main__":
