@@ -30,7 +30,7 @@ def wait_for_pid(pid, timeout=90):
 
 def safe_relative(value):
     """Reject traversal and Windows device/drive paths on every host platform."""
-    if not isinstance(value, str) or not value.strip() or "\\x00" in value:
+    if not isinstance(value, str) or not value.strip() or chr(0) in value:
         raise ValueError("Unsafe empty or binary update path")
     value = value.replace("\\\\", "/").replace("\\", "/")
     windows = PureWindowsPath(value)
