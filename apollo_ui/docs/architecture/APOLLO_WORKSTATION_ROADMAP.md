@@ -35,6 +35,12 @@ Acceptance:
 - Settings should eventually expose the same sidebar editor rather than duplicating its state.
 - Later enhancement: user-created groups/folders, keyboard-accessible ordering, optional right-hand sidebar, and fully configurable icon mapping.
 
+## P0.5 - Repository privacy and reproducible releases
+
+The repository is currently public and previously tracked audio, voice training data and runtime storage remain in the repository and Git history. Additional ignore rules prevent newly created local media/storage from being accidentally added, but DO NOT remove historical tracked content. Before a public release, audit the tracked tree/history for sensitive recordings, personal health data, device metadata, secrets and large generated assets. Plan removals and any destructive history rewrite separately with user approval. A gitignore change alone is insufficient.
+
+Shift any required baseline storage to sanitised seed/migration files. Keep tests on synthetic samples rather than real user voice/profile data. Include an explicit release preflight that fails if new runtime media, databases, keys or private state are tracked. If history is rewritten, coordinate backup, revocation/rotation, collaborator clones and force-push approval first.
+
 ## P1 - Voice stability and personality
 
 Existing relevant files: modules/voice_imprint_trainer, workers.py, XTTS_RUNTIME.md, runtime config.
