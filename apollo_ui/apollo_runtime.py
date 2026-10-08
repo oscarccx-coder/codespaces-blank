@@ -409,20 +409,25 @@ class ApolloRuntime:
         target_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         target = target_dir / f"apollo_{stamp}_{safe}.zip"
-        include = [
-            "main.py", "workers.py", "module_manager.py", "module_repair_engine.py",
-            "module_validator.py", "ollama_client.py", "memory.py", "apollo_runtime.py",
-            "config.json", "modules_state.json", "requirements.txt", "README.md",
-        ]
+        # Capture the actual executable code, including newly introduced core
+        # helpers. A fixed list silently omits new files after a refactor.
+        allowed_root_suffixes = {".py", ".pyw", ".json", ".txt", ".md", ".bat", ".ps1", ".spec"}
+        allowed_module_suffixes = {".py", ".json", ".txt", ".md", ".bat", ".ps1"}
         with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as zf:
-            for rel in include:
-                path = self.base_dir / rel
-                if path.is_file():
-                    zf.write(path, arcname=rel)
-            modules = self.base_dir / "modules"
-            if modules.exists():
-                for path in modules.rglob("*"):
-                    if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc":
+            for path in sorted(self.base_dir.iterdir()):
+                if path.is_file() and path.suffix.lower() in allowed_root_suffixes:
+                    if path.stat().st_size <= 20 * 1024 * 1024:
+                        zf.write(path, arcname=path.name)
+            for folder_name in ("modules", "pending_modules"):
+                folder = self.base_dir / folder_name
+                if not folder.exists():
+                    continue
+                for path in sorted(folder.rglob("*")):
+                    if (path.is_file()
+                        and not path.is_symlink()
+                        and "__pycache__" not in path.parts
+                        and path.suffix.lower() in allowed_module_suffixes
+                        and path.stat().st_size <= 20 * 1024 * 1024):
                         zf.write(path, arcname=str(path.relative_to(self.base_dir)))
         self.publish("recovery.snapshot", "runtime", {"file": str(target)})
         return str(target)
