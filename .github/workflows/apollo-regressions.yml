@@ -1,0 +1,38 @@
+name: Apollo regression checks
+
+on:
+  push:
+    branches: ["feature/**", "main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  python-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install signed updater test dependency
+        run: python -m pip install cryptography
+      - name: Validate source syntax and module manifests
+        working-directory: apollo_ui
+        run: python apollo_health_check.py --root .
+      - name: Run custom sidebar, voice and updater regression suite
+        working-directory: apollo_ui
+        run: python -m unittest -v test_sidebar_layout test_sidebar_gui_wiring test_voice_queue_state test_update_preflight
+      - name: Run existing shell and module manager tests
+        working-directory: apollo_ui
+        run: |
+          python test_apollo_shell.py
+          python test_module_manager_surfaces.py
+      - name: Test signed update rollback
+        working-directory: apollo_ui
+        run: python test_update_system.py
