@@ -16,14 +16,31 @@ PROTECTED_TOP_LEVEL = {"storage", "workspace", "pending_modules", "config.json",
 
 
 def wait_for_pid(pid, timeout=90):
+    """Wait for Apollo to close before replacing files locked by Windows."""
     if not pid:
         return True
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    if os.name == "nt":
+        # psutil can wait on another process, not just a child. Apollo ships
+        # psutil already; do not treat Windows AccessDenied as 'has exited'.
+        try:
+            import psutil
+            try:
+                psutil.Process(int(pid)).wait(timeout=timeout)
+                return True
+            except psutil.NoSuchProcess:
+                return True
+            except (psutil.TimeoutExpired, psutil.AccessDenied):
+                return False
+        except ImportError:
+            pass
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         try:
             os.kill(int(pid), 0)
-        except OSError:
+        except ProcessLookupError:
             return True
+        except PermissionError:
+            return False
         time.sleep(0.25)
     return False
 
