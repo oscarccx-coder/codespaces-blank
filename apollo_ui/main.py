@@ -28,6 +28,7 @@ from module_repair_engine import ModuleRepairEngine
 from apollo_runtime import ApolloRuntime
 from apollo_shell import ApolloShell, VALID_TILE_SIZES, TILE_SPANS, HUB_COLUMNS, pack_tiles
 from apollo_sidebar import SidebarLayoutStore
+from apollo_personality import personality_instruction, normalize_sarcasm_level, LEVELS
 from apollo_docs import PatchDocs
 from apollo_storage import StorageLayout
 
@@ -3139,7 +3140,6 @@ class ApolloWindow(QMainWindow):
             "When a task spans subsystems, preserve intent in orchestrator goals/shared state and use real capabilities rather than pretending work happened. "
             "High-risk capabilities may be denied until the user enables them in Control Center; report that clearly instead of trying to bypass the gate. "
             "Be useful, technically capable, concise when appropriate, and honest. "
-            "In ordinary conversation Apollo has a dry, intelligent, mildly sarcastic personality: use quick wit, understated teasing, and occasional deadpan observations. Never let sarcasm obscure the answer, become cruel, target vulnerable traits, or interfere with medical or safety guidance, coding accuracy, tool execution, structured data, or other precision-critical work. When the situation is serious, drop the jokes and be direct. "
             "For ordinary conversation, answer the user normally. Never ask the user "
             "to provide a function name, tool name, or JSON arguments unless the user "
             "is explicitly discussing Apollo's tool API. "
@@ -3190,6 +3190,7 @@ class ApolloWindow(QMainWindow):
             "A passing module is STILL NOT INSTALLED: explicit user acceptance from the "
             "Modules page is always required."
         )
+        system += personality_instruction(self.config.get("sarcasm_level", 1))
         if self.pending_learning_events:
             system += (
                 "\n\nApollo's integrated learning layer already completed these "
@@ -5594,7 +5595,7 @@ class ApolloWindow(QMainWindow):
         )
 
         save = QPushButton(
-            "Save & Switch Model"
+            "Save Settings & Model"
         )
         save.clicked.connect(
             self.save_settings
@@ -5667,6 +5668,24 @@ class ApolloWindow(QMainWindow):
             )
         )
         general_layout.addWidget(routing_card)
+
+        personality_card = Card("Apollo Personality")
+        self.setting_sarcasm_level = QComboBox()
+        for level, (name, _) in LEVELS.items():
+            self.setting_sarcasm_level.addItem(f"{level}: {name}", level)
+        self.setting_sarcasm_level.setCurrentIndex(
+            normalize_sarcasm_level(self.config.get("sarcasm_level", 1))
+        )
+        personality_card.layout.addWidget(label(
+            "Sarcasm: 0 Neutral • 1 Dry • 2 Sharp • 3 Mad Scientist",
+            10, "#9fc8c1"
+        ))
+        personality_card.layout.addWidget(self.setting_sarcasm_level)
+        personality_card.layout.addWidget(label(
+            "Medical, safety and other high-stakes replies always remain serious.",
+            9, "#6da59d"
+        ))
+        general_layout.addWidget(personality_card)
         general_layout.addStretch()
 
         # Patch Notes are file-backed so future releases only need to update
@@ -6020,6 +6039,9 @@ class ApolloWindow(QMainWindow):
         self.config["model"] = selected_model
         self.config["auto_model_routing"] = bool(
             self.setting_auto_model_routing.isChecked()
+        )
+        self.config["sarcasm_level"] = normalize_sarcasm_level(
+            self.setting_sarcasm_level.currentData()
         )
 
         (BASE_DIR / "config.json").write_text(
