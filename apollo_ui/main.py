@@ -5399,7 +5399,6 @@ class ApolloWindow(QMainWindow):
         c.layout.addWidget(self.sys_ollama)
 
         v.addWidget(c)
-        v.addStretch()
         gpu = Card("NVIDIA GPU")
         self.gpu_name_label = label("GPU: checking...", 12, "#dffbf5", True)
         self.gpu_usage_label = label("Usage: —", 10, "#91bdb6")
@@ -5423,9 +5422,79 @@ class ApolloWindow(QMainWindow):
 
         v.addWidget(gpu)
 
+        jobs = Card("Apollo Job History")
+        self.system_job_list = QListWidget()
+        self.system_job_list.setMaximumHeight(130)
+        self.system_job_details = label("Select a job for details.", 10, "#91bdb6")
+        self.system_job_details.setWordWrap(True)
+        jobs.layout.addWidget(self.system_job_list)
+        jobs.layout.addWidget(self.system_job_details)
+        job_actions = QHBoxLayout()
+        refresh_jobs = QPushButton("Refresh Jobs")
+        refresh_jobs.clicked.connect(self.refresh_job_history)
+        stop_voice = QPushButton("Stop Voice Generation")
+        stop_voice.clicked.connect(self.stop_voice_job)
+        job_actions.addWidget(refresh_jobs)
+        job_actions.addWidget(stop_voice)
+        jobs.layout.addLayout(job_actions)
+        self.system_job_list.itemSelectionChanged.connect(self._show_selected_job)
+        v.addWidget(jobs)
+        v.addStretch()
+
+        self.system_jobs_timer = QTimer(self)
+        self.system_jobs_timer.setInterval(4000)
+        self.system_jobs_timer.timeout.connect(self.refresh_job_history)
+        self.system_jobs_timer.start()
+        self.refresh_job_history()
         self.refresh_gpu_status()
 
         return page
+
+    def refresh_job_history(self):
+        if not hasattr(self, "system_job_list"):
+            return
+        chosen = self.system_job_list.currentItem()
+        selected_id = chosen.data(Qt.UserRole)["id"] if chosen is not None else None
+        try:
+            rows = self.runtime.task_history(40)
+        except Exception as exc:
+            self.system_job_details.setText(f"Job history unavailable: {exc}")
+            return
+        self.system_job_list.blockSignals(True)
+        self.system_job_list.clear()
+        for row in rows:
+            item = QListWidgetItem(
+                f"#{row['id']}  [{row['status']}]  {row['capability']}  ({row['actor']})"
+            )
+            item.setData(Qt.UserRole, row)
+            self.system_job_list.addItem(item)
+            if row["id"] == selected_id:
+                self.system_job_list.setCurrentItem(item)
+        self.system_job_list.blockSignals(False)
+        if selected_id is not None:
+            self._show_selected_job()
+        elif not rows:
+            self.system_job_details.setText("No recorded jobs yet.")
+
+    def _show_selected_job(self):
+        selected = self.system_job_list.currentItem()
+        if selected is None:
+            return
+        row = selected.data(Qt.UserRole)
+        self.system_job_details.setText(
+            f"Job #{row['id']}  •  {row['status']}  •  {row['started_at']}\n"
+            + str(row.get("detail") or "No additional details.")[-1800:]
+        )
+
+    def stop_voice_job(self):
+        try:
+            result = self.module_manager.execute("text_to_speech", "stop_speaking", {})
+            self.system_job_details.setText(
+                "Stop requested for voice playback/generation. " + str(result)[:300]
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, "Apollo Voice", f"Could not stop voice: {exc}")
+        self.refresh_job_history()
 
     def _build_memory(self):
         page = QWidget()
