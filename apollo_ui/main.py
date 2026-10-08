@@ -29,11 +29,13 @@ from apollo_runtime import ApolloRuntime
 from apollo_shell import ApolloShell, VALID_TILE_SIZES, TILE_SPANS, HUB_COLUMNS, pack_tiles
 from apollo_sidebar import SidebarLayoutStore
 from apollo_personality import personality_instruction, normalize_sarcasm_level, LEVELS
+from apollo_config import ApolloConfigStore
 from apollo_docs import PatchDocs
 from apollo_storage import StorageLayout
 
 
 BASE_DIR = Path(__file__).resolve().parent
+APOLLO_CONFIG = ApolloConfigStore(BASE_DIR)
 STORAGE = StorageLayout(BASE_DIR)
 STORAGE.ensure_layout()
 PATCH_DOCS = PatchDocs(BASE_DIR)
@@ -556,9 +558,7 @@ class ApolloWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.config = json.loads(
-            (BASE_DIR / "config.json").read_text(encoding="utf-8")
-        )
+        self.config = APOLLO_CONFIG.load()
 
         self.memory = MemoryStore(STORAGE.database(self.config["database"]))
         self.client = OllamaClient(
@@ -6124,13 +6124,7 @@ class ApolloWindow(QMainWindow):
             self.setting_sarcasm_level.currentData()
         )
 
-        (BASE_DIR / "config.json").write_text(
-            json.dumps(
-                self.config,
-                indent=2,
-            ),
-            encoding="utf-8",
-        )
+        APOLLO_CONFIG.save_user(self.config)
 
         # Hot-swap the client used by new ChatTask instances.
         self.client = OllamaClient(
