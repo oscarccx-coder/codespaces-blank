@@ -1,0 +1,21 @@
+Apollo XTTS v2 drop-in model folder
+
+Place an existing complete XTTS v2 model here to share it across Apollo:
+  apollo_ui/models/voice/xtts_v2/
+
+Required files:
+  config.json
+  model.pth
+  vocab.json
+
+Other files distributed with XTTS can remain beside them.
+
+Apollo will use this folder automatically when it contains a complete model.
+Alternatively keep the already-installed shared copy in:
+  %LOCALAPPDATA%\Apollo\models\voice\xtts_v2
+
+The Voice Lab folder picker can point to a model anywhere (including F:\Apollo\models).
+Apollo remembers that path in storage/state/xtts_model_path.json.
+
+Do NOT commit trained voice samples, model weights or credentials to GitHub.
+Signed Apollo code updates never replace or download this directory.
