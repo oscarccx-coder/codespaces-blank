@@ -2,7 +2,7 @@ name: Apollo regression checks
 
 on:
   push:
-    branches: ["feature/**", "main"]
+    branches: ["main"]
   pull_request:
     branches: ["main"]
 
