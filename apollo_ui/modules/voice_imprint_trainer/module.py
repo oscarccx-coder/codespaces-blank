@@ -12,6 +12,7 @@ import uuid
 import wave
 from datetime import datetime
 from pathlib import Path
+from apollo_xtts_paths import chosen_xtts_folder, save_xtts_folder
 
 import numpy as np
 
@@ -461,11 +462,9 @@ class Module:
         if not isinstance(data, dict):
             data = {}
         data.setdefault("backend", "disabled")
-        if sys.platform == "win32" and os.environ.get("LOCALAPPDATA"):
-            default_xtts = Path(os.environ["LOCALAPPDATA"]) / "Apollo" / "models" / "voice" / "xtts_v2"
-        else:
-            default_xtts = self.base / "storage" / "models" / "voice" / "xtts_v2"
-        data.setdefault("model_dir", str(default_xtts))
+        # A complete drop-in model or a saved user preference wins; legacy
+        # settings are honoured if they still point to an installed model.
+        data["model_dir"] = str(chosen_xtts_folder(self.base, data.get("model_dir")))
         data.setdefault("language", "en")
         data.setdefault("device", "auto")
         data.setdefault("process_isolation", True)
@@ -2448,7 +2447,7 @@ class Module:
             settings = self._settings()
             settings["backend"] = backend
             if x.get("model_dir"):
-                settings["model_dir"] = str(Path(str(x["model_dir"])).expanduser())
+                settings["model_dir"] = save_xtts_folder(self.base, x["model_dir"])
             if x.get("language"):
                 settings["language"] = str(x["language"])
             if x.get("device"):
