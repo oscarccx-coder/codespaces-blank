@@ -14,7 +14,8 @@ from apollo_update import canonical_manifest_bytes
 EXCLUDED_TOP_LEVEL = {
     "storage", "workspace", "pending_modules", "config.json",
     "ui_state.json", "modules_state.json", "apollo_memory.db",
-    "apollo_error.log", "releases",
+    "apollo_error.log", "releases", "Audio", "models", ".git",
+    ".venv", "venv", ".pytest_cache", "build", "dist",
 }
 
 
@@ -49,7 +50,7 @@ def ensure_signing_key(source):
 
 def iter_release_files(source):
     for path in sorted(source.rglob("*")):
-        if not path.is_file() or "__pycache__" in path.parts or path.suffix == ".pyc":
+        if path.is_symlink() or not path.is_file() or "__pycache__" in path.parts or path.suffix == ".pyc":
             continue
         rel = path.relative_to(source)
         if rel.parts and rel.parts[0] in EXCLUDED_TOP_LEVEL:
