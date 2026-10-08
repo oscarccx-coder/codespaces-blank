@@ -25,6 +25,10 @@ Review: GitHub pull request #5 (draft; not deployed to main)
 - Setting stored in the existing protected local `config.json`; prompt style adapts on the next reply.
 - Safety, medical and other high-stakes responses stay serious regardless of setting.
 
+**Local settings and Git updates**
+- New `apollo_config.py`: editable model/routing/sarcasm settings live in protected `storage/state/user_config.json`; tracked `config.json` stays the release baseline.
+- Older installations that already modified tracked `config.json` may require one-time careful migration and must not blindly discard their changes.
+
 **Memory**
 - Memory Bank supports user-edited corrections by stable record ID and a visible "Edit Selected" control.
 - Keeps source, other records and timestamp metadata intact; rejects identical-record collisions.
