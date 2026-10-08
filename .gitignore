@@ -32,3 +32,6 @@ apollo_ui/*.log
 apollo_ui/*.db
 apollo_ui/*.sqlite
 apollo_ui/*.sqlite3
+
+# Locally installed XTTS weights live here or in %LOCALAPPDATA%; never commit.
+apollo_ui/models/**
