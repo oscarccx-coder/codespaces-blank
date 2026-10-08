@@ -208,6 +208,10 @@ def main():
 
         env = dict(os.environ)
         env["APOLLO_BASE_DIR"] = base_dir
+        # Module tests run from their own folder; expose trusted Apollo core
+        # helpers such as apollo_update and apollo_xtts_paths to that subprocess.
+        core_root = str(Path(__file__).resolve().parent)
+        env["PYTHONPATH"] = core_root + os.pathsep + env.get("PYTHONPATH", "")
         external_tests = run_external_tests(folder, env)
 
         print(json.dumps({
