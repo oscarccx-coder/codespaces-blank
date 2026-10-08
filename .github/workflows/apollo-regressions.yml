@@ -30,7 +30,7 @@ jobs:
         run: python apollo_health_check.py --root .
       - name: Run custom sidebar, voice and updater regression suite
         working-directory: apollo_ui
-        run: python -m unittest -v test_sidebar_layout test_sidebar_gui_wiring test_voice_queue_state test_update_preflight test_memory_corrections test_personality_controls
+        run: python -m unittest -v test_sidebar_layout test_sidebar_gui_wiring test_voice_queue_state test_update_preflight test_memory_corrections test_personality_controls test_recovery_snapshots test_system_job_ui
       - name: Run existing shell and module manager tests
         working-directory: apollo_ui
         run: |
