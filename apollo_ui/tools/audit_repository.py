@@ -27,6 +27,10 @@ def run_git(root, *args):
 
 
 def classify(path):
+    # This tiny, tracked marker documents where XTTS files can be dropped.
+    # The model weights themselves remain private and are never permitted.
+    if path.replace("\\", "/") == "models/voice/xtts_v2/PUT_XTTS_FILES_HERE.txt":
+        return None
     value = Path(path)
     segments = value.parts
     if not segments:
