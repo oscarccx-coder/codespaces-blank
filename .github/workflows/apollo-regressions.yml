@@ -30,7 +30,7 @@ jobs:
         run: python apollo_health_check.py --root .
       - name: Run custom sidebar, voice and updater regression suite
         working-directory: apollo_ui
-        run: python -m unittest -v test_sidebar_layout test_sidebar_gui_wiring test_voice_queue_state test_update_preflight test_memory_corrections test_personality_controls test_recovery_snapshots test_system_job_ui test_local_config
+        run: python -m unittest -v test_sidebar_layout test_sidebar_gui_wiring test_voice_queue_state test_update_preflight test_memory_corrections test_personality_controls test_recovery_snapshots test_system_job_ui test_local_config test_xtts_shared_path test_github_updates
       - name: Run existing shell and module manager tests
         working-directory: apollo_ui
         run: |
@@ -39,6 +39,11 @@ jobs:
       - name: Validate staged Coding Team module without installation
         working-directory: apollo_ui
         run: python pending_modules/coding_team/tests.py
+      - name: Validate updater and XTTS modules in the sandbox
+        working-directory: apollo_ui
+        run: |
+          APOLLO_BASE_DIR="$PWD" python module_validator.py modules/update_manager
+          APOLLO_BASE_DIR="$PWD" python module_validator.py modules/voice_imprint_trainer
       - name: Test signed update rollback
         working-directory: apollo_ui
         run: python test_update_system.py
