@@ -1054,7 +1054,9 @@ class ApolloWindow(QMainWindow):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: 0px; }")
         self.sidebar_nav_host = QWidget()
+        self.sidebar_nav_host.setStyleSheet("background: transparent;")
         self.sidebar_nav_layout = QVBoxLayout(self.sidebar_nav_host)
         self.sidebar_nav_layout.setContentsMargins(0, 0, 0, 0)
         self.sidebar_nav_layout.setSpacing(5)
@@ -5747,6 +5749,20 @@ class ApolloWindow(QMainWindow):
             self.settings_apps_tab,
             "Apps",
         )
+
+        # Same Sidebar Manager as the sidebar shortcut; no duplicate settings.
+        self.settings_sidebar_tab = QWidget()
+        sidebar_settings = QVBoxLayout(self.settings_sidebar_tab)
+        sidebar_settings.addWidget(label(
+            "Choose which built-in pages and installed module shortcuts appear, "
+            "change their order and labels, or collapse the sidebar to icons.",
+            11, "#a5d1c8"
+        ))
+        sidebar_settings_btn = QPushButton("Open Sidebar Manager")
+        sidebar_settings_btn.clicked.connect(self.open_sidebar_manager)
+        sidebar_settings.addWidget(sidebar_settings_btn)
+        sidebar_settings.addStretch()
+        self.settings_tabs.addTab(self.settings_sidebar_tab, "Sidebar")
 
         self.settings_tabs.currentChanged.connect(
             self._settings_tab_changed
