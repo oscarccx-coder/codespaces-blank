@@ -5487,14 +5487,25 @@ class ApolloWindow(QMainWindow):
         )
 
     def stop_voice_job(self):
-        try:
-            result = self.module_manager.execute("text_to_speech", "stop_speaking", {})
-            self.system_job_details.setText(
-                "Stop requested for voice playback/generation. " + str(result)[:300]
+        # ModuleActionTask runs potentially slow subprocess termination off the
+        # Qt UI thread, keeping the Stop control responsive during XTTS shutdown.
+        if getattr(self, "system_voice_stop_task", None) is not None:
+            return
+        self.system_job_details.setText("Requesting voice cancellation...")
+        task = ModuleActionTask(self.module_manager, "text_to_speech", "stop_speaking", {})
+        self.system_voice_stop_task = task
+        task.signals.finished.connect(
+            lambda result: self.system_job_details.setText(
+                "Voice stop request completed: " + str(result)[:300]
             )
-        except Exception as exc:
-            QMessageBox.warning(self, "Apollo Voice", f"Could not stop voice: {exc}")
-        self.refresh_job_history()
+        )
+        task.signals.failed.connect(
+            lambda error: self.system_job_details.setText("Voice stop failed: " + error)
+        )
+        task.signals.completed.connect(
+            lambda: setattr(self, "system_voice_stop_task", None)
+        )
+        self.thread_pool.start(task)
 
     def _build_memory(self):
         page = QWidget()
