@@ -66,6 +66,11 @@ class Module:
             {"name": "learning_practice_scores",
              "description": "Read fixed-set reasoning practice scores, not general IQ.",
              "parameters": {"type": "object", "properties": {}}},
+            {"name": "learning_related_memory",
+             "description": "Find stored Apollo Memory Bank context for a learning topic, read-only. "
+                            "Sources are unverified until separately examined.",
+             "parameters": {"type": "object", "properties": {
+                 "topic_id": {"type": "integer"}}, "required": ["topic_id"]}},
             {"name": "growth_direction_status",
              "description": "Read learning and work priorities without making business decisions.",
              "parameters": {"type": "object", "properties": {}}},
@@ -81,13 +86,44 @@ class Module:
             return {"questions": self.store.due_questions(a.get("limit", 12))}
         if action == "learning_practice_scores":
             return self.store.progress()
+        if action == "learning_related_memory":
+            return self.related_memory(args["topic_id"])
         if action == "growth_direction_status":
             return direction_report(self.base)
         raise KeyError(action)
 
+    def related_memory(self, topic_id):
+        topic = self.store.topic(topic_id)
+        runtime = self.context.get("runtime")
+        manager = getattr(runtime, "_manager", None)
+        if manager is None:
+            return {"available": False, "topic": topic["name"],
+                    "memories": [], "reason": "Memory Bank manager unavailable."}
+        record = manager.get_module("memory_bank")
+        instance = record.get("instance") if record and record.get("enabled") else None
+        if instance is None:
+            return {"available": False, "topic": topic["name"],
+                    "memories": [], "reason": "Memory Bank disabled or unloaded."}
+        # Only call the established read-only search interface. Do not import
+        # note contents as instructions or mark results verified.
+        candidates = instance.search_memory(topic["name"], limit=5)
+        safe = []
+        for item in candidates[:5]:
+            if not isinstance(item, dict):
+                continue
+            safe.append({
+                "name": str(item.get("name", ""))[:160],
+                "summary": str(item.get("summary", ""))[:800],
+                "source": str(item.get("source", ""))[:180],
+                "source_ref": str(item.get("source_ref", ""))[:320],
+            })
+        return {"available": True, "topic": topic["name"],
+                "memories": safe, "source_checked": False,
+                "note": "Stored memories may contain errors or outdated claims."}
+
     def self_test(self):
-        assert len(self.tools()) == 5
-        return "Curiosity, revision, reasoning score and growth director contracts ready."
+        assert len(self.tools()) == 6
+        return "Curiosity, revision, memory lookup and growth director contracts ready."
 
     def build_ui(self, parent=None, ui_context=None):
         from PySide6.QtCore import QObject, Signal
@@ -126,9 +162,10 @@ class Module:
         actions = QHBoxLayout()
         deterministic = QPushButton("Ask Follow-up Questions")
         ai = QPushButton("Generate AI Questions")
+        related = QPushButton("Search Apollo Memory")
         evidence = QPushButton("Record Source/Observation")
         refresh = QPushButton("Refresh Due")
-        for control in (deterministic, ai, evidence, refresh):
+        for control in (deterministic, ai, related, evidence, refresh):
             actions.addWidget(control)
         lv.addLayout(actions)
         learn_output = QPlainTextEdit()
@@ -308,6 +345,13 @@ class Module:
         select.currentIndexChanged.connect(redraw_questions)
         deterministic.clicked.connect(seed_questions)
         ai.clicked.connect(do_questions)
+        def search_related():
+            try:
+                payload = self.related_memory(selected_topic())
+                learn_output.setPlainText(json.dumps(payload, indent=2, ensure_ascii=False))
+            except (ValueError, KeyError) as exc:
+                QMessageBox.warning(page, "Memory Search", str(exc))
+        related.clicked.connect(search_related)
         evidence.clicked.connect(record)
         refresh.clicked.connect(redraw_questions)
         direct.clicked.connect(lambda: do_practice(False))
