@@ -149,7 +149,11 @@ class ReasoningStore:
                 "INSERT INTO topics(name,purpose,priority,created_at,updated_at,next_review)"
                 " VALUES(?,?,?,?,?,?)", (name, purpose, priority, moment, moment, moment)
             )
-            return {"created": True, "id": cur.lastrowid, "state": "active"}
+            created = {"created": True, "id": cur.lastrowid, "state": "active"}
+        # A new topic produces its own questions immediately, without waiting
+        # for another prompt or implying that the questions are answered.
+        self.suggest_questions(created["id"])
+        return created
 
     def topic(self, topic_id):
         with self.lock:
