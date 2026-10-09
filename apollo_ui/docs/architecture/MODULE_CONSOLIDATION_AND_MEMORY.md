@@ -12,7 +12,7 @@ and user knowledge. This release changes *presentation and runtime cost* first.
 | Voice Center | Windows fallback speech, XTTS/Voice Imprint, tuning, GPU unload | Old separate voice UIs stay hidden, engines stay loaded |
 | Control Center | Permission controls, recovery, GPU/VRAM status, activity/errors, notifications | Separate backends retained; linked panels visible as tabs |
 | Memory Bank | Named memory CRUD, memory health/age/conflicts, Knowledge Graph search | All persisted stores and tools kept |
-| Apps → Coding | Workspace, model routing, tasks, self-improvement | Specialist agents/verifiers remain in Advanced |
+| Apps → Coding | Workspace, model routing, tasks, self-improvement | Self-Improvement Lab now includes Verifier, Benchmarks and Upgrade History tabs; backend tools remain installed |
 | Apps → Memory & Learning | Memory Bank, research/training, knowledge cache | Web backends and distillation preserved |
 | Apps → System | Control Center, dependencies, GPU monitor | Diagnostics accessible without crowding everyday apps |
 | Apps → Advanced | Neural experiments, fleet/cluster/device agents, workflow internals, update history, specialist tools | Available on demand, not removed |
