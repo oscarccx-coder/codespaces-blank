@@ -56,8 +56,9 @@ class CircuitLabTests(unittest.TestCase):
             store.get_project("../outside")
         with self.assertRaises(ValueError):
             store.create_project("test", template="arbitrary_code")
+        project = store.create_project("Valid Name")
         with self.assertRaises(ValueError):
-            store.set_notes("0" * 32, "too long" * 1200)
+            store.set_notes(project["id"], "too long" * 1200)
 
     def test_cru_is_read_only_xml_metadata_not_circuit_proof(self):
         original = b'<Circuit><Components><Component type="RESISTOR" /><Component type="LED"/></Components></Circuit>'
