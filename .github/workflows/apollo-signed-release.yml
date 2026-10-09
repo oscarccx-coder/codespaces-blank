@@ -1,0 +1,108 @@
+name: Publish signed Apollo Release
+
+# Stable: manually dispatch from main with confirmation PUBLISH.
+# Beta: opt-in auto-publish following successful main-branch regression tests.
+# Nothing publishes until a persistent signing secret and pinned public-key
+# fingerprint have been explicitly configured by the repository owner.
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Release channel (stable requires manual approval)"
+        required: true
+        default: beta
+        type: choice
+        options:
+          - beta
+          - stable
+      confirmation:
+        description: "Type PUBLISH to authorise this public release"
+        required: true
+        type: string
+  workflow_run:
+    workflows: ["Apollo regression checks"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apollo-release-${{ github.event_name }}-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  signed-release:
+    # Only source from a successfully tested push to our own main branch.
+    # Automatic beta is OFF until the owner sets APOLLO_AUTO_BETA=true.
+    if: >-
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref_name == 'main' &&
+       inputs.confirmation == 'PUBLISH') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       vars.APOLLO_AUTO_BETA == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: apollo-releases
+    steps:
+      - name: Checkout exact verified release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify source is the current main-branch revision
+        env:
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_SHA" ||
+            { echo "main moved since CI. Refusing stale release."; exit 1; }
+          # Manual stable/beta dispatch must also wait for successful full main
+          # CI. Workflow-run beta events are already verified by construction.
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            count="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$EXPECTED_SHA&event=push&status=success&per_page=20" --jq '[.workflow_runs[] | select(.name == "Apollo regression checks" and .conclusion == "success")] | length')"
+            if [[ "$count" -lt 1 ]]; then
+              echo "No successful main-branch Apollo regression run found for this commit." >&2
+              exit 1
+            fi
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package verification dependencies
+        run: python -m pip install 'cryptography>=42,<50' numpy
+      - name: Verify code and Pi safety tests
+        working-directory: apollo_ui
+        run: |
+          python apollo_health_check.py --root .
+          python -m unittest -v test_release_pipeline test_pi_headless test_github_updates test_update_preflight
+      - name: Publish immutable signed Release
+        working-directory: apollo_ui
+        env:
+          APOLLO_RELEASE_PRIVATE_PEM: ${{ secrets.APOLLO_RELEASE_PRIVATE_PEM }}
+          APOLLO_RELEASE_PUBLIC_SHA256: ${{ vars.APOLLO_RELEASE_PUBLIC_SHA256 }}
+          GH_TOKEN: ${{ github.token }}
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'beta' }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$APOLLO_RELEASE_PRIVATE_PEM" ||
+            { echo "Missing APOLLO_RELEASE_PRIVATE_PEM secret. No release created."; exit 1; }
+          test -n "$APOLLO_RELEASE_PUBLIC_SHA256" ||
+            { echo "Missing APOLLO_RELEASE_PUBLIC_SHA256 variable. No release created."; exit 1; }
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            python tools/release_ci.py --channel beta --commit "$VERIFIED_SHA" --skip-existing
+          else
+            python tools/release_ci.py --channel "$RELEASE_CHANNEL" --commit "$VERIFIED_SHA"
+          fi

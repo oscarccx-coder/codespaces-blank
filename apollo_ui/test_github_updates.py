@@ -5,6 +5,14 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+import os
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
+
+
+TEST_ONLY_SIGNING_KEY = Ed25519PrivateKey.generate().private_bytes(
+    Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
+).decode("ascii")
 
 from apollo_github_updates import REPOSITORY, latest_release, _asset_url
 from apollo_update import UpdateService
@@ -28,6 +36,7 @@ def candidate(version, channel="stable", with_asset=True, size=4096):
     }
 
 
+@patch.dict(os.environ, {"APOLLO_RELEASE_PRIVATE_PEM": TEST_ONLY_SIGNING_KEY})
 class GitHubReleaseTests(unittest.TestCase):
     def test_channel_filters_and_version_selection(self):
         releases = [candidate("7.5.14.1"), candidate("7.5.13.0"),

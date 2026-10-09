@@ -1,0 +1,39 @@
+name: Apollo Raspberry Pi ARM64 checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  arm64-headless:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Pi updater signature dependency
+        run: python -m pip install 'cryptography>=42,<50'
+      - name: Test ARM64 headless API and release validation
+        working-directory: apollo_ui
+        run: |
+          python -m unittest -v test_pi_headless test_release_pipeline
+          python apollo_pi.py --self-test --model qwen2.5:3b
+      - name: Exercise Pi 64-bit installer without system service changes
+        working-directory: apollo_ui
+        run: |
+          bash pi/install_pi.sh
+          .venv-pi/bin/python apollo_pi.py --self-test --model qwen2.5:3b
+      - name: Check Bash installers and Python platform imports
+        run: |
+          bash -n apollo_ui/pi/install_pi.sh
+          bash -n apollo_ui/pi/update_pi.sh
+          python -m py_compile apollo_ui/apollo_pi.py apollo_ui/pi/update_pi.py

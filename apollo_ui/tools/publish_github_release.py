@@ -7,6 +7,8 @@ Usage: python tools/publish_github_release.py --channel stable --publish
 Run this only after verifying the Windows build and bumping config.json version.
 """
 import argparse
+import hashlib
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -22,7 +24,7 @@ from apollo_release import publish
 def publish_to_github(channel, confirmed=False):
     if channel not in {"stable", "beta", "development"}:
         raise ValueError("Publish to stable, beta or development.")
-    if not shutil.which("gh"):
+    if confirmed and not shutil.which("gh"):
         raise RuntimeError("Install GitHub CLI and sign in with: gh auth login")
     branch = subprocess.run(
         ["git", "branch", "--show-current"], cwd=ROOT,
@@ -39,13 +41,21 @@ def publish_to_github(channel, confirmed=False):
     tag = f"v{version}{suffix}"
     package = Path(result["package"])
     public_key = Path(result["public_key"])
+    fingerprint = hashlib.sha256(public_key.read_bytes()).hexdigest()
     if not confirmed:
         return {
             "published": False, "tag": tag, "channel": channel,
             "signed_zip": str(package), "public_key": str(public_key),
-            "note": "No GitHub Release created. Add --publish after testing."
+            "public_key_sha256": fingerprint,
+            "note": "No GitHub Release created. Verify the fingerprint independently before publishing."
         }
 
+    independently_pinned = os.environ.get("APOLLO_RELEASE_PUBLIC_SHA256", "").strip().lower()
+    if independently_pinned != fingerprint:
+        raise RuntimeError(
+            "Refusing publish: set APOLLO_RELEASE_PUBLIC_SHA256 to an independently "
+            "verified SHA-256 of the public PEM. Never silently change the trust key."
+        )
     args = [
         "gh", "release", "create", tag, str(package), str(public_key),
         "--repo", REPOSITORY, "--target", branch,

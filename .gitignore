@@ -11,6 +11,7 @@ apollo_ui/dist/
 
 # Python environments
 .venv/
+.venv-pi/
 venv/
 
 # Secrets/environment
