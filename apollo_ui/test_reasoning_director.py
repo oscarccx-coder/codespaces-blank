@@ -188,7 +188,7 @@ class LearningDirectorTests(unittest.TestCase):
             self.assertEqual(names, {
                 "learning_propose_topic", "learning_suggest_questions",
                 "learning_due_questions", "learning_practice_scores",
-                "growth_direction_status",
+                "learning_related_memory", "growth_direction_status",
             })
             with self.assertRaises(KeyError):
                 app.run("record_income", {"value": "120"})
@@ -203,11 +203,15 @@ class LearningDirectorTests(unittest.TestCase):
                 "purpose": "Compare calculations with measured waveform errors"
             })["created"])
             self.assertEqual(len(app.run("learning_due_questions", {})["questions"]), 4)
+            lookup = app.run("learning_related_memory", {"topic_id": app.store.list_topics()[0]["id"]})
+            self.assertFalse(lookup["available"])
+            self.assertEqual(lookup["memories"], [])
         finally:
             app.close()
         self.assertEqual(group_for("reasoning_director"), "Memory & Learning")
         for label in ("Run 3 Direct Answers", "Run 3 Self-Reviewed Answers",
-                      "Record Source/Observation", "Generate AI Questions"):
+                      "Record Source/Observation", "Generate AI Questions",
+                      "Search Apollo Memory"):
             self.assertIn(label, source)
 
 
