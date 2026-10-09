@@ -30,7 +30,7 @@ jobs:
         run: python apollo_health_check.py --root .
       - name: Run custom sidebar, voice and updater regression suite
         working-directory: apollo_ui
-        run: python -m unittest -v test_sidebar_layout test_sidebar_gui_wiring test_voice_queue_state test_update_preflight test_memory_corrections test_personality_controls test_recovery_snapshots test_system_job_ui test_local_config test_xtts_shared_path test_github_updates test_obd_reader test_voice_management test_window_geometry test_voice_ui_wiring test_consolidation_ram test_release_pipeline test_pi_headless test_circuit_lab test_growth_lab
+        run: python -m unittest -v test_sidebar_layout test_sidebar_gui_wiring test_voice_queue_state test_update_preflight test_memory_corrections test_personality_controls test_recovery_snapshots test_system_job_ui test_local_config test_xtts_shared_path test_github_updates test_obd_reader test_voice_management test_window_geometry test_voice_ui_wiring test_consolidation_ram test_release_pipeline test_pi_headless test_circuit_lab test_growth_lab test_reasoning_director
       - name: Run existing shell and module manager tests
         working-directory: apollo_ui
         run: |
@@ -47,6 +47,7 @@ jobs:
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/vehicle_diagnostics
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/circuit_lab
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/growth_lab
+          APOLLO_BASE_DIR="$PWD" python module_validator.py modules/reasoning_director
       - name: Test Raspberry Pi installation scripts for Bash syntax
         run: |
           bash -n apollo_ui/pi/install_pi.sh
