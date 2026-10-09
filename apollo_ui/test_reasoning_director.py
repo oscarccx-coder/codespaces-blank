@@ -206,6 +206,25 @@ class LearningDirectorTests(unittest.TestCase):
             lookup = app.run("learning_related_memory", {"topic_id": app.store.list_topics()[0]["id"]})
             self.assertFalse(lookup["available"])
             self.assertEqual(lookup["memories"], [])
+            class FakeBank:
+                def search_memory(self, query, limit=5):
+                    self.query = query
+                    self.limit = limit
+                    return [{"name": "Oscillator notes", "summary": "x" * 2000,
+                             "source": "manual", "source_ref": "personal-note"}]
+            class FakeManager:
+                def __init__(self):
+                    self.bank = FakeBank()
+                def get_module(self, name):
+                    return {"enabled": True, "instance": self.bank} if name == "memory_bank" else None
+            class FakeRuntime:
+                _manager = FakeManager()
+            app.context["runtime"] = FakeRuntime()
+            lookup = app.run("learning_related_memory", {"topic_id": app.store.list_topics()[0]["id"]})
+            self.assertTrue(lookup["available"])
+            self.assertFalse(lookup["source_checked"])
+            self.assertLessEqual(len(lookup["memories"][0]["summary"]), 800)
+            self.assertEqual(FakeRuntime._manager.bank.limit, 5)
         finally:
             app.close()
         self.assertEqual(group_for("reasoning_director"), "Memory & Learning")
