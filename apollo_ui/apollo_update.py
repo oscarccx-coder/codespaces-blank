@@ -326,6 +326,20 @@ class UpdateService:
         version = str(release.get("version"))
         package_path = self.download_dir / f"apollo-{version}.zip"
 
+        # A previously downloaded, signature-verified ZIP is safe to reuse.
+        # A corrupt or mismatched cached file falls back to a fresh download.
+        if package_path.is_file():
+            cached = self.stage_local_package(
+                package_path,
+                expected_version=version,
+                expected_channel=release.get("channel") if check.get("source") == "github" else None,
+            )
+            if cached.get("ok"):
+                cached["package_url"] = release.get("package_url") or release.get("package")
+                cached["downloaded_bytes"] = 0
+                cached["reused_verified_download"] = True
+                return cached
+
         if check.get("source") == "github":
             result = download_release_asset(release["package_url"], package_path, progress)
             staged = self.stage_local_package(
