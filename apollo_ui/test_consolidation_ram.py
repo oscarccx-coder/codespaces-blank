@@ -40,6 +40,7 @@ class ConsolidationTests(unittest.TestCase):
         self.assertIn("self._build_module_page_widget(module_info)", opener)
         self.assertNotIn("self.rebuild_module_ui()", opener)
         self.assertIn("def _filter_module_apps", text)
+        self.assertIn("module_id = main_app_for(str(module_id or \"\").strip())", opener)
 
     def test_existing_backend_modules_are_not_deleted(self):
         for mid in ("voice_center", "voice_imprint_trainer", "text_to_speech", "core_services",
