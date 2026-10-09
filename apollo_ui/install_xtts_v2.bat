@@ -11,7 +11,7 @@ set "XTTS_TARGET=%XTTS_ROOT%\xtts_v2"
 set "DOWNLOAD_HOME=%LOCALAPPDATA%\Apollo\downloads\coqui_tts"
 set "LEGACY_XTTS=%APOLLO_DIR%\storage\models\voice\xtts_v2"
 
-rem Known-good Apollo XTTS runtime pins for Python 3.14 / Windows.
+rem Apollo XTTS runtime pins for Windows; installed ONLY inside Apollo's .venv.
 set "TORCH_VERSION=2.11.0"
 set "TORCHVISION_VERSION=0.26.0"
 set "TORCHAUDIO_VERSION=2.11.0"
@@ -47,25 +47,17 @@ echo.
 
 set "PYTHONHOME="
 set "PYTHONPATH="
-set "PYTHON_EXE="
-
-call :TRY_PY "%LOCALAPPDATA%\Python\pythoncore-3.14-64\python.exe"
-call :TRY_PY "%APOLLO_DIR%\.venv\Scripts\python.exe"
-call :TRY_PY "%APOLLO_DIR%\venv\Scripts\python.exe"
-
-for %%V in (314 313 312 311 310) do (
-    if not defined PYTHON_EXE call :TRY_PY "%LOCALAPPDATA%\Programs\Python\Python%%V\python.exe"
+rem XTTS and pip changes must stay inside Apollo's isolated Python environment.
+set "PYTHON_EXE=%APOLLO_DIR%\.venv\Scripts\python.exe"
+if not exist "%PYTHON_EXE%" (
+    echo [ERROR] Apollo's private Python environment is missing.
+    echo Run INSTALL_REQUIREMENTS.bat before installing the optional voice engine.
+    pause
+    exit /b 1
 )
-
-if not defined PYTHON_EXE (
-    for /f "delims=" %%P in ('where python.exe 2^>nul') do (
-        if not defined PYTHON_EXE call :TRY_PY "%%P"
-    )
-)
-
-if not defined PYTHON_EXE (
-    echo [ERROR] No healthy Python installation was found.
-    echo Run repair_apollo_python.bat first.
+"%PYTHON_EXE%" -c "import sys,encodings; assert not (sys.prefix == sys.base_prefix)" >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Refusing to install XTTS outside Apollo's private venv.
     pause
     exit /b 1
 )
@@ -83,10 +75,10 @@ if not exist "%XTTS_TARGET%\config.json" (
     if exist "%LEGACY_XTTS%\config.json" if exist "%LEGACY_XTTS%\model.pth" if exist "%LEGACY_XTTS%\vocab.json" (
         echo.
         echo [INFO] Complete XTTS model found in Apollo storage.
-        echo Moving it to C: so it will not need to be downloaded again...
-        if exist "%XTTS_TARGET%" rmdir /S /Q "%XTTS_TARGET%"
-        mkdir "%XTTS_TARGET%"
-        robocopy "%LEGACY_XTTS%" "%XTTS_TARGET%" /E /MOVE /R:2 /W:2 /NFL /NDL /NJH /NJS /NP
+        echo Copying it to the shared model folder without deleting the original...
+        if not exist "%XTTS_TARGET%" mkdir "%XTTS_TARGET%"
+        rem Copy without deleting user recordings or the original model.
+        robocopy "%LEGACY_XTTS%" "%XTTS_TARGET%" /E /R:2 /W:2 /NFL /NDL /NJH /NJS /NP
         set "ROBO=%ERRORLEVEL%"
         if !ROBO! GEQ 8 goto :FAIL
     )
@@ -290,9 +282,9 @@ if not defined FOUND_XTTS (
     goto :FAIL
 )
 
-if exist "%XTTS_TARGET%" rmdir /S /Q "%XTTS_TARGET%"
-mkdir "%XTTS_TARGET%"
-robocopy "!FOUND_XTTS!" "%XTTS_TARGET%" /E /MOVE /R:2 /W:2 /NFL /NDL /NJH /NJS /NP
+rem Never delete a model directory when replacing missing voice weights.
+if not exist "%XTTS_TARGET%" mkdir "%XTTS_TARGET%"
+robocopy "!FOUND_XTTS!" "%XTTS_TARGET%" /E /R:2 /W:2 /NFL /NDL /NJH /NJS /NP
 set "ROBO=%ERRORLEVEL%"
 if %ROBO% GEQ 8 goto :FAIL
 

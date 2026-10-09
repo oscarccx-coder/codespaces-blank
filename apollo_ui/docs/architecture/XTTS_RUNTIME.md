@@ -1,6 +1,6 @@
 # Apollo XTTS Runtime — 7.5.12.10
 
-Apollo now treats the XTTS Python runtime as a controlled stack rather than
+Apollo installs XTTS packages only inside `apollo_ui/.venv`, never globally. It treats the XTTS Python runtime as a controlled stack rather than
 attempting to adapt to whichever newest PyTorch packages happen to be installed.
 
 ## Pinned Windows runtime
@@ -17,10 +17,14 @@ PyTorch wheel index. TorchCodec is installed after the matching PyTorch family.
 Coqui is installed after the media stack, and Transformers is pinned last so a
 dependency resolver cannot silently leave Apollo on an incompatible 5.x build.
 
+## Prerequisite
+
+Run `INSTALL_REQUIREMENTS.bat` to create Apollo's private environment first. Optionally use `INSTALL_REQUIREMENTS.bat --voice` to install both core and XTTS requirements. No system Python packages are removed. The GPU stack is large, and user-scoped FFmpeg Shared may be installed separately by WinGet.
+
 ## Clean-install order
 
 1. upgrade pip/setuptools/wheel
-2. uninstall the conflicting Torch/Coqui/Transformers runtime
+2. uninstall conflicting Torch/Coqui/Transformers packages **within Apollo's private .venv only**
 3. locate/install shared FFmpeg
 4. install pinned PyTorch CUDA stack
 5. install pinned TorchCodec
