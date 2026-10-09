@@ -1,6 +1,6 @@
 from pathlib import Path
 import ast, json
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 VOICE = (ROOT/'modules/voice_imprint_trainer/module.py').read_text(encoding='utf-8')
 WORKER = (ROOT/'modules/voice_imprint_trainer/xtts_worker.py').read_text(encoding='utf-8')
 TTS = (ROOT/'modules/text_to_speech/module.py').read_text(encoding='utf-8')

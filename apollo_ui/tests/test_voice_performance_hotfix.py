@@ -1,6 +1,6 @@
 from pathlib import Path
 import ast
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(__file__).resolve().parents[1]
 V=(ROOT/"modules/voice_imprint_trainer/module.py").read_text(encoding="utf-8")
 T=(ROOT/"modules/text_to_speech/module.py").read_text(encoding="utf-8")
 ast.parse(V); ast.parse(T)
