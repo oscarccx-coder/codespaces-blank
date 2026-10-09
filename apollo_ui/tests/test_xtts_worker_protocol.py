@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 WORKER = ROOT / "modules" / "voice_imprint_trainer" / "xtts_worker.py"
 CONTROLLER = ROOT / "modules" / "voice_imprint_trainer" / "module.py"
 PREFIX = "APOLLO_XTTS_JSON "

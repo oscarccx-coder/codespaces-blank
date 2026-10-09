@@ -1,6 +1,6 @@
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 installer = (ROOT / "install_xtts_v2.bat").read_text(encoding="utf-8")
 
 # The original bug came from running a quoted python.exe inside FOR /F command
