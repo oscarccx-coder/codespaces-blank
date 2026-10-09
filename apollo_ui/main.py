@@ -34,7 +34,7 @@ from apollo_docs import PatchDocs
 from apollo_storage import StorageLayout
 from apollo_window_geometry import centered_window_geometry
 from apollo_model_memory import PROFILES, normalize_profile, memory_advice
-from apollo_module_catalog import GROUPS, group_for, is_visible
+from apollo_module_catalog import GROUPS, group_for, is_visible, main_app_for
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -1718,7 +1718,7 @@ class ApolloWindow(QMainWindow):
             self.switch_page(str(app.get("target")))
             return
 
-        module_id = str(app.get("module_id") or app.get("target") or "").strip()
+        module_id = main_app_for(str(app.get("module_id") or app.get("target") or "").strip())
         if not app.get("available"):
             QMessageBox.information(
                 self,
@@ -2805,7 +2805,7 @@ class ApolloWindow(QMainWindow):
 
     def open_module_app(self, module_id):
         """Open any installed UI-capable module from any Apollo shell surface."""
-        module_id = str(module_id or "").strip()
+        module_id = main_app_for(str(module_id or "").strip())
         if not module_id:
             return
 
