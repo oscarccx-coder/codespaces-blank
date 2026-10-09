@@ -12,6 +12,7 @@ MODULE_GROUPS = {
     "text_to_speech": "Advanced",
     "file_manager": "Everyday",
     "vehicle_diagnostics": "Everyday",
+    "circuit_lab": "Everyday",
     "notification_center": "Everyday",
     "workspace_manager": "Coding",
     "model_runtime": "Coding",
