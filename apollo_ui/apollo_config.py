@@ -10,7 +10,8 @@ from pathlib import Path
 
 USER_KEYS = (
     "ollama_url", "model", "temperature", "num_ctx",
-    "auto_model_routing", "sarcasm_level",
+    "auto_model_routing", "sarcasm_level", "memory_profile",
+    "num_batch", "keep_alive",
 )
 
 
