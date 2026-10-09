@@ -30,6 +30,12 @@ Python entry point: `main.py`. The application requires the dependencies listed 
 | `docs/legacy_notes/` | Archived historical update instructions |
 | `tools/legacy_updates/` | Historical obsolete version-setting batch files, archived as text, **do not execute** |
 
+## Module consolidation and RAM usage
+
+Apollo's everyday applications are now grouped, and heavy module UI panels open on demand rather than all at startup. Control Center groups GPU/activity/notifications and Memory Bank includes health/conflicts and Knowledge Graph searching. Engines and user data stay installed. Old machine-specific XTTS fixes and the legacy local-release publisher are retired as safe stubs.
+
+**Settings → General → Ollama RAM / Context** has Balanced (8K), More Context (16K) and Large Context (32K experimental) presets. They tune Ollama context and residency, not virtual/physical VRAM. Select a profile and save to apply to new chats. [Architecture, migration and benchmarks](docs/architecture/MODULE_CONSOLIDATION_AND_MEMORY.md).
+
 ## Voice Profiles and startup polish
 
 Voice Imprint Lab now has a single list with **Rename**, **Delete…** (recoverable local archive), **Move Up/Down**, and a voice selector with **Select Voice** beside the test controls. Changes to voice ordering persist across restarts, and renaming a selected voice updates Apollo's active label without moving its recordings or tuning. Archived audio stays in `storage/media/voice_imprint/deleted_profiles/`, not in GitHub.
