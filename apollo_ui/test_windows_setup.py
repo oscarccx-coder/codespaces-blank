@@ -34,7 +34,7 @@ class WindowsSetupTests(unittest.TestCase):
             " -m venv ",
             '"%VENV_PY%" -m pip install -r',
             '"%VENV_PY%" -m pip check',
-            'sys.prefix!=sys.base_prefix',
+            'assert not (sys.prefix == sys.base_prefix)',
             'PIP_REQUIRE_VIRTUALENV=true',
         ):
             self.assertIn(marker, script)
@@ -67,7 +67,7 @@ class WindowsSetupTests(unittest.TestCase):
         safe = read("start_apollo_safe_mode.bat")
         self.assertIn('set "PYTHON_EXE=%~dp0.venv\\Scripts\\python.exe"', launcher)
         self.assertIn('set "PYTHON_EXE=%APOLLO_DIR%\\.venv\\Scripts\\python.exe"', xtts)
-        self.assertIn('sys.prefix != sys.base_prefix', xtts)
+        self.assertIn('assert not (sys.prefix == sys.base_prefix)', xtts)
         self.assertNotIn('rmdir /S /Q "%XTTS_TARGET%"', xtts)
         self.assertNotIn(" /MOVE ", xtts)
         self.assertIn('call "%~dp0start_apollo_ui.bat"', safe)
