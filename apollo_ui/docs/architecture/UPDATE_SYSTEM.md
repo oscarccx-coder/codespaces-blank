@@ -1,29 +1,25 @@
-# Apollo Update System — 7.5.12.3 Foundation
+# Apollo updates: supported pathways
 
-## Goal
-Apollo devices can receive signed releases from one update host without manually copying patch files to every device.
+## Simple Git code updates (developers and source checkouts)
 
-## Development host
-1. Run `publish_current_release.bat` to create a signed development release under `storage/updates/server/`.
-2. The first publish creates a private/public Ed25519 key pair under `storage/updates/keys/`.
-3. Keep `release_private.pem` only on the release-authority machine.
-4. Run `start_update_server.bat` to serve the release directory on port 8765.
+Close Apollo, then run `UPDATE_APOLLO_CODE.bat`. The script requires Git, refuses to overwrite a dirty checkout, and pulls changes from the current branch. It does not download XTTS weights. Run `INSTALL_REQUIREMENTS.bat` after a change to core requirements.
 
-## Client device (one-time trust setup)
-1. Open **Apollo Update Manager**.
-2. Import the release host's `release_public.pem` once.
-3. Set the server URL, for example `http://192.168.1.20:8765`.
-4. Select Development/Beta/Stable/Pinned channel.
+## Verified signed releases (end-user installations)
 
-After that: **Check → Stage Update → Install + Restart**. No patch dragging is needed for normal releases.
+The Update Centre checks GitHub Releases, verifies an explicit trusted Ed25519 signing key and every package hash, stages code, creates a backup, and uses an external installer with rollback on failed health checks. No signing key or application update may be trusted/installed by the AI itself. A stable release is published deliberately through the GitHub Actions `Publish signed Apollo Release` workflow with the required secrets, pinned public-key fingerprint, passing regression tests, and manual `PUBLISH` confirmation.
 
-## Safety
-- Release manifests are signed with Ed25519.
-- Every payload file is SHA-256 checked against the signed manifest.
-- `storage/`, `workspace/`, `pending_modules/` and user `config.json` are protected from package replacement.
-- The external updater backs up replaced files and preserves config before changing core files.
-- Static health checks run after installation. Failure triggers automatic rollback.
-- Only the config `version` field is changed; user model/settings remain intact.
+Publishing code to GitHub **does not automatically install or publish** a signed release.
 
-## Multi-device direction
-This release provides the distribution backbone. The later Fleet Manager will add centralized device status, staged rollout and remote rollout policy on top of the same signed package format.
+## Advanced local update server (developers)
+
+The old convenience `.bat` wrapper was removed. The underlying server remains available, when deliberately configured, via:
+
+```powershell
+python apollo_update_server.py --root storage/updates/server --port 8765
+```
+
+Do not expose this local test server publicly. See `docs/architecture/SIGNED_RELEASES_AND_RASPBERRY_PI.md` for trusted release distribution.
+
+## Dependency handling
+
+The Windows dependency install/uninstall launchers affect only the local `apollo_ui/.venv`. Models, voices, memory and projects persist. See `docs/architecture/INSTALLATION_AND_DEPENDENCIES.md`.
