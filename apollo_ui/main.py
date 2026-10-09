@@ -33,6 +33,8 @@ from apollo_config import ApolloConfigStore
 from apollo_docs import PatchDocs
 from apollo_storage import StorageLayout
 from apollo_window_geometry import centered_window_geometry
+from apollo_model_memory import PROFILES, normalize_profile, memory_advice
+from apollo_module_catalog import GROUPS, group_for, is_visible, main_app_for
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -567,6 +569,8 @@ class ApolloWindow(QMainWindow):
             self.config["model"],
             self.config.get("temperature", 0.65),
             self.config.get("num_ctx", 8192),
+            self.config.get("num_batch", 256),
+            self.config.get("keep_alive", "5m"),
         )
 
         # Apollo 7.5 shared runtime: permission gate, action/event bus, blackboard,
@@ -1714,7 +1718,7 @@ class ApolloWindow(QMainWindow):
             self.switch_page(str(app.get("target")))
             return
 
-        module_id = str(app.get("module_id") or app.get("target") or "").strip()
+        module_id = main_app_for(str(app.get("module_id") or app.get("target") or "").strip())
         if not app.get("available"):
             QMessageBox.information(
                 self,
@@ -2801,7 +2805,7 @@ class ApolloWindow(QMainWindow):
 
     def open_module_app(self, module_id):
         """Open any installed UI-capable module from any Apollo shell surface."""
-        module_id = str(module_id or "").strip()
+        module_id = main_app_for(str(module_id or "").strip())
         if not module_id:
             return
 
@@ -2833,9 +2837,8 @@ class ApolloWindow(QMainWindow):
         if hasattr(self, "settings_tabs") and hasattr(self, "settings_apps_tab"):
             self.settings_tabs.setCurrentWidget(self.settings_apps_tab)
 
-        # Rebuild normal module UI first. If legacy placement is Hidden/Tool Only,
-        # build an ephemeral Apps view rather than forcing the placement to change.
-        self.rebuild_module_ui()
+        # Build only the selected module's UI. Do NOT rebuild all module pages
+        # every time the user opens Voice, System or another application.
         page = self.dynamic_module_pages.get(module_id)
         if page is None:
             manifest = record.get("manifest", {})
@@ -3793,6 +3796,15 @@ class ApolloWindow(QMainWindow):
             "#91bdb6"
         ))
 
+        self.apps_filter = QComboBox()
+        self.apps_filter.addItems(GROUPS)
+        self.apps_filter.setCurrentText("Everyday")
+        self.apps_filter.currentTextChanged.connect(self._filter_module_apps)
+        v.addWidget(label(
+            "Choose a category. Specialist and retired tools remain available under Advanced / All.",
+            10, "#91bdb6"
+        ))
+        v.addWidget(self.apps_filter)
         self.apps_list = QListWidget()
         self.apps_list.setMinimumHeight(76)
         self.apps_list.setMaximumHeight(130)
@@ -4042,6 +4054,17 @@ class ApolloWindow(QMainWindow):
             if placement == "none":
                 continue
 
+            if placement == "apps":
+                # App definitions are cheap; create their expensive Qt widgets
+                # lazily only when someone actually opens one.
+                item = QListWidgetItem(
+                    f"[{group_for(module_id)}]  {module_info.get('title', module_id)}\\n"
+                    f"{module_info.get('description', '')}"
+                )
+                item.setData(Qt.UserRole, module_id)
+                self.apps_list.addItem(item)
+                continue
+
             page = self._build_module_page_widget(module_info)
             if page is None:
                 continue
@@ -4062,15 +4085,6 @@ class ApolloWindow(QMainWindow):
                 self.nav_buttons[page_key] = button
                 self.sidebar_default_labels[page_key] = str(module_info.get("title", module_id))
 
-            elif placement == "apps":
-                self.apps_host.addWidget(page)
-                item = QListWidgetItem(
-                    f"{module_info.get('title', module_id)}\n"
-                    f"{module_info.get('description', '')}"
-                )
-                item.setData(Qt.UserRole, module_id)
-                self.apps_list.addItem(item)
-
         if hasattr(self, "apps_list") and self.apps_list.count() == 0:
             item = QListWidgetItem(
                 "No module apps are assigned to Settings → Apps.\n"
@@ -4078,6 +4092,8 @@ class ApolloWindow(QMainWindow):
             )
             item.setFlags(Qt.NoItemFlags)
             self.apps_list.addItem(item)
+
+        self._filter_module_apps()
 
         # Restore the user's view when possible after a rebuild.
         if previous_page in self.pages:
@@ -4114,60 +4130,24 @@ class ApolloWindow(QMainWindow):
         self._refresh_sidebar()
         self._queue_ui_state_save()
 
+    def _filter_module_apps(self, category=None):
+        """Filter app listing only. Hidden categories do NOT disable tool APIs."""
+        if not hasattr(self, "apps_list"):
+            return
+        selected = str(category or self.apps_filter.currentText()) if hasattr(self, "apps_filter") else "All"
+        for index in range(self.apps_list.count()):
+            item = self.apps_list.item(index)
+            module_id = item.data(Qt.UserRole)
+            item.setHidden(bool(module_id) and not is_visible(module_id, selected))
+
     def open_selected_app_module(self, item=None):
         if not hasattr(self, "apps_list"):
             return
-
         selected = self.apps_list.selectedItems()
-
-        if item is not None and isinstance(item, QListWidgetItem):
-            module_id = item.data(Qt.UserRole)
-        elif selected:
-            module_id = selected[0].data(Qt.UserRole)
-        else:
-            return
-
-        if not module_id:
-            return
-
-        page = self.dynamic_module_pages.get(module_id)
-
-        if page is None:
-            QMessageBox.warning(
-                self,
-                "Apollo Apps",
-                "That module app is not currently available. "
-                "Try Refresh Apps or reload the module."
-            )
-            return
-
-        self.apps_host.setCurrentWidget(page)
-        self.current_app_module_id = module_id
-        self.current_app_open = True
-
-        title = module_id
-        record = self.module_manager.get_module(module_id)
-        if record:
-            manifest = record.get("manifest", {})
-            ui = manifest.get("ui", {}) if isinstance(manifest, dict) else {}
-            title = ui.get(
-                "title",
-                manifest.get("name", module_id),
-            )
-
-        if hasattr(self, "apps_current_label"):
-            self.apps_current_label.setText(
-                f"Open app: {title}"
-            )
-
-        if hasattr(self, "apps_close_btn"):
-            self.apps_close_btn.setEnabled(True)
-
-        if hasattr(self, "apps_inline_close_btn"):
-            self.apps_inline_close_btn.setEnabled(True)
-
-        self._queue_ui_state_save()
-
+        module_id = (item.data(Qt.UserRole) if isinstance(item, QListWidgetItem)
+                     else selected[0].data(Qt.UserRole) if selected else None)
+        if module_id:
+            self.open_module_app(module_id)
 
     def _build_web(self):
         page = QWidget()
@@ -5769,6 +5749,43 @@ class ApolloWindow(QMainWindow):
         )
         general_layout.addWidget(routing_card)
 
+        memory_card = Card("Ollama RAM / Context")
+        self.setting_memory_profile = QComboBox()
+        for key, profile in PROFILES.items():
+            self.setting_memory_profile.addItem(
+                f"{profile.label} • {profile.num_ctx:,} tokens", key
+            )
+        current_profile = normalize_profile(self.config.get("memory_profile"))
+        self.setting_memory_profile.setCurrentIndex(
+            max(0, self.setting_memory_profile.findData(current_profile))
+        )
+        self.setting_memory_note = label("", 10, "#9fc8c1")
+        self.setting_memory_note.setWordWrap(True)
+        def update_memory_note(_index=None):
+            name = self.setting_memory_profile.currentData()
+            profile = PROFILES[normalize_profile(name)]
+            ram_free = ram_total = None
+            if psutil is not None:
+                try:
+                    vm = psutil.virtual_memory()
+                    ram_free = vm.available / (1024 ** 3)
+                    ram_total = vm.total / (1024 ** 3)
+                except Exception:
+                    pass
+            self.setting_memory_note.setText(
+                f"Context: {profile.num_ctx:,} tokens  |  Batch: {profile.num_batch}  "
+                f"|  Model residency: {profile.keep_alive}\n"
+                + (f"Available RAM: {ram_free:.1f} / {ram_total:.1f} GiB. "
+                   if ram_free is not None else "")
+                + memory_advice(ram_free, ram_total, name)
+                + "\nOllama decides GPU/CPU offload; Apollo will not force models out of VRAM."
+            )
+        self.setting_memory_profile.currentIndexChanged.connect(update_memory_note)
+        update_memory_note()
+        memory_card.layout.addWidget(self.setting_memory_profile)
+        memory_card.layout.addWidget(self.setting_memory_note)
+        general_layout.addWidget(memory_card)
+
         personality_card = Card("Apollo Personality")
         self.setting_sarcasm_level = QComboBox()
         for level, (name, _) in LEVELS.items():
@@ -6156,6 +6173,13 @@ class ApolloWindow(QMainWindow):
         self.config["sarcasm_level"] = normalize_sarcasm_level(
             self.setting_sarcasm_level.currentData()
         )
+        self.config["memory_profile"] = normalize_profile(
+            self.setting_memory_profile.currentData()
+        )
+        active_memory = PROFILES[self.config["memory_profile"]]
+        self.config["num_ctx"] = active_memory.num_ctx
+        self.config["num_batch"] = active_memory.num_batch
+        self.config["keep_alive"] = active_memory.keep_alive
 
         APOLLO_CONFIG.save_user(self.config)
 
@@ -6171,6 +6195,8 @@ class ApolloWindow(QMainWindow):
                 "num_ctx",
                 8192,
             ),
+            self.config.get("num_batch", 256),
+            self.config.get("keep_alive", "5m"),
         )
 
         # The pending-module repair engine keeps its own client reference, so it

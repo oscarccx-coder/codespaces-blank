@@ -45,6 +45,26 @@ class Module:
         for b in (allow,deny,refresh,snap): row.addWidget(b)
         cl.addLayout(row); tabs.addTab(cp,'Capabilities')
         fp=QWidget(); fl=QVBoxLayout(fp); failures=QListWidget(); fl.addWidget(failures,1); clear=QPushButton('Clear Selected Quarantine'); fl.addWidget(clear); tabs.addTab(fp,'Module Recovery')
+        # Consolidated System UI: preserve underlying module APIs, but put
+        # their panels under one Control Center instead of opening four apps.
+        manager = (ui_context or {}).get("module_manager") if isinstance(ui_context,dict) else None
+        if manager is not None:
+            for module_id, tab_name in (
+                ("gpu_monitor", "GPU & VRAM"),
+                ("activity_trace", "Activity & Errors"),
+                ("notification_center", "Notifications"),
+            ):
+                record = manager.get_module(module_id)
+                instance = record.get("instance") if record and record.get("enabled") else None
+                if instance is None or not hasattr(instance, "build_ui"):
+                    continue
+                try:
+                    tabs.addTab(instance.build_ui(parent=tabs, ui_context=ui_context), tab_name)
+                except Exception as exc:
+                    fallback=QWidget(); v=QVBoxLayout(fallback)
+                    message=QLabel(f"Could not open {tab_name}: {type(exc).__name__}: {exc}")
+                    message.setWordWrap(True); v.addWidget(message)
+                    tabs.addTab(fallback, tab_name)
         status=QLabel(); out.addWidget(status)
         def reload():
             caps.clear(); failures.clear()

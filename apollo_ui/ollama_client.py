@@ -2,17 +2,25 @@ import json
 import urllib.error
 import urllib.request
 
+from apollo_model_memory import resolved_options
+
 
 class OllamaError(RuntimeError):
     pass
 
 
 class OllamaClient:
-    def __init__(self, base_url, model, temperature=0.65, num_ctx=8192):
+    def __init__(self, base_url, model, temperature=0.65, num_ctx=8192,
+                 num_batch=256, keep_alive="5m"):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.temperature = float(temperature)
-        self.num_ctx = int(num_ctx)
+        options = resolved_options({
+            "num_ctx": num_ctx, "num_batch": num_batch, "keep_alive": keep_alive,
+        })
+        self.num_ctx = options["num_ctx"]
+        self.num_batch = options["num_batch"]
+        self.keep_alive = options["keep_alive"]
 
     def _request_json(self, path, payload=None, timeout=20):
         url = self.base_url + path
@@ -49,6 +57,16 @@ class OllamaClient:
                 out.append(name)
         return out
 
+    def loaded_models(self):
+        """Report Ollama model/RAM/VRAM residency, without loading models."""
+        result = self._request_json("/api/ps", timeout=4)
+        return [{
+            "name": str(model.get("name") or model.get("model") or ""),
+            "size_bytes": int(model.get("size", 0) or 0),
+            "vram_bytes": int(model.get("size_vram", 0) or 0),
+            "ram_estimate_bytes": max(0, int(model.get("size", 0) or 0) - int(model.get("size_vram", 0) or 0)),
+        } for model in result.get("models", []) if isinstance(model, dict)]
+
     def best_model(self):
         models = self.models()
         if self.model in models:
@@ -62,9 +80,11 @@ class OllamaClient:
             "model": self.best_model(),
             "messages": messages,
             "stream": bool(stream),
+            "keep_alive": self.keep_alive,
             "options": {
                 "temperature": self.temperature,
                 "num_ctx": self.num_ctx,
+                "num_batch": self.num_batch,
             },
         }
         if tools:

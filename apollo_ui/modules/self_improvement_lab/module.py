@@ -53,7 +53,32 @@ class Module:
   raise KeyError(a)
  def self_test(self):assert any(t['name']=='stage_multi_file_patch' for t in self.tools());return 'Self-improvement multi-file staging/approval boundary passed'
  def build_ui(self,parent=None,ui_context=None):
-  from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QListWidget,QPushButton
-  p=QWidget(parent);l=QVBoxLayout(p);l.addWidget(QLabel('Self-Improvement Lab — proposal only, never silent core writes'));lst=QListWidget();l.addWidget(lst,1);b=QPushButton('Refresh Proposals');l.addWidget(b)
-  def go():lst.clear();[lst.addItem(q) for q in self.run('list_proposals',{})['proposals']]
-  b.clicked.connect(go);go();return p
+  from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QListWidget,QPushButton,QTabWidget
+  page=QWidget(parent);outer=QVBoxLayout(page)
+  outer.addWidget(QLabel('Apollo Developer Lab — changes remain proposals until approved'))
+  tabs=QTabWidget();outer.addWidget(tabs,1)
+  proposal_page=QWidget();l=QVBoxLayout(proposal_page)
+  lst=QListWidget();l.addWidget(lst,1);refresh=QPushButton('Refresh Proposals');l.addWidget(refresh)
+  def load_proposals():
+   lst.clear()
+   for record in self.run('list_proposals',{}).get('proposals',[]):lst.addItem(record)
+  refresh.clicked.connect(load_proposals);load_proposals();tabs.addTab(proposal_page,'Proposals')
+  # Use existing, verified engines. A single Developer Lab surface now also
+  # provides testing, verification and upgrade history without API rewrites.
+  manager=(ui_context or {}).get('module_manager') if isinstance(ui_context,dict) else None
+  if manager is not None:
+   for module_id,title in (
+    ('verification_engine','Verifier'),
+    ('benchmark_suite','Benchmarks'),
+    ('upgrade_history','Upgrade History'),
+   ):
+    record=manager.get_module(module_id)
+    instance=record.get('instance') if record and record.get('enabled') else None
+    if instance is None or not hasattr(instance,'build_ui'):continue
+    try:tabs.addTab(instance.build_ui(parent=tabs,ui_context=ui_context),title)
+    except Exception as exc:
+     fallback=QWidget();layout=QVBoxLayout(fallback)
+     message=QLabel(f'{title} unavailable: {type(exc).__name__}: {exc}')
+     message.setWordWrap(True);layout.addWidget(message)
+     tabs.addTab(fallback,title)
+  return page
