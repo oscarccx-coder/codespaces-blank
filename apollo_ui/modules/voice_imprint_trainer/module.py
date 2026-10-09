@@ -2657,11 +2657,11 @@ class Module:
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
             QTextEdit, QCheckBox, QFileDialog, QComboBox, QListWidget, QMessageBox,
             QSpinBox, QDoubleSpinBox, QGroupBox, QFormLayout, QSplitter, QScrollArea, QSizePolicy,
-            QProgressBar, QInputDialog, QListWidgetItem,
+            QProgressBar, QInputDialog, QListWidgetItem, QToolButton, QMenu, QTabWidget,
         )
 
         page = QWidget(parent)
-        page.setMinimumHeight(720)
+        page.setMinimumHeight(420)
         outer = QVBoxLayout(page)
         outer.setSpacing(12)
         title = QLabel("Voice Imprint Lab")
@@ -2683,26 +2683,35 @@ class Module:
         profiles_list = QListWidget()
         left_layout.addWidget(QLabel("Voice Profiles"))
         left_layout.addWidget(profiles_list, 1)
-        manager_actions = QHBoxLayout()
-        rename_profile_button = QPushButton("Rename")
-        archive_profile_button = QPushButton("Delete…")
-        manager_actions.addWidget(rename_profile_button)
-        manager_actions.addWidget(archive_profile_button)
-        left_layout.addLayout(manager_actions)
-        move_actions = QHBoxLayout()
-        move_up_button = QPushButton("Move Up")
-        move_down_button = QPushButton("Move Down")
-        move_actions.addWidget(move_up_button)
-        move_actions.addWidget(move_down_button)
-        left_layout.addLayout(move_actions)
-        refresh_profiles = QPushButton("Refresh Profiles")
+        hint = QLabel("Use ⋮ beside any voice to select, retrain, rename or delete it.")
+        hint.setWordWrap(True)
+        left_layout.addWidget(hint)
+        refresh_profiles = QPushButton("Refresh Voices")
         left_layout.addWidget(refresh_profiles)
         splitter.addWidget(left)
 
         right = QWidget()
-        right.setMinimumWidth(620)
+        right.setMinimumWidth(420)
         right_layout = QVBoxLayout(right)
-        right_layout.setSpacing(12)
+        right_layout.setSpacing(10)
+        voice_tabs = QTabWidget()
+        right_layout.addWidget(voice_tabs, 1)
+
+        def make_voice_tab(title):
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+            content = QWidget()
+            inner = QVBoxLayout(content)
+            inner.setSpacing(12)
+            scroll.setWidget(content)
+            voice_tabs.addTab(scroll, title)
+            return inner
+
+        build_tab_layout = make_voice_tab("Build / Retrain")
+        test_tab_layout = make_voice_tab("Test / Use")
+        advanced_tab_layout = make_voice_tab("Advanced Settings")
 
         import_box = QGroupBox("1. Choose Audio + Build Voice")
         import_form = QFormLayout(import_box)
@@ -2730,7 +2739,7 @@ class Module:
         import_form.addRow(personal_use)
         import_form.addRow(build_button)
         import_form.addRow(import_button)
-        right_layout.addWidget(import_box)
+        build_tab_layout.addWidget(import_box)
 
         train_box = QGroupBox("2. Learn Voice Signature")
         train_form = QFormLayout(train_box)
@@ -2758,7 +2767,8 @@ class Module:
         train_form.addRow(training_detail)
         train_form.addRow(activate_button)
         train_form.addRow(deactivate_button)
-        right_layout.addWidget(train_box)
+        build_tab_layout.addWidget(train_box)
+        build_tab_layout.addStretch(1)
 
         backend_box = QGroupBox("3. Local Neural Speech Backend")
         backend_form = QFormLayout(backend_box)
@@ -2805,7 +2815,7 @@ class Module:
         backend_form.addRow(worker_status_label)
         backend_form.addRow(performance_note)
         backend_form.addRow(unload_worker_button)
-        right_layout.addWidget(backend_box)
+        advanced_tab_layout.addWidget(backend_box)
 
         tuning_box = QGroupBox("4. Shape + Save This Voice")
         tuning_form = QFormLayout(tuning_box)
@@ -2903,7 +2913,7 @@ class Module:
         tuning_form.addRow(save_tuning_button)
         tuning_form.addRow(reset_tuning_button)
         tuning_form.addRow(default_voice_button)
-        right_layout.addWidget(tuning_box)
+        advanced_tab_layout.addWidget(tuning_box)
 
         test_box = QGroupBox("5. Test Apollo Voice")
         test_layout = QVBoxLayout(test_box)
@@ -2930,12 +2940,15 @@ class Module:
         test_buttons.addWidget(stop_button)
         test_layout.addWidget(test_text)
         test_layout.addLayout(test_buttons)
-        right_layout.addWidget(test_box)
+        test_tab_layout.addWidget(test_box)
+        test_tab_layout.addStretch(1)
 
         output = QTextEdit()
         output.setReadOnly(True)
         output.setMinimumHeight(170)
-        right_layout.addWidget(output, 1)
+        advanced_tab_layout.addWidget(QLabel("Technical details"))
+        advanced_tab_layout.addWidget(output)
+        advanced_tab_layout.addStretch(1)
         splitter.addWidget(right)
         splitter.setSizes([320, 900])
 
@@ -2945,6 +2958,34 @@ class Module:
 
         def show(value):
             output.setPlainText(json.dumps(value, indent=2, default=str))
+
+        def focus_profile(profile_id):
+            for index in range(profiles_list.count()):
+                item = profiles_list.item(index)
+                if item.data(Qt.UserRole) == profile_id:
+                    profiles_list.setCurrentItem(item)
+                    item.setSelected(True)
+                    return True
+            return False
+
+        def voice_option(profile_id, action):
+            if not focus_profile(profile_id):
+                return
+            if action == "select":
+                voice_tabs.setCurrentIndex(1)
+            elif action == "default":
+                do_activate()
+            elif action == "retrain":
+                voice_tabs.setCurrentIndex(0)
+                do_train()
+            elif action == "rename":
+                rename_selected_profile()
+            elif action == "delete":
+                archive_selected_profile()
+            elif action == "move_up":
+                move_selected_profile(-1)
+            elif action == "move_down":
+                move_selected_profile(1)
 
         class TrainingSignals(QObject):
             progress = Signal(object)
@@ -3101,10 +3142,46 @@ class Module:
                 test_voice_combo.addItem("Choose a voice profile…", None)
                 for row in result["profiles"]:
                     name = str(row["name"])
-                    label = ("● " if row.get("active") else "") + f"{name}  |  {row['approved_seconds']:.1f}s  |  signature={'yes' if row['signature_trained'] else 'no'}"
-                    item = QListWidgetItem(label)
+                    label = ("● " if row.get("active") else "") + name
+                    detail = "Ready" if row.get("signature_trained") else "Needs training"
+                    item = QListWidgetItem()
                     item.setData(Qt.UserRole, row["id"])
                     profiles_list.addItem(item)
+                    cell = QWidget(profiles_list)
+                    cell_layout = QHBoxLayout(cell)
+                    cell_layout.setContentsMargins(8, 4, 6, 4)
+                    text_button = QPushButton(f"{label}  ·  {detail}")
+                    text_button.setFlat(True)
+                    text_button.setToolTip("Select this voice")
+                    text_button.setStyleSheet("text-align:left;")
+                    text_button.clicked.connect(
+                        lambda _checked=False, pid=row["id"]: voice_option(pid, "select")
+                    )
+                    dots = QToolButton(cell)
+                    dots.setText("⋮")
+                    dots.setToolTip(f"Options for {name}")
+                    dots.setAccessibleName(f"Options for {name}")
+                    dots.setMinimumWidth(32)
+                    menu = QMenu(dots)
+                    for title, choice in (
+                        ("Select", "select"),
+                        ("Use as Apollo voice", "default"),
+                        ("Retrain", "retrain"),
+                        ("Rename", "rename"),
+                        ("Delete…", "delete"),
+                        ("Move up", "move_up"),
+                        ("Move down", "move_down"),
+                    ):
+                        act = menu.addAction(title)
+                        act.triggered.connect(
+                            lambda _checked=False, pid=row["id"], op=choice: voice_option(pid, op)
+                        )
+                    dots.setMenu(menu)
+                    dots.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+                    cell_layout.addWidget(text_button, 1)
+                    cell_layout.addWidget(dots)
+                    profiles_list.setItemWidget(item, cell)
+                    item.setSizeHint(cell.sizeHint())
                     test_voice_combo.addItem(("● " if row.get("active") else "") + name, row["id"])
                     if row["id"] == selected:
                         profiles_list.setCurrentItem(item)
@@ -3483,10 +3560,6 @@ class Module:
         build_button.clicked.connect(do_build_voice)
         import_button.clicked.connect(do_import)
         refresh_profiles.clicked.connect(lambda: refresh())
-        rename_profile_button.clicked.connect(rename_selected_profile)
-        archive_profile_button.clicked.connect(archive_selected_profile)
-        move_up_button.clicked.connect(lambda: move_selected_profile(-1))
-        move_down_button.clicked.connect(lambda: move_selected_profile(1))
         test_voice_combo.currentIndexChanged.connect(select_test_voice)
         choose_test_voice.clicked.connect(do_activate)
         train_button.clicked.connect(do_train)
