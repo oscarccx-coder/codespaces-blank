@@ -12,7 +12,7 @@ from apollo_storage import StorageLayout
 from apollo_update import sha256_file, verify_manifest_signature
 
 
-PROTECTED_TOP_LEVEL = {"storage", "workspace", "pending_modules", "config.json", "Audio", "models", "venv", ".venv", ".git"}
+PROTECTED_TOP_LEVEL = {"storage", "workspace", "pending_modules", "config.json", "Audio", "models", "venv", ".venv", ".venv-pi", ".git"}
 
 
 def wait_for_pid(pid, timeout=90):
