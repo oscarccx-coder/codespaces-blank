@@ -30,6 +30,10 @@ Python entry point: `main.py`. The application requires the dependencies listed 
 | `docs/legacy_notes/` | Archived historical update instructions |
 | `tools/legacy_updates/` | Historical obsolete version-setting batch files, archived as text, **do not execute** |
 
+## Vehicle Diagnostics (OBD-II)
+
+Apollo's **Vehicle Diagnostics** app reads ELM327-compatible USB/Bluetooth COM-port OBD-II live sensor data and stored/pending/permanent fault codes. It has a separate clearly labelled offline demo, optional live refresh, local report export and **no write or fault-clear commands**. Use only while parked. [Set-up and limitations](docs/features/VEHICLE_OBD_DIAGNOSTICS.md).
+
 ## XTTS model and GitHub updates
 
 - Shared drop-in folder: `models/voice/xtts_v2/` (add your own `config.json`, `model.pth`, `vocab.json`).
