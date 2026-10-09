@@ -2935,7 +2935,7 @@ class Module:
 
         def selected_id():
             item = profiles_list.currentItem()
-            return item.data(Qt.UserRole) if item else None
+            return item.data(Qt.UserRole) if item and item.isSelected() else None
 
         def show(value):
             output.setPlainText(json.dumps(value, indent=2, default=str))
