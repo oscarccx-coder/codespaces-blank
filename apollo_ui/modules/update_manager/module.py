@@ -309,6 +309,10 @@ class Module:
             if not result.get("ok"):
                 progress.setText(result.get("error") or result.get("reason") or "No update available.")
                 return
+            # No-op when up to date. Never install an older cached staging folder.
+            if kind in {"stage", "combined"} and not result.get("stage_dir"):
+                progress.setText(result.get("reason") or "No newer signed update is available.")
+                return
             if kind == "check":
                 progress.setText(
                     f"Apollo {result.get('release', {}).get('version', '')} is ready to install."
