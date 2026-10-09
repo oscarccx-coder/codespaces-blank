@@ -87,7 +87,7 @@ class Module:
         if action == "learning_practice_scores":
             return self.store.progress()
         if action == "learning_related_memory":
-            return self.related_memory(args["topic_id"])
+            return self.related_memory(a["topic_id"])
         if action == "growth_direction_status":
             return direction_report(self.base)
         raise KeyError(action)
