@@ -30,6 +30,14 @@ Python entry point: `main.py`. The application requires the dependencies listed 
 | `docs/legacy_notes/` | Archived historical update instructions |
 | `tools/legacy_updates/` | Historical obsolete version-setting batch files, archived as text, **do not execute** |
 
+## Signed GitHub Releases and Raspberry Pi 5
+
+Apollo has a gated GitHub Actions workflow for signed code releases: **stable is manual and approval-gated**, and **automatic beta is opt-in only**. Publishing requires a persistent Ed25519 signing secret and independently verified fingerprint; unconfigured secrets fail safely. There is no public Release until those repository settings and an intentional publish action are complete.
+
+The **Raspberry Pi 5 ARM64** deployment uses a lightweight headless assistant based on the same Ollama client and persistent memory, with localhost-only token-protected HTTP, a user systemd service, and signed update/rollback support. It deliberately does not start the Windows Qt desktop GUI or XTTS by default; AI HAT+ 2 inference is not enabled without the separate Hailo backend and supported models. ARM64 GitHub Actions exercises the Pi installer and API tests.
+
+[Release setup, security and Raspberry Pi installation](docs/architecture/SIGNED_RELEASES_AND_RASPBERRY_PI.md)
+
 ## Module consolidation and RAM usage
 
 Apollo's everyday applications are now grouped, and heavy module UI panels open on demand rather than all at startup. Control Center groups GPU/activity/notifications and Memory Bank includes health/conflicts and Knowledge Graph searching. Engines and user data stay installed. Old machine-specific XTTS fixes and the legacy local-release publisher are retired as safe stubs.
