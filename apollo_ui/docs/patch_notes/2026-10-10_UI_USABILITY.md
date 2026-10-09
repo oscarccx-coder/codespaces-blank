@@ -21,6 +21,7 @@ Date: 10 October 2026
 - Moved all 46 top-level developer regression tests into `tests/`.
   Updated their project-root fixtures, GitHub Actions regression, Pi and
   signed-release checks.
+- Signed updates back up and remove the old root-level test scripts on existing installations.
 - Excluded developer tests from future signed application bundles, reducing
   update payload clutter while retaining checks in the repository.
 - Consolidated patch notes and the older workstation changelog under
