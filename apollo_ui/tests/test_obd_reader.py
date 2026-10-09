@@ -146,11 +146,11 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(reader.port.queries, [])
 
     def test_vehicle_module_contract_does_not_expose_ecu_writes(self):
-        module_path = Path(__file__).parent / "modules" / "vehicle_diagnostics" / "module.py"
+        module_path = Path(__file__).resolve().parents[1] / "modules" / "vehicle_diagnostics" / "module.py"
         spec = importlib.util.spec_from_file_location("apollo_test_obd_module", module_path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        instance = mod.Module({"base_dir": str(Path(__file__).parent), "validation": True})
+        instance = mod.Module({"base_dir": str(Path(__file__).resolve().parents[1]), "validation": True})
         self.assertTrue(instance.self_test())
         tools = {t["name"] for t in instance.tools()}
         self.assertEqual(tools, {"obd_list_ports", "obd_live_snapshot", "obd_fault_codes", "obd_demo"})

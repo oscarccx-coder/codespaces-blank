@@ -84,7 +84,7 @@ jobs:
         working-directory: apollo_ui
         run: |
           python apollo_health_check.py --root .
-          python -m unittest -v test_release_pipeline test_pi_headless test_github_updates test_update_preflight
+          python -m unittest -v tests.test_release_pipeline tests.test_pi_headless tests.test_github_updates tests.test_update_preflight
       - name: Publish immutable signed Release
         working-directory: apollo_ui
         env:

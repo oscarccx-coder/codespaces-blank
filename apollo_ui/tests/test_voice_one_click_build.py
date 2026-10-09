@@ -6,7 +6,7 @@ import json
 import wave
 import numpy as np
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "modules" / "voice_imprint_trainer"))
 from module import Module, SAMPLE_RATE
 

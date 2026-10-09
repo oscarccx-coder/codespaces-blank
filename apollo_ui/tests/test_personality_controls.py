@@ -22,7 +22,7 @@ class PersonalityTests(unittest.TestCase):
                 self.assertIn("Drop humour", instruction)
 
     def test_live_ui_wiring_present(self):
-        source = Path(__file__).with_name("main.py").read_text(encoding="utf-8")
+        source = (Path(__file__).resolve().parents[1] / "main.py").read_text(encoding="utf-8")
         self.assertIn('system += personality_instruction(self.config.get("sarcasm_level", 1))', source)
         self.assertIn('self.setting_sarcasm_level = QComboBox()', source)
         self.assertIn('self.config["sarcasm_level"] = normalize_sarcasm_level(', source)

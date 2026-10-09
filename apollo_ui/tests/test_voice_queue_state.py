@@ -10,7 +10,7 @@ import unittest
 import uuid
 from pathlib import Path
 
-SOURCE = Path(__file__).resolve().parent / "modules" / "text_to_speech" / "module.py"
+SOURCE = Path(__file__).resolve().parents[1] / "modules" / "text_to_speech" / "module.py"
 
 
 def build_speech_methods():
