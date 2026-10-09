@@ -2,15 +2,23 @@
 
 Apollo is a local Windows/PySide6 assistant with Ollama, modular tools, a persistent Home hub, personal memory, isolated voice processing, update/recovery utilities and an evolving coding workspace.
 
-## Start Apollo
+## Install, start or remove Apollo's requirements (Windows)
 
-From this directory on Windows:
-- `start_apollo_ui.bat`: launch Apollo.
-- `start_apollo_safe_mode.bat`: troubleshoot misbehaving modules.
-- `UPDATE_APOLLO_CODE.bat`: fetch **code changes only** in an existing Git checkout, without downloading the XTTS model again. It refuses to overwrite local changes.
-- `REPAIR_VOICE_KEEP_MODEL.bat`: repair the voice dependencies without deleting the downloaded voice model.
+For a fresh Windows PC: install Python 3.11+ (3.13 preferred), then double-click **`INSTALL_REQUIREMENTS.bat`**. The installer creates `apollo_ui/.venv/` and installs core packages only into this isolated environment. Run **`start_apollo_ui.bat`** to start Apollo. A separate local Ollama installation and a downloaded local model are still required for LLM replies.
 
-Python entry point: `main.py`. The application requires the dependencies listed in `requirements.txt` and local Ollama. XTTS requires its separate optional runtime.
+- **`INSTALL_REQUIREMENTS.bat`**: install or repair core dependencies; run again safely after updates. Use `INSTALL_REQUIREMENTS.bat --voice` from a Command Prompt to also install the optional large XTTS speech runtime.
+- **`UNINSTALL_REQUIREMENTS.bat`**: asks before removing only Apollo's `.venv/` and its installed Python packages. This is not an Apollo data uninstaller.
+- **`start_apollo_ui.bat`**: launch using the private Python environment.
+- **`start_apollo_safe_mode.bat`**: launch with risky modules disabled; still uses the same private environment.
+- **`UPDATE_APOLLO_CODE.bat`**: fetch code changes in an existing clean Git checkout; does not reinstall models.
+- **`install_xtts_v2.bat`**: advanced optional CUDA/XTTS runtime installer, after core setup. May install a shared user-scope FFmpeg package.
+- **`build_apollo_exe_safer.bat`**: optional developer EXE build, not required to run Apollo.
+
+**Important:** uninstalling requirements does **not** delete or uninstall system Python, Git, Ollama, shared FFmpeg, XTTS models, saved voices, chats, memory, projects, or `storage/`. Packages previously installed globally by older Apollo scripts are deliberately left alone because removing global dependencies could break other programs.
+
+On Raspberry Pi 5 (64-bit ARM Linux), use `bash pi/install_pi.sh`. It installs a lightweight **headless** API in `.venv-pi/` rather than the Windows desktop GUI. See [installation and device guide](docs/architecture/INSTALLATION_AND_DEPENDENCIES.md).
+
+Python entry point: `main.py`; core requirements: `requirements.txt`; optional voice runtime: `requirements_xtts.txt`.
 
 ## Project layout
 
@@ -52,13 +60,13 @@ The **Raspberry Pi 5 ARM64** deployment uses a lightweight headless assistant ba
 
 ## Module consolidation and RAM usage
 
-Apollo's everyday applications are now grouped, and heavy module UI panels open on demand rather than all at startup. Control Center groups GPU/activity/notifications and Memory Bank includes health/conflicts and Knowledge Graph searching. Engines and user data stay installed. Old machine-specific XTTS fixes and the legacy local-release publisher are retired as safe stubs.
+Apollo's everyday applications are now grouped, and heavy module UI panels open on demand rather than all at startup. Control Center groups GPU/activity/notifications and Memory Bank includes health/conflicts and Knowledge Graph searching. Engines and user data stay installed. Old machine-specific launchers, duplicate repairs and the legacy local-release publisher have been removed; the supported entrypoints above remain.
 
 **Settings → General → Ollama RAM / Context** has Balanced (8K), More Context (16K) and Large Context (32K experimental) presets. They tune Ollama context and residency, not virtual/physical VRAM. Select a profile and save to apply to new chats. [Architecture, migration and benchmarks](docs/architecture/MODULE_CONSOLIDATION_AND_MEMORY.md).
 
 ## Voice Profiles and startup polish
 
-Voice Imprint Lab now has a single list with **Rename**, **Delete…** (recoverable local archive), **Move Up/Down**, and a voice selector with **Select Voice** beside the test controls. Changes to voice ordering persist across restarts, and renaming a selected voice updates Apollo's active label without moving its recordings or tuning. Archived audio stays in `storage/media/voice_imprint/deleted_profiles/`, not in GitHub.
+Voice Imprint Lab now provides a **three-dot menu on each voice** for Select, Make Default, Retrain, Rename, Delete (recoverable archive), and Move Up/Down. Changes to voice ordering persist across restarts, and renaming a selected voice updates Apollo's active label without moving its recordings or tuning. Archived audio stays in `storage/media/voice_imprint/deleted_profiles/`, not in GitHub.
 
 Apollo's main window now opens centered on the current monitor and fits within its available desktop area, instead of restoring stale off-screen coordinates.
 
