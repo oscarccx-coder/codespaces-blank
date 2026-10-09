@@ -13,6 +13,7 @@ import wave
 from datetime import datetime
 from pathlib import Path
 from apollo_xtts_paths import chosen_xtts_folder, save_xtts_folder
+from apollo_voice_profiles import VoiceProfileLibrary
 
 import numpy as np
 
@@ -117,6 +118,7 @@ class Module:
         self.output = self.storage / "output"
         self.settings_path = self.storage / "settings.json"
         self.active_path = self.storage / "active_profile.json"
+        self.library = VoiceProfileLibrary(self.storage)
         self.profiles.mkdir(parents=True, exist_ok=True)
         self.output.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
@@ -2333,6 +2335,57 @@ class Module:
             self._speech_process = proc
         return proc
 
+    # ---------------------- UI-only profile management ----------------------
+    def rename_profile_from_ui(self, profile_id, display_name):
+        """Rename friendly label, preserving profile ID, clips and voice tuning."""
+        with self._lock:
+            result = self.library.rename(profile_id, display_name)
+            active = self._active()
+            if active.get("enabled") and active.get("profile_id") == profile_id:
+                active["profile_name"] = result["name"]
+                self._save_json(self.active_path, active)
+                if self.runtime:
+                    try:
+                        self.runtime.blackboard_set("voice.active_imprint", active, "voice_imprint_trainer")
+                    except Exception:
+                        pass
+            return result
+
+    def reorder_profiles_from_ui(self, ordered_ids):
+        with self._lock:
+            return {"order": self.library.reorder(ordered_ids)}
+
+    def archive_profile_from_ui(self, profile_id):
+        """Only user-confirmed UI calls this method, never the agent tool bus."""
+        with self._lock:
+            if self._training_state.get("running"):
+                raise RuntimeError("Stop voice training before deleting a profile.")
+            status = self._xtts_worker_status()
+            if status.get("generating"):
+                raise RuntimeError("Stop voice generation before deleting a profile.")
+            active = self._active()
+            was_active = bool(active.get("enabled") and active.get("profile_id") == profile_id)
+            result = self.library.archive(profile_id)
+            if was_active:
+                try:
+                    self._save_json(self.active_path, {"enabled": False, "profile_id": ""})
+                except Exception:
+                    # Don't leave Apollo's active voice pointing at missing files.
+                    Path(result["archive"]).rename(self._profile_dir(profile_id))
+                    raise
+                self._stop_playback()
+                self._stop_xtts_worker(False)
+                if self.runtime:
+                    try:
+                        self.runtime.blackboard_set(
+                            "voice.active_imprint", {"enabled": False, "profile_id": ""},
+                            "voice_imprint_trainer"
+                        )
+                    except Exception:
+                        pass
+            self._conditioning_cache.clear()
+            return {**result, "deactivated": was_active}
+
     # ----------------------------- run -------------------------------
     def run(self, action, arguments):
         x = arguments or {}
@@ -2415,9 +2468,8 @@ class Module:
         if action == "list_profiles":
             profiles = []
             active = self._active()
-            for folder in sorted(self.profiles.iterdir() if self.profiles.exists() else []):
-                if not folder.is_dir() or not (folder / "profile.json").exists():
-                    continue
+            for profile_id in self.library.ordered_ids():
+                folder = self.library._folder(profile_id)
                 profile = self._load_json(folder / "profile.json", {})
                 rows = self._records(folder.name)
                 profiles.append({
