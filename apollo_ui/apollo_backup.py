@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import sqlite3
+from contextlib import closing
 import tempfile
 import zipfile
 
@@ -86,8 +87,8 @@ def make_backup(root, destination):
                     if file.suffix.lower() in (".db", ".sqlite", ".sqlite3"):
                         try:
                             source = Path(tmp) / (str(len(entries)) + ".db")
-                            with sqlite3.connect(file.resolve().as_uri() + "?mode=ro", uri=True) as current:
-                                with sqlite3.connect(source) as snapshot:
+                            with closing(sqlite3.connect(file.resolve().as_uri() + "?mode=ro", uri=True)) as current:
+                                with closing(sqlite3.connect(source)) as snapshot:
                                     current.backup(snapshot)
                         except (sqlite3.Error, OSError) as exc:
                             raise RuntimeError("Could not snapshot database " + rel) from exc
