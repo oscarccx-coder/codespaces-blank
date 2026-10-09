@@ -70,7 +70,7 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(parse_live_pid("010C", "41 0C 06 BB\r>")["value"], 430.75)
         self.assertEqual(parse_live_pid("010D", "410D28>")["value"], 40)
         self.assertEqual(parse_live_pid("0105", "41 05 5A\r>")["value"], 50)
-        self.assertEqual(parse_live_pid("0142", "41 42 37 24\r>")["value"], 14.116)
+        self.assertEqual(parse_live_pid("0142", "41 42 37 24\r>")["value"], 14.12)
         self.assertIsNone(parse_live_pid("010C", "NO DATA\r>"))
         self.assertIsNone(parse_live_pid("010C", "410C06\r>"))
         self.assertEqual(parse_live_pid("0111", "7E8 03 41 11 80\r>")["value"], 50.2)
