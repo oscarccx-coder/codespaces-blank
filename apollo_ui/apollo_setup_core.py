@@ -71,6 +71,18 @@ def check_ollama(url="http://127.0.0.1:11434"):
         return {"ok": False, "detail": type(exc).__name__ + ": Ollama not responding locally"}
 
 
+def check_gpu():
+    command = ["nvidia-smi", "--query-gpu=name,memory.total",
+               "--format=csv,noheader,nounits"]
+    try:
+        proc = subprocess.run(command, capture_output=True, text=True, timeout=4, check=False)
+        if proc.returncode == 0 and proc.stdout.strip():
+            return {"nvidia": True, "devices": proc.stdout.strip().splitlines()[:8]}
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return {"nvidia": False, "detail": "NVIDIA GPU tool not detected; CPU or other GPU may be available"}
+
+
 def xtts_diagnostic(root, deep=False):
     root = Path(root).resolve()
     settings = _read_json(root / "storage" / "media" / "voice_imprint" / "settings.json")
@@ -139,15 +151,17 @@ def system_checks(root, deep_voice=False):
     reports = {"python": sys.executable, "python_version": platform.python_version(),
                "virtual_environment": sys.prefix != sys.base_prefix,
                "venv_exists": venv_python.is_file(), "packages": imports,
-               "ollama": ollama, "profile": profile, "profile_info": profile_data,
+               "ollama": ollama, "gpu": check_gpu(), "profile": profile, "profile_info": profile_data,
                "voice": xtts_diagnostic(root, deep=deep_voice)}
-    reports["ready_for_chat"] = bool(ollama.get("ok") and
+    reports["ready_for_chat"] = bool(ollama.get("ok") and ollama.get("models") and
         (profile == "pi" or imports.get("PySide6")))
     reports["next_steps"] = []
     if not reports["virtual_environment"] and profile != "pi":
         reports["next_steps"].append("Run Setup/01_INSTALL.bat")
     if not ollama.get("ok"):
         reports["next_steps"].append("Start Ollama and download a local model")
+    elif not ollama.get("models"):
+        reports["next_steps"].append("Ollama is running, but no local models are installed")
     if not reports["voice"]["ok"] and profile_data["voice"]:
         reports["next_steps"].append("Open XTTS Diagnostics; use Setup/04_REPAIR_VOICE.bat only if needed")
     return reports
