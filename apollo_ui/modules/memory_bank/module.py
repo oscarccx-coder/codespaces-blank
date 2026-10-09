@@ -346,6 +346,11 @@ class Module:
         row = QHBoxLayout(); search = QLineEdit(); search.setPlaceholderText("Search memories...")
         search_btn = QPushButton("Search"); recent_btn = QPushButton("Recent"); edit_btn = QPushButton("Edit Selected"); remove_btn = QPushButton("Remove Selected")
         row.addWidget(search,1); row.addWidget(search_btn); row.addWidget(recent_btn); row.addWidget(edit_btn); row.addWidget(remove_btn); layout.addLayout(row)
+        knowledge_row=QHBoxLayout()
+        health_btn=QPushButton('Memory Health & Conflicts')
+        graph_btn=QPushButton('Search Knowledge Graph')
+        knowledge_row.addWidget(health_btn); knowledge_row.addWidget(graph_btn); knowledge_row.addStretch(1)
+        layout.addLayout(knowledge_row)
         lst = QListWidget(); details = QTextBrowser(); layout.addWidget(lst,1); layout.addWidget(details,1)
         state={"rows":[]}
         def display(rows):
@@ -383,6 +388,34 @@ class Module:
             if not sel: return
             if QMessageBox.question(page,"Remove Memory","Remove the selected memory?",QMessageBox.Yes|QMessageBox.No,QMessageBox.No)==QMessageBox.Yes:
                 self.remove_memory(str(sel[0].data(Qt.UserRole))); recent()
+        manager=(ui_context or {}).get('module_manager') if isinstance(ui_context,dict) else None
+        def related_instance(module_id):
+            record=manager.get_module(module_id) if manager is not None else None
+            return record.get('instance') if record and record.get('enabled') else None
+        def memory_health():
+            engine=related_instance('memory_intelligence')
+            if engine is None:
+                details.setPlainText('Memory Intelligence module is not installed or enabled.')
+                return
+            try:
+                import json
+                info={'memory_health':engine.run('memory_health',{}),
+                      'possible_conflicts':engine.run('find_possible_conflicts',{}),
+                      'age_report':engine.run('memory_age_report',{'limit':10})}
+                details.setPlainText(json.dumps(info,indent=2,default=str))
+            except Exception as exc:
+                QMessageBox.warning(page,'Memory health',str(exc))
+        def graph_search():
+            engine=related_instance('knowledge_graph')
+            if engine is None:
+                details.setPlainText('Knowledge Graph module is not installed or enabled.')
+                return
+            try:
+                import json
+                details.setPlainText(json.dumps(engine.run('search_graph',{'query':search.text().strip()}),indent=2,default=str))
+            except Exception as exc:
+                QMessageBox.warning(page,'Knowledge graph',str(exc))
+        health_btn.clicked.connect(memory_health); graph_btn.clicked.connect(graph_search)
         search_btn.clicked.connect(do_search); recent_btn.clicked.connect(recent); edit_btn.clicked.connect(edit); remove_btn.clicked.connect(remove)
         search.returnPressed.connect(do_search); lst.itemSelectionChanged.connect(show); recent()
         return page
