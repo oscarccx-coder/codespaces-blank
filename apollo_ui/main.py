@@ -11,7 +11,7 @@ except ImportError:
     psutil = None
 
 from PySide6.QtCore import Qt, QThreadPool, QTimer, Slot, QUrl, QMimeData
-from PySide6.QtGui import QFont, QIcon, QPainter, QColor, QDesktopServices, QKeySequence, QShortcut, QDrag
+from PySide6.QtGui import QFont, QIcon, QPainter, QColor, QDesktopServices, QKeySequence, QShortcut, QDrag, QCursor
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QStackedWidget, QFrame, QLineEdit, QTextEdit, QGridLayout,
@@ -32,6 +32,7 @@ from apollo_personality import personality_instruction, normalize_sarcasm_level,
 from apollo_config import ApolloConfigStore
 from apollo_docs import PatchDocs
 from apollo_storage import StorageLayout
+from apollo_window_geometry import centered_window_geometry
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -637,17 +638,20 @@ class ApolloWindow(QMainWindow):
         self.thread_pool.setMaxThreadCount(2)
 
         self.setWindowTitle("Apollo")
-        self.setMinimumSize(1100, 700)
+        self._startup_centre_pending = True
+        self.setMinimumSize(900, 600)
         saved_window = self.ui_state.get("window", {})
+        if not isinstance(saved_window, dict):
+            saved_window = {}
         try:
-            self.setGeometry(
-                int(saved_window.get("x", 80)),
-                int(saved_window.get("y", 80)),
-                max(1100, int(saved_window.get("width", 1500))),
-                max(700, int(saved_window.get("height", 900))),
+            self.resize(
+                max(900, int(saved_window.get("width", 1500))),
+                max(600, int(saved_window.get("height", 900))),
             )
-        except Exception:
+        except (ValueError, TypeError):
             self.resize(1500, 900)
+        # Saved x/y may refer to a disconnected monitor. Geometry is centered
+        # *after show()* when Qt knows the frame metrics and target display.
 
         self.setStyleSheet(APP_STYLE)
 
@@ -737,8 +741,24 @@ class ApolloWindow(QMainWindow):
                 return key
         return "Hub"
 
+    def center_on_startup(self):
+        """Center once on the current display; never jump on later resizes."""
+        try:
+            screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
+            if screen is None:
+                return
+            available = screen.availableGeometry()
+            x, y, width, height = centered_window_geometry(
+                (available.x(), available.y(), available.width(), available.height()),
+                (self.width(), self.height()),
+            )
+            self.setGeometry(x, y, width, height)
+        finally:
+            self._startup_centre_pending = False
+            self._queue_ui_state_save()
+
     def _save_ui_state(self):
-        if not hasattr(self, "pages"):
+        if not hasattr(self, "pages") or self._startup_centre_pending:
             return
         selected_module = self._selected_module_id() if hasattr(self, "modules_list") else None
         selected_pending = self._selected_pending_id() if hasattr(self, "pending_modules_list") else None
@@ -6328,6 +6348,9 @@ def main():
 
     win = ApolloWindow()
     win.show()
+    # Wait for first paint/window-manager decorations before centering. The
+    # queued save during initialization cannot preserve an off-screen position.
+    QTimer.singleShot(0, win.center_on_startup)
 
     sys.exit(app.exec())
 

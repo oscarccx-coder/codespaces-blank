@@ -30,6 +30,16 @@ Python entry point: `main.py`. The application requires the dependencies listed 
 | `docs/legacy_notes/` | Archived historical update instructions |
 | `tools/legacy_updates/` | Historical obsolete version-setting batch files, archived as text, **do not execute** |
 
+## Voice Profiles and startup polish
+
+Voice Imprint Lab now has a single list with **Rename**, **Delete…** (recoverable local archive), **Move Up/Down**, and a voice selector with **Select Voice** beside the test controls. Changes to voice ordering persist across restarts, and renaming a selected voice updates Apollo's active label without moving its recordings or tuning. Archived audio stays in `storage/media/voice_imprint/deleted_profiles/`, not in GitHub.
+
+Apollo's main window now opens centered on the current monitor and fits within its available desktop area, instead of restoring stale off-screen coordinates.
+
+## Vehicle Diagnostics (OBD-II)
+
+Apollo's **Vehicle Diagnostics** app reads ELM327-compatible USB/Bluetooth COM-port OBD-II live sensor data and stored/pending/permanent fault codes. It has a separate clearly labelled offline demo, optional live refresh, local report export and **no write or fault-clear commands**. Use only while parked. [Set-up and limitations](docs/features/VEHICLE_OBD_DIAGNOSTICS.md).
+
 ## XTTS model and GitHub updates
 
 - Shared drop-in folder: `models/voice/xtts_v2/` (add your own `config.json`, `model.pth`, `vocab.json`).
