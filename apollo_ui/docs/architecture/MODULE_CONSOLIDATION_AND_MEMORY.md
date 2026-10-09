@@ -117,3 +117,8 @@ preservation, Control Center/Memory Bank integration, safe Ollama settings,
 user-config persistence, updated source syntax, plus the previous voice/updater
 and OBD regression suites. Hardware/GPU load, actual Windows startup speed,
 Ollama tokens/s and full PySide6 interactivity must still be tested on PC.
+
+
+### Windows installer simplification (2026-10-10)
+
+The obsolete launcher stubs and duplicate repair scripts listed above have now been **deleted** from the current root directory. Supported commands are `INSTALL_REQUIREMENTS.bat`, `UNINSTALL_REQUIREMENTS.bat`, `start_apollo_ui.bat`, `start_apollo_safe_mode.bat`, `UPDATE_APOLLO_CODE.bat`, and optional `install_xtts_v2.bat`. See `docs/architecture/INSTALLATION_AND_DEPENDENCIES.md` for the new isolated-venv policy.
