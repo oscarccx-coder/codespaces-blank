@@ -2657,7 +2657,7 @@ class Module:
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
             QTextEdit, QCheckBox, QFileDialog, QComboBox, QListWidget, QMessageBox,
             QSpinBox, QDoubleSpinBox, QGroupBox, QFormLayout, QSplitter, QScrollArea, QSizePolicy,
-            QProgressBar, QInputDialog, QListWidgetItem, QMenu,
+            QProgressBar, QInputDialog, QListWidgetItem, QMenu, QFrame,
         )
 
         page = QWidget(parent)
@@ -2943,7 +2943,7 @@ class Module:
         right_layout.addWidget(output, 1)
         right_scroll = QScrollArea()
         right_scroll.setWidgetResizable(True)
-        right_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        right_scroll.setFrameShape(QFrame.Shape.NoFrame)
         right_scroll.setWidget(right)
         splitter.addWidget(right_scroll)
         splitter.setSizes([300, 850])
