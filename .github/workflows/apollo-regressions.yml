@@ -52,3 +52,6 @@ jobs:
       - name: Test signed update rollback
         working-directory: apollo_ui
         run: python test_update_system.py
+      - name: Dry-run full signed desktop and Raspberry Pi release ZIP
+        working-directory: apollo_ui
+        run: python tools/check_release_bundle.py
