@@ -28,7 +28,7 @@ class GrowthTests(unittest.TestCase):
         self.assertEqual(pence("12.34"), 1234)
         self.assertEqual(pence("0", positive=False), 0)
         self.assertEqual(gbp(1234), "£12.34")
-        self.assertEqual(gbp(-1234), "£-12.34" if False else "£-12.34")
+        self.assertEqual(gbp(-1234), "-£12.34")
         for invalid in ("NaN", "-1", "1e9", "1.234", "5,000", "999999999", "", "3.5x", None, True):
             with self.subTest(value=invalid), self.assertRaises(ValueError):
                 pence(invalid)
