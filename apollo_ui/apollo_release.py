@@ -38,12 +38,32 @@ def ensure_signing_key(source):
     private_path = key_dir / "release_private.pem"
     public_path = key_dir / "release_public.pem"
 
-    if private_path.exists():
+    # CI must use a stable, pre-provisioned key from GitHub Actions secrets.
+    # Never generate a throwaway key: existing devices pin the public key.
+    key_from_secret = os.environ.get("APOLLO_RELEASE_PRIVATE_PEM", "").strip()
+    if key_from_secret:
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+        private = load_pem_private_key(key_from_secret.encode("utf-8"), password=None)
+        private_path = None  # The private key is never written to the source tree.
+    elif os.environ.get("CI") or os.environ.get("APOLLO_REQUIRE_SIGNING_KEY") == "1":
+        raise RuntimeError(
+            "Release signing key is missing. Configure the APOLLO_RELEASE_PRIVATE_PEM "
+            "GitHub Actions secret; do not create an untrusted signing identity in CI."
+        )
+    elif private_path.exists():
         from cryptography.hazmat.primitives.serialization import load_pem_private_key
         private = load_pem_private_key(private_path.read_bytes(), password=None)
     else:
+        # Local development only. Never use an auto-generated dev key for
+        # production distribution without separately verifying its fingerprint.
         private = Ed25519PrivateKey.generate()
         private_path.write_bytes(private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
+        try:
+            private_path.chmod(0o600)
+        except OSError:
+            pass
+    if not isinstance(private, Ed25519PrivateKey):
+        raise TypeError("Apollo release signing requires an Ed25519 private key")
     public_path.write_bytes(private.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo))
     return private, private_path, public_path
 
@@ -109,7 +129,7 @@ def publish(source, out_root, channel="development"):
         "published_at": manifest["created_at"],
     }
     index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
-    return {"package": str(package_path), "index": str(index_path), "public_key": str(public_target), "private_key": str(private_path), "version": version}
+    return {"package": str(package_path), "index": str(index_path), "public_key": str(public_target), "private_key": str(private_path) if private_path is not None else "(GitHub Actions secret)", "version": version}
 
 
 if __name__ == "__main__":
