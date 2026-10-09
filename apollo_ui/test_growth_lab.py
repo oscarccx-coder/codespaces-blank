@@ -110,7 +110,6 @@ class GrowthTests(unittest.TestCase):
         spec.loader.exec_module(module)
         app = module.Module({"base_dir": self.base})
         try:
-            self.assertIn("contracts", "contracts") # Tool boundary tested below.
             self.assertTrue(app.self_test())
             names = {x["name"] for x in app.tools()}
             self.assertEqual(names, {
