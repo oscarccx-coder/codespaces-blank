@@ -168,6 +168,43 @@ class Module:
         hardware_layout.addWidget(hardware_info, 1)
         tabs.addTab(hardware_tab, "Hardware & Bottlenecks")
 
+        director_tab = QWidget()
+        director_layout = QVBoxLayout(director_tab)
+        director_layout.addWidget(QLabel(
+            "Growth Director combines real hardware constraints, approved "
+            "work, local learning questions and measured reasoning practice. "
+            "It cannot accept jobs, change the fund or buy hardware."
+        ))
+        director_view = QPlainTextEdit()
+        director_view.setReadOnly(True)
+        director_btns = QHBoxLayout()
+        refresh_director = QPushButton("Analyse Priorities")
+        open_reasoning = QPushButton("Open Learning & Reasoning")
+        director_btns.addWidget(refresh_director)
+        director_btns.addWidget(open_reasoning)
+        director_layout.addLayout(director_btns)
+        director_layout.addWidget(director_view, 1)
+        tabs.addTab(director_tab, "Growth Director")
+
+        def show_director():
+            try:
+                from apollo_growth_director import direction_report
+                director_view.setPlainText(json.dumps(
+                    direction_report(self.base), indent=2
+                ))
+            except (OSError, ValueError) as exc:
+                director_view.setPlainText(str(exc))
+
+        def open_reasoning_app():
+            window = (ui_context or {}).get("apollo_window")
+            if window is None:
+                director_view.setPlainText("Open this app within desktop Apollo.")
+                return
+            window.open_module_app("reasoning_director")
+
+        refresh_director.clicked.connect(show_director)
+        open_reasoning.clicked.connect(open_reasoning_app)
+
         def error(exc):
             QMessageBox.warning(page, "Apollo Growth Lab", str(exc))
 

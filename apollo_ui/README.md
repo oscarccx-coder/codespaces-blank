@@ -30,6 +30,10 @@ Python entry point: `main.py`. The application requires the dependencies listed 
 | `docs/legacy_notes/` | Archived historical update instructions |
 | `tools/legacy_updates/` | Historical obsolete version-setting batch files, archived as text, **do not execute** |
 
+## Learning & Reasoning Director (7.5.13.6)
+
+Apollo now has an integrated **Memory & Learning → Learning & Reasoning** app. Creating a research topic automatically queues questions on primary evidence, tests and contradictions, and stores review dates in private SQLite. Human-reviewed source notes survive restarts. The local Ollama model can suggest further questions and run bounded, objectively graded **direct vs self-reviewed reasoning practice** with per-skill accuracy and real token-rate measurements when available. Growth Director combines these indicators with the existing hardware/paid-work planner, but cannot spend money, accept contracts or modify the base LLM weights. Details: [Learning & Reasoning Director](docs/features/LEARNING_REASONING_GROWTH_DIRECTOR.md).
+
 ## Growth Lab: Hardware Upgrades and User-Directed Paid Work
 
 Apollo can propose possible customer deliverables and record hardware upgrade goals in **Growth Lab** (Settings → Apps → Coding). It measures local CPU/RAM/GPU, keeps work ideas as **unapproved drafts**, and offers an optional **manually updated GBP upgrade-fund ledger**. Only the human owner can approve work, mark completion or record income. No money is held or moved, customers contacted, bank accounts accessed or hardware bought by Apollo. See [Growth Lab security and design](docs/features/GROWTH_LAB_UPGRADE_FUND.md).

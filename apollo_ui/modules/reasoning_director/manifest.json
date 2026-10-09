@@ -1,0 +1,13 @@
+{
+  "id": "reasoning_director",
+  "name": "Apollo Learning & Reasoning Director",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Persistent curiosity and research questions, evidence-aware future revision, local-model reasoning practice and user-approved hardware/work planning.",
+  "ui": {
+    "enabled": true,
+    "title": "Learning & Reasoning",
+    "default_placement": "apps"
+  }
+}
