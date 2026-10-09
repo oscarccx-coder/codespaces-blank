@@ -5649,6 +5649,10 @@ class ApolloWindow(QMainWindow):
                 f"GPU Monitor unavailable: {exc}"
             )
 
+    def open_setup_centre(self):
+        from apollo_setup_ui import show_setup
+        self._setup_dialog = show_setup(self, BASE_DIR)
+
     def _build_settings(self):
         page = QWidget()
         v = QVBoxLayout(page)
@@ -5947,6 +5951,19 @@ class ApolloWindow(QMainWindow):
         updates_layout.addWidget(open_updates)
         updates_layout.addStretch()
         self.settings_tabs.addTab(self.settings_updates_tab, "Updates")
+
+        self.settings_setup_tab = QWidget()
+        setup_layout = QVBoxLayout(self.settings_setup_tab)
+        setup_layout.addWidget(label(
+            "One place to check Ollama and XTTS, choose a device profile, and back up "
+            "Apollo's memories, voice profiles and projects.",
+            11, "#a5d1c8"
+        ))
+        open_setup = QPushButton("Open Setup & Recovery")
+        open_setup.clicked.connect(self.open_setup_centre)
+        setup_layout.addWidget(open_setup)
+        setup_layout.addStretch()
+        self.settings_tabs.addTab(self.settings_setup_tab, "Setup & Recovery")
 
         self.settings_tabs.currentChanged.connect(
             self._settings_tab_changed
@@ -6412,6 +6429,10 @@ def main():
     # Wait for first paint/window-manager decorations before centering. The
     # queued save during initialization cannot preserve an off-screen position.
     QTimer.singleShot(0, win.center_on_startup)
+    def first_run_setup():
+        from apollo_setup_ui import maybe_show_first_run
+        win._setup_dialog = maybe_show_first_run(win, BASE_DIR)
+    QTimer.singleShot(1300, first_run_setup)
 
     sys.exit(app.exec())
 
