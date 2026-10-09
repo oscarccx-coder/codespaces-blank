@@ -57,8 +57,12 @@ def list_backup_files(root):
     return rows
 
 
-def _hash(data):
-    return hashlib.sha256(data).hexdigest()
+def _hash_file(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def make_backup(root, destination):
@@ -68,29 +72,33 @@ def make_backup(root, destination):
         raise FileExistsError("Choose a new backup filename; existing files are not overwritten")
     rows = list_backup_files(root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Database copies use SQLite's backup API so a running DB isn't copied mid-write.
-    with tempfile.TemporaryDirectory(prefix="apollo_backup_") as tmp:
-        with zipfile.ZipFile(path, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=5) as archive:
-            entries = []
-            for rel, file, size in rows:
-                source = file
-                if file.suffix.lower() in (".db", ".sqlite", ".sqlite3"):
-                    try:
-                        source = Path(tmp) / (str(len(entries)) + ".db")
-                        with sqlite3.connect("file:" + str(file) + "?mode=ro", uri=True) as current:
-                            with sqlite3.connect(source) as snapshot:
-                                current.backup(snapshot)
-                    except (sqlite3.Error, OSError) as exc:
-                        raise RuntimeError("Could not snapshot database " + rel) from exc
-                data = source.read_bytes()
-                entries.append({"path": rel, "bytes": len(data), "sha256": _hash(data)})
-                archive.writestr(ARCHIVE_PREFIX + rel, data)
-            archive.writestr("manifest.json", json.dumps({
-                "product": "Apollo", "format": 1,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "entries": entries,
-                "note": "Local unencrypted backup. Keep private.",
-            }, indent=2))
+    entries = []
+    try:
+        # Database copies use SQLite's backup API to avoid copying mid-transaction.
+        with tempfile.TemporaryDirectory(prefix="apollo_backup_") as tmp:
+            with zipfile.ZipFile(path, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=5) as archive:
+                for rel, file, _size in rows:
+                    source = file
+                    if file.suffix.lower() in (".db", ".sqlite", ".sqlite3"):
+                        try:
+                            source = Path(tmp) / (str(len(entries)) + ".db")
+                            with sqlite3.connect("file:" + str(file) + "?mode=ro", uri=True) as current:
+                                with sqlite3.connect(source) as snapshot:
+                                    current.backup(snapshot)
+                        except (sqlite3.Error, OSError) as exc:
+                            raise RuntimeError("Could not snapshot database " + rel) from exc
+                    entries.append({"path": rel, "bytes": source.stat().st_size,
+                                    "sha256": _hash_file(source)})
+                    archive.write(source, ARCHIVE_PREFIX + rel)
+                archive.writestr("manifest.json", json.dumps({
+                    "product": "Apollo", "format": 1,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "entries": entries,
+                    "note": "Local unencrypted backup. Keep private.",
+                }, indent=2))
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
     return {"file": str(path), "files": len(rows), "bytes": sum(x["bytes"] for x in entries)}
 
 
@@ -149,7 +157,7 @@ def restore_backup(root, source, confirmed=False):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with archive.open(ARCHIVE_PREFIX + rel) as inp, target.open("wb") as out:
                     shutil.copyfileobj(inp, out, length=1024 * 1024)
-                if _hash(target.read_bytes()) != entry["sha256"]:
+                if _hash_file(target) != entry["sha256"]:
                     raise ValueError("Backup checksum mismatch: " + rel)
         replaced, created = [], []
         try:
