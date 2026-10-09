@@ -66,6 +66,15 @@ jobs:
           git fetch origin main
           test "$(git rev-parse origin/main)" = "$EXPECTED_SHA" ||
             { echo "main moved since CI. Refusing stale release."; exit 1; }
+          # Manual stable/beta dispatch must also wait for successful full main
+          # CI. Workflow-run beta events are already verified by construction.
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            count="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$EXPECTED_SHA&event=push&status=success&per_page=20" --jq '[.workflow_runs[] | select(.name == "Apollo regression checks" and .conclusion == "success")] | length')"
+            if [[ "$count" -lt 1 ]]; then
+              echo "No successful main-branch Apollo regression run found for this commit." >&2
+              exit 1
+            fi
+          fi
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
