@@ -59,7 +59,7 @@ if not exist "%VENV_PY%" (
 
 :INSTALL_PACKAGES
 echo [2/3] Installing Apollo's core dependencies...
-"%VENV_PY%" -c "import sys,encodings,venv; assert sys.prefix!=sys.base_prefix; assert sys.version_info >= (3,11)" 
+"%VENV_PY%" -c "import sys,encodings,venv; assert not (sys.prefix == sys.base_prefix); assert sys.version_info >= (3,11)" 
 if errorlevel 1 (
     echo [ERROR] .venv is missing or is not an isolated Python environment.
     goto :FAIL
