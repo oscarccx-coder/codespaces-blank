@@ -87,7 +87,7 @@ echo Launch Apollo using start_apollo_ui.bat
 echo Optional voice runtime: install_xtts_v2.bat
 echo Optional full install: INSTALL_REQUIREMENTS.bat --voice
 echo.
-pause
+if not defined CI pause
 exit /b 0
 
 :TRY_PY
@@ -102,5 +102,5 @@ echo.
 echo [ERROR] Installation did not complete.
 echo Apollo's model files, voice profiles and personal storage were not removed.
 echo Check the message above and run this installer again.
-pause
+if not defined CI pause
 exit /b 1
