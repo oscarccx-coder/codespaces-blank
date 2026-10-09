@@ -75,6 +75,19 @@ class Module:
         status.setWordWrap(True)
         layout.addWidget(status)
 
+        primary_actions = QHBoxLayout()
+        check_btn = QPushButton("Check for Updates")
+        combined_btn = QPushButton("Update & Restart")
+        combined_btn.setMinimumHeight(42)
+        primary_actions.addWidget(check_btn)
+        primary_actions.addWidget(combined_btn)
+        layout.addLayout(primary_actions)
+
+        advanced_toggle = QPushButton("Advanced update options ▸")
+        advanced_toggle.setCheckable(True)
+        layout.addWidget(advanced_toggle)
+        advanced_panel = QWidget()
+        advanced_layout = QVBoxLayout(advanced_panel)
         source = QComboBox()
         source.addItem("GitHub Releases (recommended)", "github")
         source.addItem("Local signed update server", "server")
@@ -90,42 +103,60 @@ class Module:
             label.setMinimumWidth(105)
             row.addWidget(label)
             row.addWidget(widget, 1)
-            layout.addLayout(row)
+            advanced_layout.addLayout(row)
 
         configuration_row("Update source", source)
         configuration_row("Server URL", server)
         configuration_row("Channel", channel)
-        layout.addWidget(auto_check)
+        advanced_layout.addWidget(auto_check)
         source.currentIndexChanged.connect(
             lambda _: server.setEnabled(source.currentData() == "server")
         )
 
-        actions = QHBoxLayout()
-        save_btn = QPushButton("Save Source")
-        check_btn = QPushButton("Check GitHub")
+        additional_actions = QHBoxLayout()
+        save_btn = QPushButton("Save Options")
         stage_btn = QPushButton("Download & Verify")
-        install_btn = QPushButton("Install & Restart")
-        combined_btn = QPushButton("Update & Restart")
-        actions.addWidget(save_btn)
-        actions.addWidget(check_btn)
-        actions.addWidget(stage_btn)
-        actions.addWidget(install_btn)
-        actions.addWidget(combined_btn)
-        layout.addLayout(actions)
+        install_btn = QPushButton("Install Staged Update")
+        additional_actions.addWidget(save_btn)
+        additional_actions.addWidget(stage_btn)
+        additional_actions.addWidget(install_btn)
+        advanced_layout.addLayout(additional_actions)
 
         trust_row = QHBoxLayout()
         trust_github_btn = QPushButton("Trust GitHub Signing Key (one-time)")
         trust_local_btn = QPushButton("Import Public Key File")
         trust_row.addWidget(trust_github_btn)
         trust_row.addWidget(trust_local_btn)
-        layout.addLayout(trust_row)
+        advanced_layout.addLayout(trust_row)
+        advanced_panel.hide()
+        advanced_toggle.toggled.connect(
+            lambda expanded: (
+                advanced_panel.setVisible(expanded),
+                advanced_toggle.setText(
+                    "Advanced update options ▾" if expanded else "Advanced update options ▸"
+                )
+            )
+        )
+        layout.addWidget(advanced_panel)
 
         progress = QLabel("No update operation running.")
         progress.setWordWrap(True)
         layout.addWidget(progress)
+        details_btn = QPushButton("View technical details ▸")
+        details_btn.setCheckable(True)
+        layout.addWidget(details_btn)
         output = QPlainTextEdit()
         output.setReadOnly(True)
-        output.setMinimumHeight(210)
+        output.setMinimumHeight(170)
+        output.hide()
+        details_btn.toggled.connect(
+            lambda expanded: (
+                output.setVisible(expanded),
+                details_btn.setText(
+                    "Hide technical details ▾" if expanded else "View technical details ▸"
+                )
+            )
+        )
         layout.addWidget(output, 1)
 
         class UpdateSignals(QObject):
@@ -159,6 +190,11 @@ class Module:
                 progress.setText(
                     "Last update FAILED and rollback was attempted. See Apollo's update logs."
                 )
+            if not info["trusted_key"] and not (latest and latest.get("ok") is False):
+                progress.setText(
+                    "First-time setup: open Advanced update options and import the trusted "
+                    "release key. Check its fingerprint against a separate trusted source."
+                )
             pretty(info)
 
         def save():
@@ -191,7 +227,7 @@ class Module:
                     QMessageBox.warning(page, "Update settings", str(exc))
                     return
             set_busy(True)
-            progress.setText("Checking GitHub releases..." if kind == "check"
+            progress.setText("Checking signed Apollo releases..." if kind == "check"
                              else "Preparing signed update...")
 
             def report(amount, total):
@@ -274,8 +310,10 @@ class Module:
                 progress.setText(result.get("error") or result.get("reason") or "No update available.")
                 return
             if kind == "check":
-                progress.setText("New release available." if result.get("available")
-                                 else "Apollo is up to date for the chosen channel.")
+                progress.setText(
+                    f"Apollo {result.get('release', {}).get('version', '')} is ready to install."
+                    if result.get("available") else "Apollo is up to date for the chosen channel."
+                )
                 return
             if kind == "stage":
                 progress.setText("Signed update downloaded and verified. Ready to install.")
