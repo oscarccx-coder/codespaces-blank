@@ -278,9 +278,24 @@ class ReasoningStore:
             ).fetchall()
             return [dict(x) for x in rows]
 
-    def practice_questions(self, limit=3, skill=None):
+    def practice_questions(self, limit=3, skill=None, method="direct"):
+        """Rotate least-practised questions separately for direct/review modes.
+
+        This avoids benchmarking only the first three easy tasks forever and
+        means the first direct and reviewed batches have identical questions.
+        """
+        if method not in {"direct", "self_review", "manual"}:
+            raise ValueError("Unknown practice method")
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT challenge_id,COUNT(*) n FROM practice WHERE method=? "
+                "GROUP BY challenge_id", (method,)
+            ).fetchall()
+        completed = {x["challenge_id"]: x["n"] for x in rows}
         challenges = [dict(id=q["id"], skill=q["skill"], question=q["question"])
                       for q in QUESTIONS if skill is None or q["skill"] == skill]
+        original = {q["id"]: index for index, q in enumerate(QUESTIONS)}
+        challenges.sort(key=lambda q: (completed.get(q["id"], 0), original[q["id"]]))
         return challenges[:max(1, min(int(limit), len(challenges)))]
 
     def save_attempt(self, challenge_id, response, model="manual", method="manual",
@@ -368,7 +383,9 @@ def practice_prompt(task):
 def run_practice(client, store, *, limit=3, review=False):
     """Opt-in local practice loop; no model weight updates or background scheduler."""
     results = []
-    for challenge in store.practice_questions(limit):
+    for challenge in store.practice_questions(
+        limit, method="self_review" if review else "direct"
+    ):
         start = time.monotonic()
         first = client.chat_once(practice_prompt(challenge))
         first_text = str((first.get("message") or {}).get("content") or "").strip()
