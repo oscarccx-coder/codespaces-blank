@@ -1718,11 +1718,17 @@ class Module:
         try:
             for line in iter(proc.stdout.readline, ""):
                 line = line.strip()
-                if not line.startswith("APOLLO_XTTS_JSON "):
+                # Accept the framed worker protocol and older JSON-only
+                # workers so a partially updated Apollo cannot hang on replies.
+                if line.startswith("APOLLO_XTTS_JSON "):
+                    line = line[len("APOLLO_XTTS_JSON "):]
+                elif not line.startswith("{"):
                     continue
                 try:
-                    payload = json.loads(line[len("APOLLO_XTTS_JSON "):])
-                except Exception:
+                    payload = json.loads(line)
+                except (ValueError, TypeError):
+                    continue
+                if not isinstance(payload, dict) or "id" not in payload or "ok" not in payload:
                     continue
                 response_queue.put(payload)
         finally:
