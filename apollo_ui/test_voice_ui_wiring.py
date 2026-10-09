@@ -18,8 +18,10 @@ class VoiceUIWiringTests(unittest.TestCase):
         source = self.voice_text
         for needed in (
             "rename_profile_from_ui", "archive_profile_from_ui", "reorder_profiles_from_ui",
-            "test_voice_combo", "choose_test_voice", "move_up_button", "move_down_button",
-            "archive_profile_button", "QMessageBox.question", "self.library.ordered_ids()",
+            "test_voice_combo", "choose_test_voice", "QToolButton", "QMenu",
+            '("Retrain", "retrain")', '("Delete…", "delete")',
+            "voice_option(profile_id, action)", "QMessageBox.question",
+            "self.library.ordered_ids()",
             "test_voice_combo.currentIndexChanged.connect(select_test_voice)",
             "choose_test_voice.clicked.connect(do_activate)",
         ):

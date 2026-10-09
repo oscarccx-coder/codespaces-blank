@@ -2,6 +2,7 @@
 import json
 import re
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from apollo_reasoning import ReasoningStore, run_practice
 from apollo_growth_director import direction_report
@@ -130,14 +131,14 @@ class Module:
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
             QLineEdit, QComboBox, QPlainTextEdit, QMessageBox,
-            QInputDialog, QSpinBox, QTabWidget
+            QInputDialog, QSpinBox, QTabWidget, QMenu
         )
         page = QWidget(parent)
         root = QVBoxLayout(page)
-        root.addWidget(QLabel("Apollo Learning & Reasoning Director"))
+        root.addWidget(QLabel("Apollo Learning"))
         notice = QLabel(
-            "Research topics, source notes, revision dates and local-model practice. "
-            "No weight training, autonomous browsing, purchases or work approvals."
+            "Choose what Apollo should learn, then research it. Research runs only "
+            "when requested, and its source notes are saved locally."
         )
         notice.setWordWrap(True)
         root.addWidget(notice)
@@ -147,31 +148,40 @@ class Module:
         lv = QVBoxLayout(learn_tab)
         row = QHBoxLayout()
         name = QLineEdit()
-        name.setPlaceholderText("Topic, e.g. 555 timer tolerances")
+        name.setPlaceholderText("What should Apollo learn about?")
         purpose = QLineEdit()
         purpose.setPlaceholderText("Purpose of studying it")
         priority = QSpinBox()
         priority.setRange(1, 5)
         priority.setValue(3)
         queue = QPushButton("Queue Topic")
-        for control in (name, purpose, priority, queue):
+        for control in (name, queue):
             row.addWidget(control)
         lv.addLayout(row)
         select = QComboBox()
-        lv.addWidget(select)
+        topic_actions = QHBoxLayout()
+        topic_actions.addWidget(select, 1)
+        research = QPushButton("Research This Topic")
+        research.setToolTip("Search public sources and save research locally.")
+        topic_actions.addWidget(research)
+        lv.addLayout(topic_actions)
         actions = QHBoxLayout()
-        deterministic = QPushButton("Ask Follow-up Questions")
+        deterministic = QPushButton("Create Follow-up Questions")
         ai = QPushButton("Generate AI Questions")
         related = QPushButton("Search Apollo Memory")
         evidence = QPushButton("Record Source/Observation")
-        refresh = QPushButton("Refresh Due")
-        for control in (deterministic, ai, related, evidence, refresh):
+        refresh = QPushButton("Refresh Questions")
+        more = QPushButton("More options ▾")
+        extra_menu = QMenu(more)
+        more.setMenu(extra_menu)
+        for control in (ai, refresh, more):
             actions.addWidget(control)
+        actions.addStretch()
         lv.addLayout(actions)
         learn_output = QPlainTextEdit()
         learn_output.setReadOnly(True)
         lv.addWidget(learn_output)
-        tabs.addTab(learn_tab, "Curiosity & Revision")
+        tabs.addTab(learn_tab, "Learn")
 
         test_tab = QWidget()
         tv = QVBoxLayout(test_tab)
@@ -185,7 +195,7 @@ class Module:
         test_output = QPlainTextEdit()
         test_output.setReadOnly(True)
         tv.addWidget(test_output)
-        tabs.addTab(test_tab, "Reasoning Practice")
+        tabs.addTab(test_tab, "Practice")
 
         goals_tab = QWidget()
         gv = QVBoxLayout(goals_tab)
@@ -194,7 +204,7 @@ class Module:
         plan_output.setReadOnly(True)
         gv.addWidget(summarize)
         gv.addWidget(plan_output)
-        tabs.addTab(goals_tab, "Growth Director")
+        tabs.addTab(goals_tab, "Advanced")
 
         class Signals(QObject):
             result = Signal(str, object)
@@ -219,8 +229,8 @@ class Module:
             rows = (self.store.questions_for(topic_id) if topic_id
                     else self.store.due_questions(limit=25))
             learn_output.setPlainText("\n\n".join(
-                f"#{q['id']} [{q['state']}] {q['prompt']}\n"
-                f"Review: {q['next_review'][:10]}"
+                f"• {q['prompt']}\n"
+                f"  Next review: {q['next_review'][:10]}"
                 for q in rows
             ) or "No queued questions yet.")
 
@@ -232,7 +242,11 @@ class Module:
 
         def create_topic():
             try:
-                result = self.store.propose_topic(name.text(), purpose.text(), priority.value())
+                result = self.store.propose_topic(
+                    name.text(),
+                    purpose.text().strip() or f"Study {name.text().strip()} and find reliable sources.",
+                    priority.value(),
+                )
                 name.clear()
                 purpose.clear()
                 redraw_topics(result["id"])
@@ -257,10 +271,11 @@ class Module:
             if busy["value"]:
                 return
             busy["value"] = True
-            for button in (direct, reviewed, ai):
+            for button in (direct, reviewed, ai, research):
                 button.setEnabled(False)
             area = test_output if kind == "practice" else learn_output
-            area.setPlainText("Running local model...")
+            area.setPlainText("Researching public sources and saving notes..." if kind == "research"
+                              else "Working...")
             def worker():
                 try:
                     signals.result.emit(kind, runner())
@@ -270,13 +285,22 @@ class Module:
 
         def finish(kind, result):
             busy["value"] = False
-            for button in (direct, reviewed, ai):
+            for button in (direct, reviewed, ai, research):
                 button.setEnabled(True)
             dest = test_output if kind == "practice" else learn_output
             dest.setPlainText(str(result))
 
         def done(kind, result):
-            finish(kind, json.dumps(result, indent=2, ensure_ascii=False))
+            if kind == "research":
+                saved = result.get("saved") or {}
+                finish(kind,
+                       "Research saved for future Apollo conversations.\n\n"
+                       f"Topic: {result.get('query', '')}\n"
+                       f"Source pages read: {result.get('source_pages_fetched', 0)}\n"
+                       f"Saved file: {saved.get('filename', 'unknown')}\n\n"
+                       "Sources remain unverified until assessed.")
+            else:
+                finish(kind, json.dumps(result, indent=2, ensure_ascii=False))
             if kind == "questions":
                 redraw_questions()
 
@@ -299,6 +323,24 @@ class Module:
                 launch("questions", lambda: suggest_new_questions(model_client, self.store, tid))
             except (ValueError, KeyError) as exc:
                 QMessageBox.warning(page, "Curiosity", str(exc))
+
+        def do_research():
+            try:
+                topic_id = selected_topic()
+                topic = self.store.topic(topic_id)
+                window = (ui_context or {}).get("apollo_window")
+                manager = getattr(window, "module_manager", None)
+                record = manager.get_module("training_module") if manager else None
+                if not record or not record.get("enabled") or record.get("instance") is None:
+                    raise ValueError("Enable the Research & Training module first.")
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+                filename = f"reasoning_topics/topic_{int(topic_id)}_{stamp}.txt"
+                launch("research", lambda: manager.execute(
+                    "training_module", "explore_web_and_save",
+                    {"query": topic["name"], "filename": filename, "limit": 5}
+                ))
+            except (ValueError, KeyError) as exc:
+                QMessageBox.warning(page, "Research", str(exc))
 
         def record():
             try:
@@ -345,6 +387,10 @@ class Module:
         select.currentIndexChanged.connect(redraw_questions)
         deterministic.clicked.connect(seed_questions)
         ai.clicked.connect(do_questions)
+        research.clicked.connect(do_research)
+        extra_menu.addAction("Create follow-up questions", seed_questions)
+        extra_menu.addAction("Find related memories", lambda: search_related())
+        extra_menu.addAction("Record evidence manually", record)
         def search_related():
             try:
                 payload = self.related_memory(selected_topic())

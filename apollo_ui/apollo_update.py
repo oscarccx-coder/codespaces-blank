@@ -327,6 +327,20 @@ class UpdateService:
         package_path = self.download_dir / f"apollo-{version}.zip"
 
         if check.get("source") == "github":
+            # An already verified download is safe to reuse. The signed manifest,
+            # pinned key and every SHA-256 file digest are checked again on reuse.
+            if package_path.is_file():
+                cached = self.stage_local_package(
+                    package_path, expected_version=version,
+                    expected_channel=release["channel"]
+                )
+                if cached.get("ok"):
+                    cached["package_url"] = release["package_url"]
+                    cached["downloaded_bytes"] = 0
+                    cached["reused_verified_package"] = True
+                    return cached
+                package_path.unlink(missing_ok=True)
+
             result = download_release_asset(release["package_url"], package_path, progress)
             staged = self.stage_local_package(
                 package_path, expected_version=version,
@@ -334,6 +348,7 @@ class UpdateService:
             )
             staged["package_url"] = release["package_url"]
             staged["downloaded_bytes"] = result["bytes"]
+            staged["reused_verified_package"] = False
             return staged
 
         server = self.settings()["server_url"]

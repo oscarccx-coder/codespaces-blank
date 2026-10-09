@@ -3432,6 +3432,41 @@ class ApolloWindow(QMainWindow):
         v.setContentsMargins(8, 8, 14, 18)
         v.setSpacing(14)
 
+        welcome = Card("What should Apollo learn?")
+        welcome.layout.addWidget(label(
+            "Apollo learns from Chat and from saved research topics. Choose the simple "
+            "topic view for questions and source-backed research.",
+            11, "#b9dcd6"
+        ))
+        learn_buttons = QHBoxLayout()
+        open_topics = QPushButton("Learning Topics")
+        open_topics.setMinimumHeight(42)
+        open_topics.clicked.connect(lambda: self.open_module_app("reasoning_director"))
+        open_research = QPushButton("Research Library")
+        open_research.setMinimumHeight(42)
+        open_research.clicked.connect(lambda: self.open_module_app("training_module"))
+        learn_buttons.addWidget(open_topics)
+        learn_buttons.addWidget(open_research)
+        welcome.layout.addLayout(learn_buttons)
+        v.addWidget(welcome)
+
+        advanced_btn = QPushButton("Advanced learning tools ▸")
+        v.addWidget(advanced_btn)
+        advanced_holder = QWidget()
+        advanced_layout = QVBoxLayout(advanced_holder)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_layout.setSpacing(14)
+        advanced_holder.setVisible(False)
+        v.addWidget(advanced_holder)
+
+        def toggle_learning_tools():
+            visible = not advanced_holder.isVisible()
+            advanced_holder.setVisible(visible)
+            advanced_btn.setText("Advanced learning tools ▾" if visible
+                                 else "Advanced learning tools ▸")
+
+        advanced_btn.clicked.connect(toggle_learning_tools)
+
         integrated = Card("Chat-integrated learning")
         integrated.layout.addWidget(label(
             "Normal Chat is now Apollo's main learning interface. You do not need "
@@ -3450,7 +3485,7 @@ class ApolloWindow(QMainWindow):
             10,
             "#75d8c5"
         ))
-        v.addWidget(integrated)
+        advanced_layout.addWidget(integrated)
 
         teach = Card("Teach a preferred answer — manual fallback")
         teach.layout.addWidget(label(
@@ -3476,7 +3511,7 @@ class ApolloWindow(QMainWindow):
         teach.layout.addWidget(self.teach_q)
         teach.layout.addWidget(self.teach_a)
         teach.layout.addWidget(b)
-        v.addWidget(teach)
+        advanced_layout.addWidget(teach)
 
         fact = Card("Remember a fact — manual fallback")
         fact.layout.addWidget(label(
@@ -3502,7 +3537,7 @@ class ApolloWindow(QMainWindow):
         fact.layout.addWidget(self.fact_topic)
         fact.layout.addWidget(self.fact_content)
         fact.layout.addWidget(fb)
-        v.addWidget(fact)
+        advanced_layout.addWidget(fact)
 
         neural = Card("Neural Learning")
         neural.layout.addWidget(label(
@@ -3567,7 +3602,7 @@ class ApolloWindow(QMainWindow):
         neural.layout.addWidget(self.neural_progress_bar)
         neural.layout.addWidget(self.neural_training_detail)
 
-        v.addWidget(neural)
+        advanced_layout.addWidget(neural)
         v.addStretch()
 
         scroll.setWidget(content)

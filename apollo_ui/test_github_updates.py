@@ -83,10 +83,15 @@ class GitHubReleaseTests(unittest.TestCase):
                       side_effect=lambda url, dest, progress=None: (
                           shutil.copyfile(archive, dest),
                           {"bytes": archive.stat().st_size},
-                      )[1]):
+                      )[1]) as downloader:
                 checked = service.check_for_updates()
                 self.assertTrue(checked["available"])
                 staged = service.stage_update()
+                reused = service.stage_update()
+                self.assertTrue(reused["ok"], reused)
+                self.assertTrue(reused["reused_verified_package"])
+                self.assertEqual(reused["downloaded_bytes"], 0)
+                self.assertEqual(downloader.call_count, 1)
             self.assertTrue(staged["ok"], staged)
             stage = Path(staged["stage_dir"])
             self.assertEqual((stage / "payload" / "main.py").read_text(), "VALUE = 2\n")
