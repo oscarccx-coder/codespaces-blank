@@ -55,7 +55,7 @@ if not exist "%PYTHON_EXE%" (
     pause
     exit /b 1
 )
-"%PYTHON_EXE%" -c "import sys,encodings; assert sys.prefix != sys.base_prefix" >nul 2>&1
+"%PYTHON_EXE%" -c "import sys,encodings; assert not (sys.prefix == sys.base_prefix)" >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Refusing to install XTTS outside Apollo's private venv.
     pause
