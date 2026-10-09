@@ -33,6 +33,7 @@ from apollo_config import ApolloConfigStore
 from apollo_docs import PatchDocs
 from apollo_storage import StorageLayout
 from apollo_window_geometry import centered_window_geometry
+from apollo_model_memory import PROFILES, normalize_profile, memory_advice
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -567,6 +568,8 @@ class ApolloWindow(QMainWindow):
             self.config["model"],
             self.config.get("temperature", 0.65),
             self.config.get("num_ctx", 8192),
+            self.config.get("num_batch", 256),
+            self.config.get("keep_alive", "5m"),
         )
 
         # Apollo 7.5 shared runtime: permission gate, action/event bus, blackboard,
@@ -5769,6 +5772,43 @@ class ApolloWindow(QMainWindow):
         )
         general_layout.addWidget(routing_card)
 
+        memory_card = Card("Ollama RAM / Context")
+        self.setting_memory_profile = QComboBox()
+        for key, profile in PROFILES.items():
+            self.setting_memory_profile.addItem(
+                f"{profile.label} • {profile.num_ctx:,} tokens", key
+            )
+        current_profile = normalize_profile(self.config.get("memory_profile"))
+        self.setting_memory_profile.setCurrentIndex(
+            max(0, self.setting_memory_profile.findData(current_profile))
+        )
+        self.setting_memory_note = label("", 10, "#9fc8c1")
+        self.setting_memory_note.setWordWrap(True)
+        def update_memory_note(_index=None):
+            name = self.setting_memory_profile.currentData()
+            profile = PROFILES[normalize_profile(name)]
+            ram_free = ram_total = None
+            if psutil is not None:
+                try:
+                    vm = psutil.virtual_memory()
+                    ram_free = vm.available / (1024 ** 3)
+                    ram_total = vm.total / (1024 ** 3)
+                except Exception:
+                    pass
+            self.setting_memory_note.setText(
+                f"Context: {profile.num_ctx:,} tokens  |  Batch: {profile.num_batch}  "
+                f"|  Model residency: {profile.keep_alive}\n"
+                + (f"Available RAM: {ram_free:.1f} / {ram_total:.1f} GiB. "
+                   if ram_free is not None else "")
+                + memory_advice(ram_free, ram_total, name)
+                + "\nOllama decides GPU/CPU offload; Apollo will not force models out of VRAM."
+            )
+        self.setting_memory_profile.currentIndexChanged.connect(update_memory_note)
+        update_memory_note()
+        memory_card.layout.addWidget(self.setting_memory_profile)
+        memory_card.layout.addWidget(self.setting_memory_note)
+        general_layout.addWidget(memory_card)
+
         personality_card = Card("Apollo Personality")
         self.setting_sarcasm_level = QComboBox()
         for level, (name, _) in LEVELS.items():
@@ -6156,6 +6196,13 @@ class ApolloWindow(QMainWindow):
         self.config["sarcasm_level"] = normalize_sarcasm_level(
             self.setting_sarcasm_level.currentData()
         )
+        self.config["memory_profile"] = normalize_profile(
+            self.setting_memory_profile.currentData()
+        )
+        active_memory = PROFILES[self.config["memory_profile"]]
+        self.config["num_ctx"] = active_memory.num_ctx
+        self.config["num_batch"] = active_memory.num_batch
+        self.config["keep_alive"] = active_memory.keep_alive
 
         APOLLO_CONFIG.save_user(self.config)
 
@@ -6171,6 +6218,8 @@ class ApolloWindow(QMainWindow):
                 "num_ctx",
                 8192,
             ),
+            self.config.get("num_batch", 256),
+            self.config.get("keep_alive", "5m"),
         )
 
         # The pending-module repair engine keeps its own client reference, so it
