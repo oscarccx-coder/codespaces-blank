@@ -96,6 +96,13 @@ def publish(source, out_root, channel="development"):
         files.append({"path": rel_text, "sha256": sha_bytes(data), "size": len(data)})
         payloads.append((rel_text, data))
 
+    # Older Apollo installations shipped developer test_*.py files in the
+    # application root. Moving these into tests/ in Git is not enough: a signed
+    # update must explicitly remove obsolete root copies. The updater backs
+    # each existing file up before removal and can restore it on rollback.
+    legacy_root_tests = sorted(
+        file.name for file in (source / "tests").glob("test_*.py") if file.is_file()
+    )
     manifest = {
         "schema_version": 1,
         "product": "Apollo",
@@ -103,7 +110,7 @@ def publish(source, out_root, channel="development"):
         "channel": channel,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "files": files,
-        "remove": [],
+        "remove": legacy_root_tests,
         "config_version_only": True,
     }
     manifest["signature"] = base64.b64encode(private.sign(canonical_manifest_bytes(manifest))).decode("ascii")
