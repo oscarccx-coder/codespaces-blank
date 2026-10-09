@@ -24,25 +24,27 @@ if not exist "%~dp0.venv\pyvenv.cfg" (
     if not defined CI pause
     exit /b 0
 )
+if /I "%~1"=="--yes" goto :REMOVE
 choice /C YN /N /M "Remove Apollo's local Python requirements? [Y/N]: "
 if errorlevel 2 (
     echo Cancelled: nothing removed.
     exit /b 0
 )
-if errorlevel 1 (
-    rmdir /S /Q "%~dp0.venv"
-    if exist "%~dp0.venv" (
-        echo [ERROR] Could not fully remove .venv.
-        echo Close Apollo, Python and any terminals using it, then retry.
-        if not defined CI pause
-        exit /b 1
-    )
-    echo.
-    echo [OK] Apollo's local Python dependencies have been removed.
-    echo Run INSTALL_REQUIREMENTS.bat to reinstall them.
-    if not defined CI pause
-    exit /b 0
-)
-echo [ERROR] Could not read your confirmation; nothing removed.
+if errorlevel 1 goto :REMOVE
+echo [ERROR] Could not read confirmation; nothing removed.
 if not defined CI pause
 exit /b 1
+
+:REMOVE
+rmdir /S /Q "%~dp0.venv"
+if exist "%~dp0.venv" (
+    echo [ERROR] Could not fully remove .venv.
+    echo Close Apollo, Python and any terminals using it, then retry.
+    if not defined CI pause
+    exit /b 1
+)
+echo.
+echo [OK] Apollo's local Python dependencies have been removed.
+echo Run INSTALL_REQUIREMENTS.bat to reinstall them.
+if not defined CI pause
+exit /b 0
