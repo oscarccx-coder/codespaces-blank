@@ -3119,8 +3119,13 @@ class Module:
                     voice_row = QWidget()
                     voice_row_layout = QHBoxLayout(voice_row)
                     voice_row_layout.setContentsMargins(9, 2, 5, 2)
-                    voice_text = QLabel(f"{label}\n{state_text}")
-                    voice_text.setToolTip(name)
+                    voice_select_button = QPushButton(f"{label}\n{state_text}")
+                    voice_select_button.setFlat(True)
+                    voice_select_button.setStyleSheet("text-align: left; border: none; padding: 3px;")
+                    voice_select_button.setToolTip("Select " + name)
+                    voice_select_button.clicked.connect(
+                        lambda checked=False, selected=item: profiles_list.setCurrentItem(selected)
+                    )
                     voice_menu_button = QPushButton("⋯")
                     voice_menu_button.setFixedWidth(38)
                     voice_menu_button.setAccessibleName(f"Options for {name}")
@@ -3128,7 +3133,7 @@ class Module:
                         lambda checked=False, pid=row["id"], anchor=voice_menu_button:
                             open_profile_menu(pid, anchor)
                     )
-                    voice_row_layout.addWidget(voice_text, 1)
+                    voice_row_layout.addWidget(voice_select_button, 1)
                     voice_row_layout.addWidget(voice_menu_button)
                     profiles_list.setItemWidget(item, voice_row)
                     test_voice_combo.addItem(label, row["id"])
@@ -3217,6 +3222,11 @@ class Module:
             except Exception as exc:
                 QMessageBox.warning(page, "Move voice", str(exc))
 
+        def test_selected_profile():
+            if not test_text.toPlainText().strip():
+                test_text.setPlainText("Apollo voice test. Ready to explore new ideas.")
+            do_synth(True)
+
         def open_profile_menu(profile_id, anchor):
             # Each menu acts on its own voice, regardless of previous selection.
             for index in range(profiles_list.count()):
@@ -3229,7 +3239,7 @@ class Module:
                 return
             menu = QMenu(anchor)
             menu.addAction("Use as Apollo voice", do_activate)
-            menu.addAction("Test this voice", lambda: do_synth(True))
+            menu.addAction("Test this voice", test_selected_profile)
             menu.addAction("Retrain voice", do_train)
             menu.addSeparator()
             menu.addAction("Rename", rename_selected_profile)
