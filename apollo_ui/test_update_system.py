@@ -4,6 +4,15 @@ from apollo_release import publish
 from apollo_update import UpdateService
 from apollo_updater import apply_update
 from apollo_storage import StorageLayout
+import os
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
+
+# Tests always use a random in-memory key, never a production CI secret.
+_original_signing_key = os.environ.get("APOLLO_RELEASE_PRIVATE_PEM")
+os.environ["APOLLO_RELEASE_PRIVATE_PEM"] = Ed25519PrivateKey.generate().private_bytes(
+    Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
+).decode("ascii")
 
 root = Path(tempfile.mkdtemp(prefix="apollo_update_test_"))
 try:
@@ -55,3 +64,7 @@ try:
     print("Update system tests passed.")
 finally:
     shutil.rmtree(root, ignore_errors=True)
+    if _original_signing_key is None:
+        os.environ.pop("APOLLO_RELEASE_PRIVATE_PEM", None)
+    else:
+        os.environ["APOLLO_RELEASE_PRIVATE_PEM"] = _original_signing_key
