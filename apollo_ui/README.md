@@ -30,6 +30,10 @@ Python entry point: `main.py`. The application requires the dependencies listed 
 | `docs/legacy_notes/` | Archived historical update instructions |
 | `tools/legacy_updates/` | Historical obsolete version-setting batch files, archived as text, **do not execute** |
 
+## Growth Lab: Hardware Upgrades and User-Directed Paid Work
+
+Apollo can propose possible customer deliverables and record hardware upgrade goals in **Growth Lab** (Settings → Apps → Coding). It measures local CPU/RAM/GPU, keeps work ideas as **unapproved drafts**, and offers an optional **manually updated GBP upgrade-fund ledger**. Only the human owner can approve work, mark completion or record income. No money is held or moved, customers contacted, bank accounts accessed or hardware bought by Apollo. See [Growth Lab security and design](docs/features/GROWTH_LAB_UPGRADE_FUND.md).
+
 ## Circuit Lab / CRUMB Simulator
 
 Apollo's **Circuit Lab** provides a side-by-side electronics workbench for the Windows Steam game CRUMB Circuit Simulator: a detached left-hand companion, local project notebooks, low-voltage circuit templates, LED resistor calculator, optional local Ollama design guidance and human-selected read-only `.cru` structural inspection. **No CRUMB live control or automatic wiring**, and no arbitrary saved-game modification. See [Circuit Lab & CRUMB setup](docs/features/CIRCUIT_LAB_CRUMB.md).
