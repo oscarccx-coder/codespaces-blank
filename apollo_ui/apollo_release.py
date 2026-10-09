@@ -11,6 +11,24 @@ from apollo_storage import StorageLayout
 from apollo_update import canonical_manifest_bytes
 
 
+# Explicit signed-removal list for formerly shipped root-level batch files.
+# Old installed files are backed up by apollo_updater before deletion. Do not
+# include models, personal state, user settings or any directory in this list.
+RETIRED_WINDOWS_LAUNCHERS = (
+    "APPLY_XTTS_HOTFIX_AND_RUN.bat",
+    "REPAIR_VOICE_KEEP_MODEL.bat",
+    "clean_reinstall_xtts_runtime.bat",
+    "finish_manual_xtts_install.bat",
+    "finish_manual_xtts_install_v2.bat",
+    "publish_current_release.bat",
+    "repair_xtts_runtime.bat",
+    "repair_apollo_python.bat",
+    "install.bat",
+    "build_apollo_exe.bat",
+    "start_update_server.bat",
+)
+
+
 EXCLUDED_TOP_LEVEL = {
     "storage", "workspace", "pending_modules", "config.json",
     "ui_state.json", "modules_state.json", "apollo_memory.db",
@@ -103,7 +121,7 @@ def publish(source, out_root, channel="development"):
         "channel": channel,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "files": files,
-        "remove": [],
+        "remove": list(RETIRED_WINDOWS_LAUNCHERS),
         "config_version_only": True,
     }
     manifest["signature"] = base64.b64encode(private.sign(canonical_manifest_bytes(manifest))).decode("ascii")
