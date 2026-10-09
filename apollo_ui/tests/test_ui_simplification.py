@@ -36,6 +36,7 @@ class FriendlyUITests(unittest.TestCase):
         release = (ROOT / "apollo_release.py").read_text(encoding="utf-8")
         ast.parse(release)
         self.assertIn('"tests"', release)
+        self.assertIn('"remove": legacy_root_tests', release)
         self.assertTrue((ROOT / "docs/patch_notes/2026-10-10_UI_USABILITY.md").is_file())
 
 
