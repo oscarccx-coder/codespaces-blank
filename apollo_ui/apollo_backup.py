@@ -86,14 +86,24 @@ def make_backup(root, destination):
                     if file.suffix.lower() in (".db", ".sqlite", ".sqlite3"):
                         try:
                             source = Path(tmp) / (str(len(entries)) + ".db")
-                            with sqlite3.connect("file:" + str(file) + "?mode=ro", uri=True) as current:
+                            with sqlite3.connect(file.resolve().as_uri() + "?mode=ro", uri=True) as current:
                                 with sqlite3.connect(source) as snapshot:
                                     current.backup(snapshot)
                         except (sqlite3.Error, OSError) as exc:
                             raise RuntimeError("Could not snapshot database " + rel) from exc
-                    entries.append({"path": rel, "bytes": source.stat().st_size,
-                                    "sha256": _hash_file(source)})
-                    archive.write(source, ARCHIVE_PREFIX + rel)
+                    digest = hashlib.sha256()
+                    written = 0
+                    info = zipfile.ZipInfo(ARCHIVE_PREFIX + rel)
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    with source.open("rb") as inp, archive.open(info, "w") as out:
+                        for block in iter(lambda: inp.read(1024 * 1024), b""):
+                            written += len(block)
+                            if written > MAX_BYTES:
+                                raise ValueError("Backup file exceeds the size limit")
+                            digest.update(block)
+                            out.write(block)
+                    entries.append({"path": rel, "bytes": written,
+                                    "sha256": digest.hexdigest()})
                 archive.writestr("manifest.json", json.dumps({
                     "product": "Apollo", "format": 1,
                     "created_at": datetime.now(timezone.utc).isoformat(),
