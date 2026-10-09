@@ -12,7 +12,7 @@ from apollo_update import canonical_manifest_bytes
 
 
 EXCLUDED_TOP_LEVEL = {
-    "storage", "workspace", "pending_modules", "config.json",
+    "storage", "workspace", "pending_modules", "tests", "config.json",
     "ui_state.json", "modules_state.json", "apollo_memory.db",
     "apollo_error.log", "releases", "Audio", "models", ".git",
     ".venv", ".venv-pi", "venv", ".pytest_cache", "build", "dist",
