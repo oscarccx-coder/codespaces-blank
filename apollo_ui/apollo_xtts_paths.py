@@ -41,7 +41,9 @@ def chosen_xtts_folder(base_dir, legacy=None):
     try:
         data = json.loads(pointer.read_text(encoding="utf-8"))
         selected = data.get("model_dir") if isinstance(data, dict) else None
-        if selected:
+        # An old saved path must not mask a complete model in a new local
+        # folder after drive migrations or Apollo reinstalls.
+        if selected and valid_xtts_folder(selected):
             return Path(selected).expanduser().resolve()
     except (OSError, TypeError, ValueError):
         pass
