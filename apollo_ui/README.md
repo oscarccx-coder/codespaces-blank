@@ -2,6 +2,12 @@
 
 Apollo is a local Windows/PySide6 assistant with Ollama, modular tools, a persistent Home hub, personal memory, isolated voice processing, update/recovery utilities and an evolving coding workspace.
 
+## Setup Centre (Windows)
+
+Open **`Setup/01_INSTALL_APOLLO.bat`** for a guided installation with optional Desktop shortcuts. Afterwards use `Setup/02_START_APOLLO.bat`. The `Setup/` folder contains labelled batch launchers for updating, voice repair, diagnostics, backups, restoring and safe mode. The original root launchers remain for compatibility. Apollo now opens a first-run Setup & Recovery wizard (also available in **Settings → Setup & Recovery**) for device preferences, Ollama/XTTS diagnostics and local backups.
+
+A device profile is a saved setup recommendation, not an automatic model download. Backups are opt-in, **unencrypted**, and contain saved voice profiles, projects and memories but not model weights. For a full process, see [`Setup/README.md`](Setup/README.md).
+
 ## Install, start or remove Apollo's requirements (Windows)
 
 For a fresh Windows PC: install Python 3.11+ (3.13 preferred), then double-click **`INSTALL_REQUIREMENTS.bat`**. The installer creates `apollo_ui/.venv/` and installs core packages only into this isolated environment. Run **`start_apollo_ui.bat`** to start Apollo. A separate local Ollama installation and a downloaded local model are still required for LLM replies.

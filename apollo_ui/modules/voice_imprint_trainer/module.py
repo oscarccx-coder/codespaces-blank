@@ -471,7 +471,7 @@ class Module:
         data.setdefault("device", "auto")
         data.setdefault("process_isolation", True)
         data.setdefault("worker_cpu_threads", 4)
-        data.setdefault("worker_timeout_seconds", 900)
+        data.setdefault("worker_timeout_seconds", 240)
         return data
 
     @staticmethod
@@ -1845,7 +1845,7 @@ class Module:
 
     def _xtts_worker_request(self, payload, timeout=None):
         settings = self._settings()
-        timeout = int(timeout or settings.get("worker_timeout_seconds", 900) or 900)
+        timeout = int(timeout or settings.get("worker_timeout_seconds", 240) or 240)
         timeout = max(30, min(timeout, 3600))
         request_id = uuid.uuid4().hex
         message = {"id": request_id, **dict(payload or {})}
@@ -2804,6 +2804,8 @@ class Module:
         backend_form.addRow(find_backend)
         backend_form.addRow(save_backend)
         backend_form.addRow(backend_status)
+        troubleshoot_voice = QPushButton("Troubleshoot XTTS")
+        backend_form.addRow(troubleshoot_voice)
         worker_status_label = QLabel("XTTS worker: stopped")
         worker_status_label.setWordWrap(True)
         unload_worker_button = QPushButton("Unload XTTS / Free GPU Memory")
@@ -3448,6 +3450,24 @@ class Module:
         def do_backend_status():
             show(self.run("voice_readiness", {"profile_id": selected_id()}))
 
+        def diagnose_xtts():
+            from apollo_setup_core import xtts_diagnostic
+            report = xtts_diagnostic(self.base)
+            problems = report.get("issues", [])
+            output.setPlainText(
+                "XTTS diagnosis:\n" +
+                ("\n".join("• " + item for item in problems) if problems
+                 else "No missing packages or model files found.") +
+                "\n\nFull details:\n" + json.dumps(report, indent=2)
+            )
+            if problems:
+                QMessageBox.warning(
+                    page, "XTTS needs attention",
+                    "\n".join(problems[:5]) +
+                    "\n\nOpen Setup & Recovery for a detailed import check."
+                )
+        troubleshoot_voice.clicked.connect(diagnose_xtts)
+
         def do_play_reference():
             pid = selected_id()
             if not pid:
@@ -3458,8 +3478,33 @@ class Module:
             except Exception as exc:
                 QMessageBox.warning(page, "Voice Imprint", str(exc))
 
+        synthesis_clock = QTimer(page)
+        synthesis_clock.setInterval(1000)
+        started_at = {"value": None}
+        def synth_watchdog():
+            if not synthesis_running["value"] or started_at["value"] is None:
+                return
+            elapsed = int(__import__("time").monotonic() - started_at["value"])
+            if elapsed >= 30 and elapsed % 5 == 0:
+                state = self._xtts_worker_status()
+                output.setPlainText(
+                    f"Generating neural speech... {elapsed}s elapsed.\n"
+                    f"XTTS process: {'running' if state.get('running') else 'not running'}; "
+                    f"worker busy: {state.get('generating')}.\n"
+                    + (f"Last error: {state.get('last_error')}\n" if state.get('last_error') else "")
+                    + "Longer texts and first model load can take time.\n"
+                    + "If progress stays stuck, press Stop then use Advanced Settings → Troubleshoot XTTS.\n"
+                    + "Worker log: " + str(state.get("log", ""))
+                )
+        synthesis_clock.timeout.connect(synth_watchdog)
         def set_synthesis_busy(busy):
             synthesis_running["value"] = bool(busy)
+            if busy:
+                started_at["value"] = __import__("time").monotonic()
+                synthesis_clock.start()
+            else:
+                synthesis_clock.stop()
+                started_at["value"] = None
             synth_button.setEnabled(not busy)
             speak_button.setEnabled(not busy)
             if busy:
