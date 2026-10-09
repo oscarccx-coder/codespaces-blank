@@ -282,9 +282,9 @@ if not defined FOUND_XTTS (
     goto :FAIL
 )
 
-if exist "%XTTS_TARGET%" rmdir /S /Q "%XTTS_TARGET%"
-mkdir "%XTTS_TARGET%"
-robocopy "!FOUND_XTTS!" "%XTTS_TARGET%" /E /MOVE /R:2 /W:2 /NFL /NDL /NJH /NJS /NP
+rem Never delete a model directory when replacing missing voice weights.
+if not exist "%XTTS_TARGET%" mkdir "%XTTS_TARGET%"
+robocopy "!FOUND_XTTS!" "%XTTS_TARGET%" /E /R:2 /W:2 /NFL /NDL /NJH /NJS /NP
 set "ROBO=%ERRORLEVEL%"
 if %ROBO% GEQ 8 goto :FAIL
 
