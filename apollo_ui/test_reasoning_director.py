@@ -124,7 +124,7 @@ class LearningDirectorTests(unittest.TestCase):
         self.assertEqual(result["results"][0]["output_tokens_per_second"], 25.0)
         self.assertEqual(len(direct.messages), 3)
         self.assertTrue(all(len(item) == 2 for item in direct.messages))
-        review = FakeModel(["FINAL: 300", "Reviewed: FINAL: 300",
+        review = FakeModel(["FINAL: 300", "Reviewed units.\nFINAL: 300",
                             "FINAL: 330", "Checked\nFINAL: 330",
                             "FINAL: yes", "FINAL: no"])
         checked = run_practice(review, self.store, limit=3, review=True)
