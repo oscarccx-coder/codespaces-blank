@@ -15,7 +15,9 @@
 | `09_START_SAFE_MODE.bat` | Troubleshoot without loading risky modules |
 | `10_SETUP_WIZARD.bat` | Open the setup wizard directly |
 
-The installer offers user-approved Desktop shortcuts after the private Python dependencies install.\n\nThe main launch, installer and repair files remain in `apollo_ui/` as **compatibility entry points**. These Setup scripts are user-friendly front doors, not second conflicting installers. The source directory is derived relative to each script, so Apollo can live on drive F:, C: or another drive.
+The installer offers user-approved Desktop shortcuts after the private Python dependencies install.
+
+The main launch, installer and repair files remain in `apollo_ui/` as **compatibility entry points**. These Setup scripts are user-friendly front doors, not second conflicting installers. The source directory is derived relative to each script, so Apollo can live on drive F:, C: or another drive.
 
 **Backups:** memory, research, voice profiles and workspace projects; excludes external Ollama/XTTS model weights, update keys, caches and private Python packages. Archives are **not encrypted**. Keep the ZIP confidential and do not sync it to a public repository. Backups may include private medical notes. Test restoring on a spare installation first.
 
