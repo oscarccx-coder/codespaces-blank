@@ -73,7 +73,8 @@ def pence(value, *, positive=True):
 
 
 def gbp(pennies):
-    return f"£{Decimal(int(pennies)) / 100:,.2f}"
+    value = int(pennies)
+    return ("-" if value < 0 else "") + f"£{Decimal(abs(value)) / 100:,.2f}"
 
 
 def normalized_text(value, field="Text", minimum=1, maximum=240):
