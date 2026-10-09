@@ -54,6 +54,9 @@ class ConsolidationTests(unittest.TestCase):
             self.assertIn(f'("{name}",', core)
         for name in ("memory_intelligence", "knowledge_graph"):
             self.assertIn(f"related_instance('{name}')", memory)
+        development = (ROOT / "modules" / "self_improvement_lab" / "module.py").read_text(encoding="utf-8")
+        for name in ("verification_engine", "benchmark_suite", "upgrade_history"):
+            self.assertIn(f"('{name}',", development)
 
 
 class OllamaRAMTests(unittest.TestCase):
