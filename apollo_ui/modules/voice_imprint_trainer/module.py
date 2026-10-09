@@ -2651,7 +2651,7 @@ class Module:
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
             QTextEdit, QCheckBox, QFileDialog, QComboBox, QListWidget, QMessageBox,
             QSpinBox, QDoubleSpinBox, QGroupBox, QFormLayout, QSplitter, QScrollArea, QSizePolicy,
-            QProgressBar,
+            QProgressBar, QInputDialog, QListWidgetItem,
         )
 
         page = QWidget(parent)
@@ -2677,6 +2677,18 @@ class Module:
         profiles_list = QListWidget()
         left_layout.addWidget(QLabel("Voice Profiles"))
         left_layout.addWidget(profiles_list, 1)
+        manager_actions = QHBoxLayout()
+        rename_profile_button = QPushButton("Rename")
+        archive_profile_button = QPushButton("Delete…")
+        manager_actions.addWidget(rename_profile_button)
+        manager_actions.addWidget(archive_profile_button)
+        left_layout.addLayout(manager_actions)
+        move_actions = QHBoxLayout()
+        move_up_button = QPushButton("Move Up")
+        move_down_button = QPushButton("Move Down")
+        move_actions.addWidget(move_up_button)
+        move_actions.addWidget(move_down_button)
+        left_layout.addLayout(move_actions)
         refresh_profiles = QPushButton("Refresh Profiles")
         left_layout.addWidget(refresh_profiles)
         splitter.addWidget(left)
@@ -2889,6 +2901,14 @@ class Module:
 
         test_box = QGroupBox("5. Test Apollo Voice")
         test_layout = QVBoxLayout(test_box)
+        test_voice_row = QHBoxLayout()
+        test_voice_row.addWidget(QLabel("Voice to test"))
+        test_voice_combo = QComboBox()
+        test_voice_combo.setMinimumWidth(190)
+        test_voice_row.addWidget(test_voice_combo, 1)
+        choose_test_voice = QPushButton("Select Voice")
+        test_voice_row.addWidget(choose_test_voice)
+        test_layout.addLayout(test_voice_row)
         test_text = QTextEdit()
         test_text.setPlaceholderText("Alright and hello — Apollo voice test. Science is mostly finding new ways to annoy causality.")
         test_text.setMinimumHeight(96)
@@ -3063,17 +3083,107 @@ class Module:
             except Exception as exc:
                 QMessageBox.warning(page, "Voice Imprint", str(exc))
 
-        def refresh():
-            profiles_list.clear()
+        def refresh(select_id=None):
+            # Keep selection and the nearby Test Voice dropdown synchronized.
+            selected = select_id or selected_id() or test_voice_combo.currentData()
             result = self.run("list_profiles", {})
-            for row in result["profiles"]:
-                label = ("● " if row.get("active") else "") + f"{row['name']}  |  {row['approved_seconds']:.1f}s  |  signature={'yes' if row['signature_trained'] else 'no'}"
-                item = __import__('PySide6.QtWidgets', fromlist=['QListWidgetItem']).QListWidgetItem(label)
-                item.setData(Qt.UserRole, row["id"])
-                profiles_list.addItem(item)
+            profiles_list.blockSignals(True)
+            test_voice_combo.blockSignals(True)
+            try:
+                profiles_list.clear()
+                test_voice_combo.clear()
+                test_voice_combo.addItem("Choose a voice profile…", None)
+                for row in result["profiles"]:
+                    name = str(row["name"])
+                    label = ("● " if row.get("active") else "") + f"{name}  |  {row['approved_seconds']:.1f}s  |  signature={'yes' if row['signature_trained'] else 'no'}"
+                    item = QListWidgetItem(label)
+                    item.setData(Qt.UserRole, row["id"])
+                    profiles_list.addItem(item)
+                    test_voice_combo.addItem(("● " if row.get("active") else "") + name, row["id"])
+                    if row["id"] == selected:
+                        profiles_list.setCurrentItem(item)
+                ix = test_voice_combo.findData(selected)
+                test_voice_combo.setCurrentIndex(ix if ix >= 0 else 0)
+            finally:
+                profiles_list.blockSignals(False)
+                test_voice_combo.blockSignals(False)
+            load_selected_tuning(False)
             update_active_voice_label()
             update_worker_label()
             show({"profiles": result, "backend": self.run("backend_status", {})})
+
+        def select_test_voice(index):
+            pid = test_voice_combo.itemData(index)
+            for row in range(profiles_list.count()):
+                item = profiles_list.item(row)
+                if item.data(Qt.UserRole) == pid:
+                    profiles_list.setCurrentItem(item)
+                    return
+            profiles_list.clearSelection()
+
+        def selected_voice_changed():
+            pid = selected_id()
+            test_voice_combo.blockSignals(True)
+            try:
+                index = test_voice_combo.findData(pid)
+                test_voice_combo.setCurrentIndex(index if index >= 0 else 0)
+            finally:
+                test_voice_combo.blockSignals(False)
+            load_selected_tuning(True)
+
+        def rename_selected_profile():
+            pid = selected_id()
+            if not pid:
+                QMessageBox.information(page, "Voice Profiles", "Select a voice to rename.")
+                return
+            try:
+                name = self._load_profile(pid).get("name", pid)
+                value, confirmed = QInputDialog.getText(page, "Rename voice", "Voice name:", text=str(name))
+                if confirmed:
+                    show(self.rename_profile_from_ui(pid, value))
+                    refresh(pid)
+            except Exception as exc:
+                QMessageBox.warning(page, "Rename voice", str(exc))
+
+        def archive_selected_profile():
+            pid = selected_id()
+            if not pid:
+                QMessageBox.information(page, "Voice Profiles", "Select a voice to delete.")
+                return
+            name = str(self._load_profile(pid).get("name", pid))
+            confirm = QMessageBox.question(
+                page, "Delete Voice Profile",
+                f"Remove '{name}' from Apollo's voice list?\n\n"
+                "The voice folder will be moved to a private local Deleted Profiles archive, "
+                "so recordings can be recovered. This does not delete the shared XTTS model.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if confirm != QMessageBox.StandardButton.Yes:
+                return
+            try:
+                show(self.archive_profile_from_ui(pid))
+                refresh()
+            except Exception as exc:
+                QMessageBox.warning(page, "Delete voice", str(exc))
+
+        def move_selected_profile(delta):
+            pid = selected_id()
+            if not pid:
+                return
+            ids = self.library.ordered_ids()
+            if pid not in ids:
+                return
+            index = ids.index(pid)
+            destination = index + delta
+            if destination < 0 or destination >= len(ids):
+                return
+            ids[index], ids[destination] = ids[destination], ids[index]
+            try:
+                self.reorder_profiles_from_ui(ids)
+                refresh(pid)
+            except Exception as exc:
+                QMessageBox.warning(page, "Move voice", str(exc))
 
         def do_browse():
             path, _ = QFileDialog.getOpenFileName(
@@ -3186,7 +3296,7 @@ class Module:
             ).start()
 
         def do_activate():
-            pid = selected_id()
+            pid = test_voice_combo.currentData() or selected_id()
             if not pid:
                 QMessageBox.information(page, "Voice Imprint", "Select a voice profile first.")
                 return
@@ -3292,7 +3402,7 @@ class Module:
         def do_synth(speak=False):
             if synthesis_running["value"]:
                 return
-            pid = selected_id()
+            pid = test_voice_combo.currentData() or selected_id()
             text = test_text.toPlainText().strip()
             action = "speak" if speak else "synthesize"
             args = {
@@ -3366,7 +3476,13 @@ class Module:
         browse.clicked.connect(do_browse)
         build_button.clicked.connect(do_build_voice)
         import_button.clicked.connect(do_import)
-        refresh_profiles.clicked.connect(refresh)
+        refresh_profiles.clicked.connect(lambda: refresh())
+        rename_profile_button.clicked.connect(rename_selected_profile)
+        archive_profile_button.clicked.connect(archive_selected_profile)
+        move_up_button.clicked.connect(lambda: move_selected_profile(-1))
+        move_down_button.clicked.connect(lambda: move_selected_profile(1))
+        test_voice_combo.currentIndexChanged.connect(select_test_voice)
+        choose_test_voice.clicked.connect(do_activate)
         train_button.clicked.connect(do_train)
         activate_button.clicked.connect(do_activate)
         default_voice_button.clicked.connect(do_activate)
@@ -3389,7 +3505,7 @@ class Module:
             update_worker_label()
             return result
         stop_button.clicked.connect(stop_voice)
-        profiles_list.itemSelectionChanged.connect(lambda: load_selected_tuning(True))
+        profiles_list.itemSelectionChanged.connect(selected_voice_changed)
         apply_tuning_controls(VOICE_TUNING_DEFAULTS)
         refresh()
         return page
