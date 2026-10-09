@@ -37,6 +37,19 @@ class XTTSFolderTests(unittest.TestCase):
             self.assertEqual(chosen_xtts_folder(root), alternative.resolve())
             self.assertNotIn("model.pth", pointer_path(root).read_text(encoding="utf-8"))
 
+    def test_stale_saved_path_falls_back_to_existing_model(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            drop_in = bundled_xtts_folder(root)
+            complete(drop_in)
+            saved_path = pointer_path(root)
+            saved_path.parent.mkdir(parents=True, exist_ok=True)
+            saved_path.write_text(
+                '{"model_dir": "' + str(root / "old-drive" / "xtts_v2").replace("\\", "\\\\") + '"}',
+                encoding="utf-8",
+            )
+            self.assertEqual(chosen_xtts_folder(root), drop_in.resolve())
+
     def test_reject_partial_model(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
