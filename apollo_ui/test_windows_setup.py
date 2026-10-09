@@ -50,6 +50,17 @@ class WindowsSetupTests(unittest.TestCase):
         self.assertNotIn('rmdir /S /Q "%~dp0storage"', script)
         self.assertNotIn('rmdir /S /Q "%LOCALAPPDATA%"', script)
 
+    def test_signed_updates_remove_only_obsolete_batch_files(self):
+        from apollo_release import RETIRED_WINDOWS_LAUNCHERS
+        from apollo_updater import safe_relative
+        self.assertEqual(len(RETIRED_WINDOWS_LAUNCHERS), 11)
+        self.assertTrue(all(name.endswith(".bat") for name in RETIRED_WINDOWS_LAUNCHERS))
+        self.assertTrue(all("/" not in name and "\\\\" not in name for name in RETIRED_WINDOWS_LAUNCHERS))
+        self.assertTrue(all(name not in SUPPORTED for name in RETIRED_WINDOWS_LAUNCHERS))
+        self.assertTrue(all(not (ROOT / name).exists() for name in RETIRED_WINDOWS_LAUNCHERS))
+        for name in RETIRED_WINDOWS_LAUNCHERS:
+            self.assertEqual(str(safe_relative(name)), name)
+
     def test_launch_and_xtts_use_same_python(self):
         launcher = read("start_apollo_ui.bat")
         xtts = read("install_xtts_v2.bat")
