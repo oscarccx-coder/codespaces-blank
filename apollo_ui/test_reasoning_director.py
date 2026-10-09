@@ -218,13 +218,15 @@ class LearningDirectorTests(unittest.TestCase):
                 def get_module(self, name):
                     return {"enabled": True, "instance": self.bank} if name == "memory_bank" else None
             class FakeRuntime:
-                _manager = FakeManager()
-            app.context["runtime"] = FakeRuntime()
+                def __init__(self):
+                    self._manager = FakeManager()
+            runtime = FakeRuntime()
+            app.context["runtime"] = runtime
             lookup = app.run("learning_related_memory", {"topic_id": app.store.list_topics()[0]["id"]})
             self.assertTrue(lookup["available"])
             self.assertFalse(lookup["source_checked"])
             self.assertLessEqual(len(lookup["memories"][0]["summary"]), 800)
-            self.assertEqual(FakeRuntime._manager.bank.limit, 5)
+            self.assertEqual(runtime._manager.bank.limit, 5)
         finally:
             app.close()
         self.assertEqual(group_for("reasoning_director"), "Memory & Learning")
