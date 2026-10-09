@@ -1,6 +1,6 @@
 # Apollo Documentation
 
-- `patch_notes/` — release history and patch installation notes.
+- `patch_notes/` — centralized release history, archived changelogs and patch instructions ([index](patch_notes/README.md)).
 - `architecture/` — architecture/future-feature documents.
 
 Patch documents were moved out of the Apollo root in 7.5.12.2. `apollo_docs.py`

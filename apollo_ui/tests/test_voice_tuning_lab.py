@@ -3,7 +3,7 @@ import importlib.util
 import tempfile
 import numpy as np
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "modules" / "voice_imprint_trainer" / "module.py"
 
 spec = importlib.util.spec_from_file_location("voice_tuning_module", MODULE)

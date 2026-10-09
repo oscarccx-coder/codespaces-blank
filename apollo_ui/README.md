@@ -28,6 +28,7 @@ Python entry point: `main.py`; core requirements: `requirements.txt`; optional v
 | `apollo_config.py`, `apollo_personality.py` | Protected local settings and configurable conversation style |
 | `apollo_runtime.py`, `module_manager.py` | Permissions, tasks, recoverability and module lifecycle |
 | `modules/` | Installed modules and their manifests |
+| `tests/` | Developer regression tests, excluded from signed release ZIPs |
 | `pending_modules/` | Untrusted candidate modules awaiting validation and approval |
 | `workers.py` | Background operations |
 | `apollo_update.py`, `apollo_release.py`, `apollo_updater.py` | Signed release staging/installation and rollback |
@@ -40,7 +41,7 @@ Python entry point: `main.py`; core requirements: `requirements.txt`; optional v
 
 ## Learning & Reasoning Director (7.5.13.6)
 
-Apollo now has an integrated **Memory & Learning → Learning & Reasoning** app. Creating a research topic automatically queues questions on primary evidence, tests and contradictions, and stores review dates in private SQLite. Human-reviewed source notes survive restarts. The local Ollama model can suggest further questions and run bounded, objectively graded **direct vs self-reviewed reasoning practice** with per-skill accuracy and real token-rate measurements when available. Growth Director combines these indicators with the existing hardware/paid-work planner, but cannot spend money, accept contracts or modify the base LLM weights. Details: [Learning & Reasoning Director](docs/features/LEARNING_REASONING_GROWTH_DIRECTOR.md).
+Apollo now has an integrated **Memory & Learning → Learning & Reasoning** app. Creating a research topic automatically queues questions on primary evidence, tests and contradictions, and stores review dates in private SQLite. The simplified Learn tab now has a **Research This Topic** button that explicitly fetches public sources and saves local notes. Human-reviewed source notes survive restarts. The local Ollama model can suggest further questions and run bounded, objectively graded **direct vs self-reviewed reasoning practice** with per-skill accuracy and real token-rate measurements when available. Growth Director combines these indicators with the existing hardware/paid-work planner, but cannot spend money, accept contracts or modify the base LLM weights. Details: [Learning & Reasoning Director](docs/features/LEARNING_REASONING_GROWTH_DIRECTOR.md).
 
 ## Growth Lab: Hardware Upgrades and User-Directed Paid Work
 
@@ -60,13 +61,13 @@ The **Raspberry Pi 5 ARM64** deployment uses a lightweight headless assistant ba
 
 ## Module consolidation and RAM usage
 
-Apollo's everyday applications are now grouped, and heavy module UI panels open on demand rather than all at startup. Control Center groups GPU/activity/notifications and Memory Bank includes health/conflicts and Knowledge Graph searching. Engines and user data stay installed. Old machine-specific launchers, duplicate repairs and the legacy local-release publisher have been removed; the supported entrypoints above remain.
+Apollo's everyday applications are now grouped, and heavy module UI panels open on demand rather than all at startup. Control Center groups GPU/activity/notifications and Memory Bank includes health/conflicts and Knowledge Graph searching. Engines and user data stay installed. Obsolete machine-specific XTTS fixes and the legacy release launcher have been removed.
 
 **Settings → General → Ollama RAM / Context** has Balanced (8K), More Context (16K) and Large Context (32K experimental) presets. They tune Ollama context and residency, not virtual/physical VRAM. Select a profile and save to apply to new chats. [Architecture, migration and benchmarks](docs/architecture/MODULE_CONSOLIDATION_AND_MEMORY.md).
 
 ## Voice Profiles and startup polish
 
-Voice Imprint Lab now provides a **three-dot menu on each voice** for Select, Make Default, Retrain, Rename, Delete (recoverable archive), and Move Up/Down. Changes to voice ordering persist across restarts, and renaming a selected voice updates Apollo's active label without moving its recordings or tuning. Archived audio stays in `storage/media/voice_imprint/deleted_profiles/`, not in GitHub.
+Voice Imprint Lab lists voices with individual **⋮** menus (select, use, retrain, rename, delete, reorder) and separate scrollable **Build / Retrain**, **Test / Use** and **Advanced Settings** tabs. Changes to voice ordering persist across restarts, and renaming a selected voice updates Apollo's active label without moving its recordings or tuning. Archived audio stays in `storage/media/voice_imprint/deleted_profiles/`, not in GitHub.
 
 Apollo's main window now opens centered on the current monitor and fits within its available desktop area, instead of restoring stale off-screen coordinates.
 
@@ -78,7 +79,7 @@ Apollo's **Vehicle Diagnostics** app reads ELM327-compatible USB/Bluetooth COM-p
 
 - Shared drop-in folder: `models/voice/xtts_v2/` (add your own `config.json`, `model.pth`, `vocab.json`).
 - Your existing `%LOCALAPPDATA%\\Apollo\\models\\voice\\xtts_v2` installation can stay where it is. Voice Lab can remember a different model location on another drive.
-- Go to **Settings → Updates → Open Update Centre** to check signed GitHub Releases, download/verify and **Update & Restart** without downloading XTTS again.
+- Go to **Settings → Updates → Open Update Centre** and use **Update Apollo** to check, download, verify and install a signed release without downloading XTTS again. Signing key setup, channels, source selection and diagnostics are under **Advanced options**.
 - GitHub Releases must contain a signed Apollo ZIP and public key; there is not yet a published release. First run requires one-time key-fingerprint approval.
 - [Full setup, signing and safe publishing instructions](docs/architecture/GITHUB_UPDATES_AND_XTTS.md).
 
@@ -95,13 +96,17 @@ The experimental custom sidebar is developed on `feature/apollo-workstation-side
 From this folder, with the correct Python environment:
 
 ```powershell
-python -m unittest test_sidebar_layout test_sidebar_gui_wiring
-python test_apollo_shell.py
-python test_module_manager_surfaces.py
-python test_update_system.py
+python -m unittest tests.test_sidebar_layout tests.test_sidebar_gui_wiring
+python -m tests.test_apollo_shell
+python -m tests.test_module_manager_surfaces
+python -m tests.test_update_system
 ```
 
 Run a Windows PySide6 launch check after changes to `main.py`. Medical tools and self-modifications must stay behind the existing approval/permission rules. User files and model weights must be stored outside release payloads.
+
+## Patch notes
+
+See the [patch-notes index](docs/patch_notes/README.md), including the [7.5.13.9 cleanup](docs/patch_notes/2026-10-10_UI_USABILITY.md). Startup and repair entry points remain at the Apollo root for compatibility; developer tests now live in `tests/`.
 
 ## Older instructions
 

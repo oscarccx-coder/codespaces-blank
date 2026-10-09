@@ -6,7 +6,7 @@ from pathlib import Path
 import unittest
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 SUPPORTED = {
     "INSTALL_REQUIREMENTS.bat",
     "UNINSTALL_REQUIREMENTS.bat",

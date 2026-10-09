@@ -11,9 +11,7 @@ from apollo_storage import StorageLayout
 from apollo_update import canonical_manifest_bytes
 
 
-# Explicit signed-removal list for formerly shipped root-level batch files.
-# Old installed files are backed up by apollo_updater before deletion. Do not
-# include models, personal state, user settings or any directory in this list.
+# Explicit safe root-level launcher removals, backed up by the signed updater.
 RETIRED_WINDOWS_LAUNCHERS = (
     "APPLY_XTTS_HOTFIX_AND_RUN.bat",
     "REPAIR_VOICE_KEEP_MODEL.bat",
@@ -28,9 +26,8 @@ RETIRED_WINDOWS_LAUNCHERS = (
     "start_update_server.bat",
 )
 
-
 EXCLUDED_TOP_LEVEL = {
-    "storage", "workspace", "pending_modules", "config.json",
+    "storage", "workspace", "pending_modules", "tests", "config.json",
     "ui_state.json", "modules_state.json", "apollo_memory.db",
     "apollo_error.log", "releases", "Audio", "models", ".git",
     ".venv", ".venv-pi", "venv", ".pytest_cache", "build", "dist",
@@ -114,6 +111,14 @@ def publish(source, out_root, channel="development"):
         files.append({"path": rel_text, "sha256": sha_bytes(data), "size": len(data)})
         payloads.append((rel_text, data))
 
+    # Older Apollo installations shipped developer test_*.py files in the
+    # application root. Moving these into tests/ in Git is not enough: a signed
+    # update must explicitly remove obsolete root copies. The updater backs
+    # each existing file up before removal and can restore it on rollback.
+    legacy_root_tests = sorted(
+        file.name for file in (source / "tests").glob("test_*.py") if file.is_file()
+    )
+    legacy_root_tests.extend(RETIRED_WINDOWS_LAUNCHERS)
     manifest = {
         "schema_version": 1,
         "product": "Apollo",
@@ -121,7 +126,7 @@ def publish(source, out_root, channel="development"):
         "channel": channel,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "files": files,
-        "remove": list(RETIRED_WINDOWS_LAUNCHERS),
+        "remove": legacy_root_tests,
         "config_version_only": True,
     }
     manifest["signature"] = base64.b64encode(private.sign(canonical_manifest_bytes(manifest))).decode("ascii")

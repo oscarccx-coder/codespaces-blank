@@ -298,6 +298,11 @@ class Module:
             if not result.get("ok"):
                 progress.setText(result.get("error") or result.get("reason") or "No update available.")
                 return
+            # A successful check with available=False is not an installable update.
+            # Never install a stale staged package after Apollo says it is current.
+            if kind in {"stage", "combined"} and not result.get("stage_dir"):
+                progress.setText(result.get("reason") or "No newer signed update available.")
+                return
             if kind == "check":
                 progress.setText("New release available." if result.get("available")
                                  else "Apollo is up to date for the chosen channel.")

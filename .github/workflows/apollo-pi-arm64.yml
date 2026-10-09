@@ -25,7 +25,7 @@ jobs:
       - name: Test ARM64 headless API and release validation
         working-directory: apollo_ui
         run: |
-          python -m unittest -v test_pi_headless test_release_pipeline
+          python -m unittest -v tests.test_pi_headless tests.test_release_pipeline
           python apollo_pi.py --self-test --model qwen2.5:3b
       - name: Exercise Pi 64-bit installer without system service changes
         working-directory: apollo_ui

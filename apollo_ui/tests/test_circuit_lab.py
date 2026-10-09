@@ -12,7 +12,7 @@ from apollo_circuit_lab import (
 from apollo_module_catalog import group_for
 
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class CircuitLabTests(unittest.TestCase):

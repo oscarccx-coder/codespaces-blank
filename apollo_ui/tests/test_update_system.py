@@ -24,7 +24,7 @@ try:
     # Minimal source release.
     (source / "config.json").write_text(json.dumps({"version":"1.1.0","name":"Apollo"}), encoding="utf-8")
     (source / "main.py").write_text("VALUE = 2\n", encoding="utf-8")
-    (source / "apollo_health_check.py").write_text((Path(__file__).with_name("apollo_health_check.py")).read_text(encoding="utf-8"), encoding="utf-8")
+    (source / "apollo_health_check.py").write_text(((Path(__file__).resolve().parents[1] / "apollo_health_check.py")).read_text(encoding="utf-8"), encoding="utf-8")
     (source / "launch_apollo.pyw").write_text("print('launch')\n", encoding="utf-8")
 
     published = publish(source, releases, "development")
@@ -32,7 +32,7 @@ try:
     # Existing device with user state that must survive.
     (target / "config.json").write_text(json.dumps({"version":"1.0.0","name":"Apollo","model":"keep-me"}), encoding="utf-8")
     (target / "main.py").write_text("VALUE = 1\n", encoding="utf-8")
-    (target / "apollo_health_check.py").write_text((Path(__file__).with_name("apollo_health_check.py")).read_text(encoding="utf-8"), encoding="utf-8")
+    (target / "apollo_health_check.py").write_text(((Path(__file__).resolve().parents[1] / "apollo_health_check.py")).read_text(encoding="utf-8"), encoding="utf-8")
     (target / "launch_apollo.pyw").write_text("print('old launch')\n", encoding="utf-8")
     layout = StorageLayout(target); layout.ensure_layout()
     (target / "workspace").mkdir(); (target / "workspace" / "user.txt").write_text("KEEP", encoding="utf-8")
