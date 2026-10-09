@@ -3,7 +3,7 @@ import ast
 from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class VoiceUIWiringTests(unittest.TestCase):
