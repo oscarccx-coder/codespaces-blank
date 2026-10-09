@@ -71,8 +71,11 @@ class VoiceProfileLibrary:
 
     def rename(self, profile_id, name):
         folder = self._folder(profile_id)
-        name = " ".join(str(name or "").split()).strip()
-        if not (1 <= len(name) <= 80) or any(ord(c) < 32 for c in name):
+        raw = str(name or "")
+        if any(ord(c) < 32 for c in raw):
+            raise ValueError("Voice name cannot contain control characters")
+        name = " ".join(raw.split()).strip()
+        if not (1 <= len(name) <= 80):
             raise ValueError("Voice name must have 1-80 printable characters")
         profile_path = folder / "profile.json"
         original = json.loads(profile_path.read_text(encoding="utf-8"))
