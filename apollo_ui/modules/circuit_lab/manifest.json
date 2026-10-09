@@ -1,0 +1,13 @@
+{
+  "id": "circuit_lab",
+  "name": "Apollo Circuit Lab",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Side-by-side electronics design companion for CRUMB; read-only .cru structural inspection, calculators, project notes and local Ollama guidance.",
+  "ui": {
+    "enabled": true,
+    "title": "Circuit Lab",
+    "default_placement": "apps"
+  }
+}
