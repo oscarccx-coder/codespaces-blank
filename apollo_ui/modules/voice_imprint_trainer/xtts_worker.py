@@ -343,7 +343,9 @@ class XTTSEngine:
 
 
 def _send(payload: Dict[str, Any]) -> None:
-    print(json.dumps(payload, ensure_ascii=False), flush=True)
+    # The parent XTTS reader accepts only this framed protocol on stdout.
+    # Other library output must never be mistaken for a worker response.
+    print("APOLLO_XTTS_JSON " + json.dumps(payload, ensure_ascii=False), flush=True)
 
 
 def main() -> int:
@@ -354,6 +356,7 @@ def main() -> int:
         if not raw:
             continue
 
+        request = None
         try:
             request = json.loads(raw)
             if not isinstance(request, dict):
