@@ -30,7 +30,7 @@ jobs:
         run: python apollo_health_check.py --root .
       - name: Run custom sidebar, voice and updater regression suite
         working-directory: apollo_ui
-        run: python -m unittest -v test_sidebar_layout test_sidebar_gui_wiring test_voice_queue_state test_update_preflight test_memory_corrections test_personality_controls test_recovery_snapshots test_system_job_ui test_local_config test_xtts_shared_path test_xtts_worker_protocol test_github_updates test_obd_reader test_voice_management test_window_geometry test_voice_ui_wiring test_consolidation_ram test_release_pipeline test_pi_headless test_circuit_lab test_growth_lab test_reasoning_director
+        run: python -m unittest -v test_sidebar_layout test_sidebar_gui_wiring test_voice_queue_state test_update_preflight test_memory_corrections test_personality_controls test_recovery_snapshots test_system_job_ui test_local_config test_xtts_shared_path test_xtts_worker_protocol test_github_updates test_obd_reader test_voice_management test_window_geometry test_voice_ui_wiring test_consolidation_ram test_release_pipeline test_pi_headless test_circuit_lab test_growth_lab test_reasoning_director test_windows_setup
       - name: Run existing shell and module manager tests
         working-directory: apollo_ui
         run: |
@@ -58,3 +58,38 @@ jobs:
       - name: Dry-run full signed desktop and Raspberry Pi release ZIP
         working-directory: apollo_ui
         run: python tools/check_release_bundle.py
+
+  windows-installer-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Validate supported batch entrypoints
+        working-directory: apollo_ui
+        shell: cmd
+        run: python -m unittest -v test_windows_setup
+      - name: Install requirements in a private environment
+        working-directory: apollo_ui
+        shell: cmd
+        run: |
+          set CI=1
+          call INSTALL_REQUIREMENTS.bat
+      - name: Confirm requirements and virtualenv isolation
+        working-directory: apollo_ui
+        shell: cmd
+        run: |
+          .venv\Scripts\python.exe -c "import sys, PySide6, numpy, psutil; assert sys.prefix != sys.base_prefix"
+          .venv\Scripts\python.exe -m pip check
+      - name: Uninstall only private requirements
+        working-directory: apollo_ui
+        shell: cmd
+        run: |
+          set CI=1
+          call UNINSTALL_REQUIREMENTS.bat --yes
+          if exist .venv\pyvenv.cfg exit /b 1
+          if not exist requirements.txt exit /b 1
