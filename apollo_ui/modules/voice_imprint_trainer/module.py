@@ -2652,16 +2652,15 @@ class Module:
 
     # ------------------------------- UI ------------------------------
     def build_ui(self, parent=None, ui_context=None):
-        from PySide6.QtCore import Qt, QObject, Signal, QTimer
+        from PySide6.QtCore import Qt, QObject, Signal, QTimer, QPoint, QSize
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
             QTextEdit, QCheckBox, QFileDialog, QComboBox, QListWidget, QMessageBox,
             QSpinBox, QDoubleSpinBox, QGroupBox, QFormLayout, QSplitter, QScrollArea, QSizePolicy,
-            QProgressBar, QInputDialog, QListWidgetItem,
+            QProgressBar, QInputDialog, QListWidgetItem, QMenu,
         )
 
         page = QWidget(parent)
-        page.setMinimumHeight(720)
         outer = QVBoxLayout(page)
         outer.setSpacing(12)
         title = QLabel("Voice Imprint Lab")
@@ -2683,24 +2682,15 @@ class Module:
         profiles_list = QListWidget()
         left_layout.addWidget(QLabel("Voice Profiles"))
         left_layout.addWidget(profiles_list, 1)
-        manager_actions = QHBoxLayout()
-        rename_profile_button = QPushButton("Rename")
-        archive_profile_button = QPushButton("Delete…")
-        manager_actions.addWidget(rename_profile_button)
-        manager_actions.addWidget(archive_profile_button)
-        left_layout.addLayout(manager_actions)
-        move_actions = QHBoxLayout()
-        move_up_button = QPushButton("Move Up")
-        move_down_button = QPushButton("Move Down")
-        move_actions.addWidget(move_up_button)
-        move_actions.addWidget(move_down_button)
-        left_layout.addLayout(move_actions)
+        profile_hint = QLabel("Select a voice, or use ⋯ beside it to manage that voice.")
+        profile_hint.setWordWrap(True)
+        left_layout.addWidget(profile_hint)
         refresh_profiles = QPushButton("Refresh Profiles")
         left_layout.addWidget(refresh_profiles)
         splitter.addWidget(left)
 
         right = QWidget()
-        right.setMinimumWidth(620)
+        right.setMinimumWidth(510)
         right_layout = QVBoxLayout(right)
         right_layout.setSpacing(12)
 
@@ -2759,6 +2749,10 @@ class Module:
         train_form.addRow(activate_button)
         train_form.addRow(deactivate_button)
         right_layout.addWidget(train_box)
+
+        advanced_voice_button = QPushButton("Advanced voice controls ▸")
+        advanced_voice_button.setCheckable(True)
+        right_layout.addWidget(advanced_voice_button)
 
         backend_box = QGroupBox("3. Local Neural Speech Backend")
         backend_form = QFormLayout(backend_box)
@@ -2904,6 +2898,17 @@ class Module:
         tuning_form.addRow(reset_tuning_button)
         tuning_form.addRow(default_voice_button)
         right_layout.addWidget(tuning_box)
+        backend_box.hide()
+        tuning_box.hide()
+
+        def toggle_advanced_voice(visible):
+            backend_box.setVisible(visible)
+            tuning_box.setVisible(visible)
+            advanced_voice_button.setText(
+                "Advanced voice controls ▾" if visible else "Advanced voice controls ▸"
+            )
+
+        advanced_voice_button.toggled.connect(toggle_advanced_voice)
 
         test_box = QGroupBox("5. Test Apollo Voice")
         test_layout = QVBoxLayout(test_box)
@@ -2936,8 +2941,12 @@ class Module:
         output.setReadOnly(True)
         output.setMinimumHeight(170)
         right_layout.addWidget(output, 1)
-        splitter.addWidget(right)
-        splitter.setSizes([320, 900])
+        right_scroll = QScrollArea()
+        right_scroll.setWidgetResizable(True)
+        right_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        right_scroll.setWidget(right)
+        splitter.addWidget(right_scroll)
+        splitter.setSizes([300, 850])
 
         def selected_id():
             item = profiles_list.currentItem()
@@ -3101,11 +3110,28 @@ class Module:
                 test_voice_combo.addItem("Choose a voice profile…", None)
                 for row in result["profiles"]:
                     name = str(row["name"])
-                    label = ("● " if row.get("active") else "") + f"{name}  |  {row['approved_seconds']:.1f}s  |  signature={'yes' if row['signature_trained'] else 'no'}"
-                    item = QListWidgetItem(label)
+                    label = ("● " if row.get("active") else "") + name
+                    state_text = "Ready" if row.get("signature_trained") else "Needs training"
+                    item = QListWidgetItem()
                     item.setData(Qt.UserRole, row["id"])
+                    item.setSizeHint(QSize(240, 54))
                     profiles_list.addItem(item)
-                    test_voice_combo.addItem(("● " if row.get("active") else "") + name, row["id"])
+                    voice_row = QWidget()
+                    voice_row_layout = QHBoxLayout(voice_row)
+                    voice_row_layout.setContentsMargins(9, 2, 5, 2)
+                    voice_text = QLabel(f"{label}\n{state_text}")
+                    voice_text.setToolTip(name)
+                    voice_menu_button = QPushButton("⋯")
+                    voice_menu_button.setFixedWidth(38)
+                    voice_menu_button.setAccessibleName(f"Options for {name}")
+                    voice_menu_button.clicked.connect(
+                        lambda checked=False, pid=row["id"], anchor=voice_menu_button:
+                            open_profile_menu(pid, anchor)
+                    )
+                    voice_row_layout.addWidget(voice_text, 1)
+                    voice_row_layout.addWidget(voice_menu_button)
+                    profiles_list.setItemWidget(item, voice_row)
+                    test_voice_combo.addItem(label, row["id"])
                     if row["id"] == selected:
                         profiles_list.setCurrentItem(item)
                 ix = test_voice_combo.findData(selected)
@@ -3190,6 +3216,28 @@ class Module:
                 refresh(pid)
             except Exception as exc:
                 QMessageBox.warning(page, "Move voice", str(exc))
+
+        def open_profile_menu(profile_id, anchor):
+            # Each menu acts on its own voice, regardless of previous selection.
+            for index in range(profiles_list.count()):
+                item = profiles_list.item(index)
+                if item.data(Qt.UserRole) == profile_id:
+                    profiles_list.setCurrentItem(item)
+                    item.setSelected(True)
+                    break
+            else:
+                return
+            menu = QMenu(anchor)
+            menu.addAction("Use as Apollo voice", do_activate)
+            menu.addAction("Test this voice", lambda: do_synth(True))
+            menu.addAction("Retrain voice", do_train)
+            menu.addSeparator()
+            menu.addAction("Rename", rename_selected_profile)
+            menu.addAction("Move up", lambda: move_selected_profile(-1))
+            menu.addAction("Move down", lambda: move_selected_profile(1))
+            menu.addSeparator()
+            menu.addAction("Delete voice…", archive_selected_profile)
+            menu.exec(anchor.mapToGlobal(QPoint(0, anchor.height())))
 
         def do_browse():
             path, _ = QFileDialog.getOpenFileName(
@@ -3483,10 +3531,6 @@ class Module:
         build_button.clicked.connect(do_build_voice)
         import_button.clicked.connect(do_import)
         refresh_profiles.clicked.connect(lambda: refresh())
-        rename_profile_button.clicked.connect(rename_selected_profile)
-        archive_profile_button.clicked.connect(archive_selected_profile)
-        move_up_button.clicked.connect(lambda: move_selected_profile(-1))
-        move_down_button.clicked.connect(lambda: move_selected_profile(1))
         test_voice_combo.currentIndexChanged.connect(select_test_voice)
         choose_test_voice.clicked.connect(do_activate)
         train_button.clicked.connect(do_train)
