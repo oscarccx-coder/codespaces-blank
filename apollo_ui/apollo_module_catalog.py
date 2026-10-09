@@ -17,6 +17,7 @@ MODULE_GROUPS = {
     "workspace_manager": "Coding",
     "model_runtime": "Coding",
     "self_improvement_lab": "Coding",
+    "growth_lab": "Coding",
     "task_engine": "Coding",
     "roadmap": "Coding",
     "benchmark_suite": "Advanced",

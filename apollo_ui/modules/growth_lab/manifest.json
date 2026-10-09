@@ -1,0 +1,13 @@
+{
+  "id": "growth_lab",
+  "name": "Apollo Growth Lab",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Hardware capability assessment, user-directed paid work proposals and a manual GBP upgrade fund. All approvals, payments and purchases remain under human control.",
+  "ui": {
+    "enabled": true,
+    "title": "Growth Lab",
+    "default_placement": "apps"
+  }
+}
