@@ -15,7 +15,7 @@ from apollo_module_catalog import group_for
 from modules.reasoning_director.module import suggest_new_questions
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class FakeModel:

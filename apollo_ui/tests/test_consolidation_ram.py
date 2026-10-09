@@ -12,7 +12,7 @@ from apollo_config import ApolloConfigStore
 from ollama_client import OllamaClient
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class ConsolidationTests(unittest.TestCase):

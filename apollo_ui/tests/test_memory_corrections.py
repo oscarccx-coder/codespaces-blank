@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 MODULE_FILE = ROOT / "modules" / "memory_bank" / "module.py"
 spec = importlib.util.spec_from_file_location("apollo_memory_bank_test_module", MODULE_FILE)
 code = importlib.util.module_from_spec(spec)

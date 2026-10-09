@@ -1,7 +1,7 @@
 from pathlib import Path
 import ast
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 main_source = (ROOT / "main.py").read_text(encoding="utf-8")
 worker_source = (ROOT / "modules" / "voice_imprint_trainer" / "xtts_worker.py").read_text(encoding="utf-8")

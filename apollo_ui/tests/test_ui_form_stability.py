@@ -1,6 +1,6 @@
 from pathlib import Path
 
-root = Path(__file__).resolve().parent
+root = Path(__file__).resolve().parents[1]
 main = (root / "main.py").read_text(encoding="utf-8")
 voice = (root / "modules" / "voice_imprint_trainer" / "module.py").read_text(encoding="utf-8")
 

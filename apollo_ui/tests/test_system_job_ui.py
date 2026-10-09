@@ -7,7 +7,7 @@ from pathlib import Path
 class SystemJobWiringTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.source = Path(__file__).with_name("main.py").read_text(encoding="utf-8")
+        cls.source = (Path(__file__).resolve().parents[1] / "main.py").read_text(encoding="utf-8")
         cls.tree = ast.parse(cls.source)
         window = next(x for x in cls.tree.body
                       if isinstance(x, ast.ClassDef) and x.name == "ApolloWindow")
