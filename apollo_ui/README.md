@@ -30,6 +30,10 @@ Python entry point: `main.py`. The application requires the dependencies listed 
 | `docs/legacy_notes/` | Archived historical update instructions |
 | `tools/legacy_updates/` | Historical obsolete version-setting batch files, archived as text, **do not execute** |
 
+## Circuit Lab / CRUMB Simulator
+
+Apollo's **Circuit Lab** provides a side-by-side electronics workbench for the Windows Steam game CRUMB Circuit Simulator: a detached left-hand companion, local project notebooks, low-voltage circuit templates, LED resistor calculator, optional local Ollama design guidance and human-selected read-only `.cru` structural inspection. **No CRUMB live control or automatic wiring**, and no arbitrary saved-game modification. See [Circuit Lab & CRUMB setup](docs/features/CIRCUIT_LAB_CRUMB.md).
+
 ## Signed GitHub Releases and Raspberry Pi 5
 
 Apollo has a gated GitHub Actions workflow for signed code releases: **stable is manual and approval-gated**, and **automatic beta is opt-in only**. Publishing requires a persistent Ed25519 signing secret and independently verified fingerprint; unconfigured secrets fail safely. There is no public Release until those repository settings and an intentional publish action are complete.
