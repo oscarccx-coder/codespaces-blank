@@ -32,6 +32,10 @@ def _allowed(relative):
         return False
     if path.name in ("apollo_running.flag", "release_private.pem", "release_public.pem"):
         return False
+    if path.name.lower().endswith((".db-wal", ".db-shm", ".db-journal",
+                                   ".sqlite-wal", ".sqlite-shm", ".sqlite-journal",
+                                   ".sqlite3-wal", ".sqlite3-shm")):
+        return False
     return True
 
 
