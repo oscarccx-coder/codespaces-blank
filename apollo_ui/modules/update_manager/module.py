@@ -67,9 +67,17 @@ class Module:
         page = QWidget(parent)
         layout = QVBoxLayout(page)
         layout.setSpacing(10)
-        title = QLabel("Apollo Update Centre")
+        title = QLabel("Apollo Updates")
         title.setStyleSheet("font-size:22px;font-weight:700;")
         layout.addWidget(title)
+        note = QLabel("Install verified Apollo code updates without reinstalling voice models or user data.")
+        note.setWordWrap(True)
+        layout.addWidget(note)
+
+        advanced_toggle = QPushButton("Advanced options ▸")
+        advanced_panel = QWidget()
+        advanced_layout = QVBoxLayout(advanced_panel)
+        advanced_panel.setVisible(False)
 
         status = QLabel()
         status.setWordWrap(True)
@@ -90,43 +98,59 @@ class Module:
             label.setMinimumWidth(105)
             row.addWidget(label)
             row.addWidget(widget, 1)
-            layout.addLayout(row)
+            advanced_layout.addLayout(row)
 
         configuration_row("Update source", source)
         configuration_row("Server URL", server)
         configuration_row("Channel", channel)
-        layout.addWidget(auto_check)
+        advanced_layout.addWidget(auto_check)
         source.currentIndexChanged.connect(
             lambda _: server.setEnabled(source.currentData() == "server")
         )
 
         actions = QHBoxLayout()
-        save_btn = QPushButton("Save Source")
-        check_btn = QPushButton("Check GitHub")
-        stage_btn = QPushButton("Download & Verify")
-        install_btn = QPushButton("Install & Restart")
-        combined_btn = QPushButton("Update & Restart")
-        actions.addWidget(save_btn)
-        actions.addWidget(check_btn)
-        actions.addWidget(stage_btn)
-        actions.addWidget(install_btn)
+        combined_btn = QPushButton("Update Apollo")
+        combined_btn.setMinimumHeight(44)
+        combined_btn.setToolTip("Check, download, verify and install a newer signed release.")
         actions.addWidget(combined_btn)
+        actions.addStretch()
         layout.addLayout(actions)
+
+        save_btn = QPushButton("Save update settings")
+        check_btn = QPushButton("Check for updates only")
+        stage_btn = QPushButton("Download & Verify")
+        install_btn = QPushButton("Install staged update")
+        advanced_actions = QHBoxLayout()
+        for control in (save_btn, check_btn, stage_btn, install_btn):
+            advanced_actions.addWidget(control)
+        advanced_layout.addLayout(advanced_actions)
 
         trust_row = QHBoxLayout()
         trust_github_btn = QPushButton("Trust GitHub Signing Key (one-time)")
         trust_local_btn = QPushButton("Import Public Key File")
         trust_row.addWidget(trust_github_btn)
         trust_row.addWidget(trust_local_btn)
-        layout.addLayout(trust_row)
+        advanced_layout.addLayout(trust_row)
 
         progress = QLabel("No update operation running.")
         progress.setWordWrap(True)
         layout.addWidget(progress)
+        advanced_toggle.setToolTip("Settings, signing-key setup and diagnostic information.")
+        layout.addWidget(advanced_toggle)
+        advanced_layout.addWidget(QLabel("Update details and diagnostics"))
         output = QPlainTextEdit()
         output.setReadOnly(True)
-        output.setMinimumHeight(210)
-        layout.addWidget(output, 1)
+        output.setMinimumHeight(180)
+        advanced_layout.addWidget(output, 1)
+        layout.addWidget(advanced_panel, 1)
+        layout.addStretch()
+
+        def toggle_advanced():
+            visible = not advanced_panel.isVisible()
+            advanced_panel.setVisible(visible)
+            advanced_toggle.setText("Advanced options ▾" if visible else "Advanced options ▸")
+
+        advanced_toggle.clicked.connect(toggle_advanced)
 
         class UpdateSignals(QObject):
             finished = Signal(str, object)
@@ -151,8 +175,9 @@ class Module:
             channel.setCurrentText(str(settings.get("channel", "stable")))
             auto_check.setChecked(bool(settings.get("auto_check", False)))
             status.setText(
-                f"Apollo {info['current_version']}   •   GitHub: {info['github_repository']}"
-                f"   •   Signing key: {'TRUSTED' if info['trusted_key'] else 'NOT CONFIGURED'}"
+                f"Apollo {info['current_version']}  •  "
+                f"Update source: {settings.get('source', 'github')}  •  "
+                f"Signing key: {'trusted' if info['trusted_key'] else 'setup required'}"
             )
             latest = info.get("last_install")
             if latest and latest.get("ok") is False:
@@ -305,6 +330,15 @@ class Module:
                 launch_installer()
 
         def do_combined():
+            if not self.service.status().get("trusted_key"):
+                advanced_panel.setVisible(True)
+                advanced_toggle.setText("Advanced options ▾")
+                QMessageBox.information(
+                    page, "Set up secure updates",
+                    "Before the first update, use Advanced options to trust the "
+                    "verified Apollo release-signing public key. This is a one-time step."
+                )
+                return
             confirmation = QMessageBox.question(
                 page, "Update Apollo from GitHub",
                 "Download and verify a signed Apollo update, then close Apollo, install it and restart?\n"
