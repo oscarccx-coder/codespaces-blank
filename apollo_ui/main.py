@@ -34,6 +34,7 @@ from apollo_docs import PatchDocs
 from apollo_storage import StorageLayout
 from apollo_window_geometry import centered_window_geometry
 from apollo_model_memory import PROFILES, normalize_profile, memory_advice
+from apollo_module_catalog import GROUPS, group_for, is_visible
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -2836,9 +2837,8 @@ class ApolloWindow(QMainWindow):
         if hasattr(self, "settings_tabs") and hasattr(self, "settings_apps_tab"):
             self.settings_tabs.setCurrentWidget(self.settings_apps_tab)
 
-        # Rebuild normal module UI first. If legacy placement is Hidden/Tool Only,
-        # build an ephemeral Apps view rather than forcing the placement to change.
-        self.rebuild_module_ui()
+        # Build only the selected module's UI. Do NOT rebuild all module pages
+        # every time the user opens Voice, System or another application.
         page = self.dynamic_module_pages.get(module_id)
         if page is None:
             manifest = record.get("manifest", {})
@@ -3796,6 +3796,15 @@ class ApolloWindow(QMainWindow):
             "#91bdb6"
         ))
 
+        self.apps_filter = QComboBox()
+        self.apps_filter.addItems(GROUPS)
+        self.apps_filter.setCurrentText("Everyday")
+        self.apps_filter.currentTextChanged.connect(self._filter_module_apps)
+        v.addWidget(label(
+            "Choose a category. Specialist and retired tools remain available under Advanced / All.",
+            10, "#91bdb6"
+        ))
+        v.addWidget(self.apps_filter)
         self.apps_list = QListWidget()
         self.apps_list.setMinimumHeight(76)
         self.apps_list.setMaximumHeight(130)
@@ -4045,6 +4054,17 @@ class ApolloWindow(QMainWindow):
             if placement == "none":
                 continue
 
+            if placement == "apps":
+                # App definitions are cheap; create their expensive Qt widgets
+                # lazily only when someone actually opens one.
+                item = QListWidgetItem(
+                    f"[{group_for(module_id)}]  {module_info.get('title', module_id)}\\n"
+                    f"{module_info.get('description', '')}"
+                )
+                item.setData(Qt.UserRole, module_id)
+                self.apps_list.addItem(item)
+                continue
+
             page = self._build_module_page_widget(module_info)
             if page is None:
                 continue
@@ -4065,15 +4085,6 @@ class ApolloWindow(QMainWindow):
                 self.nav_buttons[page_key] = button
                 self.sidebar_default_labels[page_key] = str(module_info.get("title", module_id))
 
-            elif placement == "apps":
-                self.apps_host.addWidget(page)
-                item = QListWidgetItem(
-                    f"{module_info.get('title', module_id)}\n"
-                    f"{module_info.get('description', '')}"
-                )
-                item.setData(Qt.UserRole, module_id)
-                self.apps_list.addItem(item)
-
         if hasattr(self, "apps_list") and self.apps_list.count() == 0:
             item = QListWidgetItem(
                 "No module apps are assigned to Settings → Apps.\n"
@@ -4081,6 +4092,8 @@ class ApolloWindow(QMainWindow):
             )
             item.setFlags(Qt.NoItemFlags)
             self.apps_list.addItem(item)
+
+        self._filter_module_apps()
 
         # Restore the user's view when possible after a rebuild.
         if previous_page in self.pages:
@@ -4117,60 +4130,24 @@ class ApolloWindow(QMainWindow):
         self._refresh_sidebar()
         self._queue_ui_state_save()
 
+    def _filter_module_apps(self, category=None):
+        """Filter app listing only. Hidden categories do NOT disable tool APIs."""
+        if not hasattr(self, "apps_list"):
+            return
+        selected = str(category or self.apps_filter.currentText()) if hasattr(self, "apps_filter") else "All"
+        for index in range(self.apps_list.count()):
+            item = self.apps_list.item(index)
+            module_id = item.data(Qt.UserRole)
+            item.setHidden(bool(module_id) and not is_visible(module_id, selected))
+
     def open_selected_app_module(self, item=None):
         if not hasattr(self, "apps_list"):
             return
-
         selected = self.apps_list.selectedItems()
-
-        if item is not None and isinstance(item, QListWidgetItem):
-            module_id = item.data(Qt.UserRole)
-        elif selected:
-            module_id = selected[0].data(Qt.UserRole)
-        else:
-            return
-
-        if not module_id:
-            return
-
-        page = self.dynamic_module_pages.get(module_id)
-
-        if page is None:
-            QMessageBox.warning(
-                self,
-                "Apollo Apps",
-                "That module app is not currently available. "
-                "Try Refresh Apps or reload the module."
-            )
-            return
-
-        self.apps_host.setCurrentWidget(page)
-        self.current_app_module_id = module_id
-        self.current_app_open = True
-
-        title = module_id
-        record = self.module_manager.get_module(module_id)
-        if record:
-            manifest = record.get("manifest", {})
-            ui = manifest.get("ui", {}) if isinstance(manifest, dict) else {}
-            title = ui.get(
-                "title",
-                manifest.get("name", module_id),
-            )
-
-        if hasattr(self, "apps_current_label"):
-            self.apps_current_label.setText(
-                f"Open app: {title}"
-            )
-
-        if hasattr(self, "apps_close_btn"):
-            self.apps_close_btn.setEnabled(True)
-
-        if hasattr(self, "apps_inline_close_btn"):
-            self.apps_inline_close_btn.setEnabled(True)
-
-        self._queue_ui_state_save()
-
+        module_id = (item.data(Qt.UserRole) if isinstance(item, QListWidgetItem)
+                     else selected[0].data(Qt.UserRole) if selected else None)
+        if module_id:
+            self.open_module_app(module_id)
 
     def _build_web(self):
         page = QWidget()
