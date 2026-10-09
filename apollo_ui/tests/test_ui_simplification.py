@@ -1,51 +1,41 @@
-"""Qt-free wiring tests for the user-facing Apollo simplification."""
+"""Qt-free regression assertions for the 7.5.13.8 interface and 7.5.13.9 cleanup."""
 import ast
 from pathlib import Path
 import unittest
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class FriendlyUITests(unittest.TestCase):
-    def test_voice_menu_and_panel_structure(self):
-        source = (ROOT / "modules/voice_imprint_trainer/module.py").read_text(encoding="utf-8")
-        ast.parse(source)
-        for token in (
-            "def open_profile_menu", "voice_menu_button", "setItemWidget",
-            "Retrain voice", "Delete voice", "def test_selected_profile",
-            "advanced_voice_button", "right_scroll", "QScrollArea",
-        ):
-            self.assertIn(token, source)
-        self.assertNotIn("archive_profile_button = QPushButton", source)
+    def test_voice_profiles_have_per_item_actions(self):
+        voice = (ROOT / "modules/voice_imprint_trainer/module.py").read_text(encoding="utf-8")
+        ast.parse(voice)
+        for token in ('QToolButton', 'QMenu(dots)', '("Retrain", "retrain")',
+                      '("Delete…", "delete")', 'profiles_list.setItemWidget(item, cell)',
+                      'make_voice_tab("Advanced Settings")', 'make_voice_tab("Test / Use")'):
+            self.assertIn(token, voice)
 
-    def test_curiosity_research_is_actionable(self):
-        source = (ROOT / "modules/reasoning_director/module.py").read_text(encoding="utf-8")
-        ast.parse(source)
-        for token in (
-            'QPushButton("Research These Topics")',
-            "def research_queued_topics", "research_all.clicked.connect",
-            "explore_web_and_save", "source_pages_fetched",
-            "advanced_panel.hide()", "More options",
-        ):
-            self.assertIn(token, source)
+    def test_learning_can_research_selected_topic(self):
+        learning = (ROOT / "modules/reasoning_director/module.py").read_text(encoding="utf-8")
+        ast.parse(learning)
+        for token in ('QPushButton("Research This Topic")', 'def do_research():',
+                      '"explore_web_and_save"', 'research.clicked.connect(do_research)',
+                      'More options'):
+            self.assertIn(token, learning)
 
-    def test_updater_is_simple_but_keeps_trust_controls(self):
-        source = (ROOT / "modules/update_manager/module.py").read_text(encoding="utf-8")
-        ast.parse(source)
-        for token in (
-            'QPushButton("Check for Updates")',
-            'QPushButton("Update & Restart")',
-            "advanced_panel.hide()", "output.hide()",
-            "trust_github_btn", "import_trusted_key",
-            "self.service.stage_update", "self.service.launch_installer",
-        ):
-            self.assertIn(token, source)
+    def test_updater_keeps_signing_and_avoids_stale_install(self):
+        ui = (ROOT / "modules/update_manager/module.py").read_text(encoding="utf-8")
+        ast.parse(ui)
+        for token in ('QPushButton("Update Apollo")', 'Advanced options',
+                      'advanced_panel.setVisible(False)', 'trust_github_btn',
+                      'self.service.stage_update', 'self.service.launch_installer',
+                      'not result.get("stage_dir")'):
+            self.assertIn(token, ui)
 
-    def test_developer_tests_separated_from_release_payload(self):
-        source = (ROOT / "apollo_release.py").read_text(encoding="utf-8")
-        ast.parse(source)
-        self.assertIn('"tests"', source)
+    def test_tests_not_bundled_in_signed_application(self):
+        release = (ROOT / "apollo_release.py").read_text(encoding="utf-8")
+        ast.parse(release)
+        self.assertIn('"tests"', release)
         self.assertTrue((ROOT / "docs/patch_notes/2026-10-10_UI_USABILITY.md").is_file())
 
 
