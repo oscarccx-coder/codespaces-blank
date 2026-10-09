@@ -15,7 +15,7 @@ EXCLUDED_TOP_LEVEL = {
     "storage", "workspace", "pending_modules", "config.json",
     "ui_state.json", "modules_state.json", "apollo_memory.db",
     "apollo_error.log", "releases", "Audio", "models", ".git",
-    ".venv", "venv", ".pytest_cache", "build", "dist",
+    ".venv", ".venv-pi", "venv", ".pytest_cache", "build", "dist",
 }
 
 
