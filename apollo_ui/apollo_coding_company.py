@@ -299,8 +299,8 @@ class CodingCompany:
 
     def resume(self, pid):
         p = self._project(pid)
-        if p["state"] not in ("paused", "failed"):
-            raise ValueError("Only paused or failed work can resume")
+        if p["state"] != "paused":
+            raise ValueError("Only paused work can resume; failed budgets require a new project")
         if p["turns"] >= p["max_turns"]:
             raise ValueError("Turn budget exhausted")
         self._update(pid, state="ready", last_error="")
