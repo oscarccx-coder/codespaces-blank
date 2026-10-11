@@ -59,16 +59,18 @@ foreach ($entry in @($manifest.files)) {
     $currentSha = if ($exists) {
         (Get-FileHash -LiteralPath $targetFile -Algorithm SHA256).Hash.ToLowerInvariant()
     } else { "" }
-    if ($currentSha -ne $expectedSha -and $currentSha -ne $oldSha) {
+    if ($rel -ne "config.json" -and $currentSha -ne $expectedSha -and $currentSha -ne $oldSha) {
         if ($exists -or $oldSha -ne "") {
             throw "Local edits or different baseline in $rel. No files changed."
         }
     }
+    $needsUpdate = ($currentSha -ne $expectedSha)
+    if ($rel -eq "config.json") { $needsUpdate = ($installedConfig.version -ne "8.0.0.0") }
     [void]$checks.Add([PSCustomObject]@{
         Relative = $relativeFile
         Source = $sourceFile
         Destination = $targetFile
-        NeedsUpdate = ($currentSha -ne $expectedSha)
+        NeedsUpdate = $needsUpdate
         Existed = $exists
         ExpectedSha = $expectedSha
     })
@@ -100,7 +102,18 @@ try {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file.Destination) | Out-Null
         $tempFile = "$($file.Destination).apollo_v8_tmp"
         try {
-            Copy-Item -LiteralPath $file.Source -Destination $tempFile -Force
+            if ($file.Relative -eq "config.json") {
+                # Keep local model, context, user and Ollama preferences. Update only the version.
+                $config = Get-Content -LiteralPath $file.Destination -Raw | ConvertFrom-Json
+                $config.version = "8.0.0.0"
+                $newConfig = $config | ConvertTo-Json -Depth 32
+                [System.IO.File]::WriteAllText(
+                    $tempFile, $newConfig + [Environment]::NewLine,
+                    (New-Object System.Text.UTF8Encoding($false))
+                )
+            } else {
+                Copy-Item -LiteralPath $file.Source -Destination $tempFile -Force
+            }
             Move-Item -LiteralPath $tempFile -Destination $file.Destination -Force
             [void]$applied.Add($file)
         } finally {
@@ -109,7 +122,12 @@ try {
             }
         }
         $writtenSha = (Get-FileHash -LiteralPath $file.Destination -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($writtenSha -ne $file.ExpectedSha) {
+        if ($file.Relative -eq "config.json") {
+            $writtenConfig = Get-Content -LiteralPath $file.Destination -Raw | ConvertFrom-Json
+            if ($writtenConfig.version -ne "8.0.0.0") {
+                throw "Config version change failed."
+            }
+        } elseif ($writtenSha -ne $file.ExpectedSha) {
             throw "Post-install checksum mismatch for $($file.Relative)."
         }
     }
