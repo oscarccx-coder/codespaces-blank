@@ -1,0 +1,13 @@
+{
+  "id": "visual_learning",
+  "name": "Apollo Vision Lab",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Opt-in USB camera snapshots and file/HTTPS image analysis with local Ollama vision, searchable visual notes and source-backed follow-up research.",
+  "ui": {
+    "enabled": true,
+    "title": "Vision Lab",
+    "default_placement": "apps"
+  }
+}
