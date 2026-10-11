@@ -264,7 +264,8 @@ class Module:
         note = self.save_visual_note(image_id, topic)
         runtime = self.context.get("runtime")
         manager = getattr(runtime, "_manager", None)
-        if manager is None or manager.get_module("training_module") is None:
+        record = manager.get_module("training_module") if manager is not None else None
+        if not record or not record.get("enabled") or record.get("instance") is None:
             raise RuntimeError("Enable Apollo's Research & Training module for web research.")
         filename = "visual/" + image_id.split(".")[0] + "_sources.md"
         result = manager.execute(
@@ -412,7 +413,8 @@ class Module:
 
         def capture_clicked():
             output.setPlainText("Capturing one camera frame...")
-            submit(lambda: self.capture_camera(cameras.currentData()), selected_image)
+            index = cameras.currentData()
+            submit(lambda: self.capture_camera(index), selected_image)
 
         def detect_clicked():
             output.setPlainText("Checking connected camera indices...")
@@ -437,14 +439,18 @@ class Module:
                 return
             image_id = selected["id"]
             output.setPlainText("Asking local vision model to analyse the image...")
-            submit(lambda: self.analyse_image(image_id, question.text(), model.text()),
+            prompt = question.text()
+            model_name = model.text()
+            submit(lambda: self.analyse_image(image_id, prompt, model_name),
                    lambda result: output.setPlainText(result["analysis"]))
 
         def remember_clicked():
             if not selected["id"] or not topic.text().strip():
                 error("Analyse an image and enter a topic before saving memory.")
                 return
-            submit(lambda: self.save_visual_note(selected["id"], topic.text()),
+            image_id = selected["id"]
+            subject = topic.text().strip()
+            submit(lambda: self.save_visual_note(image_id, subject),
                    lambda result: output.setPlainText("Visual memory saved:\n" + result["path"]))
 
         def research_clicked():
@@ -452,7 +458,9 @@ class Module:
                 error("Analyse an image and enter a research topic first.")
                 return
             output.setPlainText("Searching public sources for: " + topic.text())
-            submit(lambda: self.research_image(selected["id"], topic.text()),
+            image_id = selected["id"]
+            subject = topic.text().strip()
+            submit(lambda: self.research_image(image_id, subject),
                    lambda result: output.setPlainText(json.dumps(result, indent=2)))
 
         detect.clicked.connect(detect_clicked)
