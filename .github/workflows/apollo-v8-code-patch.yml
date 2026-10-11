@@ -7,6 +7,8 @@ on:
     branches: [main]
     paths:
       - .github/workflows/apollo-v8-code-patch.yml
+      - apollo_ui/tools/Apply_Apollo8_Patch.ps1
+      - apollo_ui/tools/Install_Apollo8_Code_Patch.bat
   workflow_dispatch:
 
 permissions:
@@ -126,3 +128,76 @@ jobs:
           path: dist/patch/
           if-no-files-found: error
           retention-days: 30
+
+  windows-install-smoke:
+    needs: package
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v4
+        with:
+          name: Apollo-8.0.0.0-Manual-Code-Patch
+          path: patch
+      - name: Create baseline Apollo installation and customise its Ollama model
+        shell: pwsh
+        run: |
+          @'
+          import json, os, subprocess
+          from pathlib import Path
+          base = "8518b422ebb1ccb7c1871d83eb7674618c847d4b"
+          patch = Path("patch")
+          root = Path(os.environ["RUNNER_TEMP"]) / "ApolloV8Test"
+          root.mkdir(parents=True, exist_ok=True)
+          manifest = json.loads((patch / "manifest.json").read_text())
+          for entry in manifest["files"]:
+              old = subprocess.run(
+                  ["git", "show", f"{base}:apollo_ui/{entry['path']}"],
+                  capture_output=True, check=False
+              )
+              if old.returncode == 0:
+                  file = root / entry["path"]
+                  file.parent.mkdir(parents=True, exist_ok=True)
+                  file.write_bytes(old.stdout)
+          config_file = root / "config.json"
+          cfg = json.loads(config_file.read_text(encoding="utf-8"))
+          cfg["model"] = "my-custom-local:q8"
+          config_file.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+          print("Prepared baseline", root)
+          '@ | python -
+      - name: Install manual patch with checksum, backup and config preservation
+        shell: pwsh
+        run: |
+          $apollo = Join-Path $env:RUNNER_TEMP 'ApolloV8Test'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'patch/Apply_Apollo8_Patch.ps1' -ApolloPath $apollo -CIValidate
+          if ($LASTEXITCODE -ne 0) { throw "Patch installer returned exit code $LASTEXITCODE" }
+          @'
+          import json, os, hashlib
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"]) / "ApolloV8Test"
+          manifest = json.loads(Path("patch/manifest.json").read_text())
+          cfg = json.loads((root / "config.json").read_text(encoding="utf-8"))
+          assert cfg["version"] == "8.0.0.0", cfg
+          assert cfg["model"] == "my-custom-local:q8", cfg
+          for entry in manifest["files"]:
+              if entry["path"] == "config.json":
+                  continue
+              data = (root / entry["path"]).read_bytes()
+              assert hashlib.sha256(data).hexdigest() == entry["sha256"], entry["path"]
+          backup = list((root / "storage/backups").glob("manual_v8_*"))
+          assert len(backup) == 1, backup
+          assert (backup[0] / "config.json").is_file(), "Missing config backup"
+          print("Manual patch passed checksum and preservation smoke test")
+          '@ | python -
+      - name: Refuse a second installation when already current
+        shell: pwsh
+        run: |
+          $apollo = Join-Path $env:RUNNER_TEMP 'ApolloV8Test'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'patch/Apply_Apollo8_Patch.ps1' -ApolloPath $apollo -CIValidate
+          if ($LASTEXITCODE -ne 0) { throw "Re-running an installed patch should be safe" }
