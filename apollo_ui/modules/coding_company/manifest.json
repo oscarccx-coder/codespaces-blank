@@ -1,0 +1,13 @@
+{
+  "id": "coding_company",
+  "name": "Apollo Coding Studio",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Manager-led local coding workflow with Architect, Developer, Tester, Reviewer and Integrator roles; staged candidate files, checkpoints and owner approval.",
+  "ui": {
+    "enabled": true,
+    "title": "Coding Studio",
+    "default_placement": "apps"
+  }
+}
