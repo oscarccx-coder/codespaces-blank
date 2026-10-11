@@ -32,6 +32,7 @@ def knowledge_query(message):
         match = re.match(pattern, text, re.IGNORECASE)
         if match:
             subject = match.group(1).strip(" :,.?!")
+            subject = re.split(r",|;|\s+and\s+(?:what|how|whether)\b", subject, maxsplit=1, flags=re.I)[0].strip(" :,.?!")
             if 2 <= len(subject) <= 160:
                 return subject
     return text[:180]
