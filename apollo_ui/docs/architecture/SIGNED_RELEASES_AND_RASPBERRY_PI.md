@@ -130,11 +130,14 @@ wrapper's explicit opt-in flag.
 
 File: `.github/workflows/apollo-signed-release.yml`
 
-1. Create a **persistent Ed25519 release key** on a trusted local development
-   machine using the existing `apollo_ui/tools/publish_github_release.py`
-   (without `--publish`). This creates a key in ignored
-   `apollo_ui/storage/updates/keys/release_private.pem`. Never upload
-   the private key to Git or a chat message. Back it up securely outside GitHub.
+1. On the trusted Apollo workstation, run `Setup/12_SETUP_RELEASE_SIGNING.bat`.
+   This generates a **persistent Ed25519 release key** offline (or reuses the
+   existing one without rotation) in the excluded
+   `apollo_ui/storage/updates/keys/release_private.pem`. It also writes
+   `release_public.pem` and the exact public PEM SHA-256. Never upload the
+   private key to Git or a chat message. Back it up securely outside GitHub.
+   A ZIP-installed Apollo works; a Git checkout is **not** required for this
+   local step. The command does not automatically trust, upload or publish.
 2. In the repository's **Settings → Secrets and variables → Actions**, create
    repository secret `APOLLO_RELEASE_PRIVATE_PEM` whose value is the
    complete contents of the private PEM (including BEGIN/END lines).
