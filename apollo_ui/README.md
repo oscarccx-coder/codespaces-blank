@@ -2,6 +2,15 @@
 
 Apollo is a local Windows/PySide6 assistant with Ollama, modular tools, a persistent Home hub, personal memory, isolated voice processing, update/recovery utilities and an evolving coding workspace.
 
+## Secure GitHub release signing (first time)
+
+The signed-release updater needs a persistent Ed25519 release key, a GitHub
+Actions secret and matching public fingerprint variable. Run
+`Setup/12_SETUP_RELEASE_SIGNING.bat` once on the trusted Apollo workstation,
+then follow [signed-release instructions](docs/architecture/SIGNED_RELEASES_AND_RASPBERRY_PI.md).
+Do not send the private PEM in chat, commit it, or automatically trust public keys
+fetched from an unverified source. No signed public update is created by this step.
+
 ## Setup Centre (Windows)
 
 Open **`Setup/01_INSTALL_APOLLO.bat`** for a guided installation with optional Desktop shortcuts. Afterwards use `Setup/02_START_APOLLO.bat`. The `Setup/` folder contains labelled batch launchers for updating, voice repair, diagnostics, backups, restoring and safe mode. The original root launchers remain for compatibility. Apollo now opens a first-run Setup & Recovery wizard (also available in **Settings → Setup & Recovery**) for device preferences, Ollama/XTTS diagnostics and local backups.
