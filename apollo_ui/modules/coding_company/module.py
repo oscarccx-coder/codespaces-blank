@@ -123,7 +123,6 @@ class Module:
 
         signals = Signals(page)
         active = {"project": None, "busy": False, "files": {}, "mode": "local"}
-        settings = {}
 
         def selected_id():
             item = projects.currentItem()
@@ -182,8 +181,8 @@ class Module:
 
         def create():
             try:
-                p = self.store.create(title.text(), request.toPlainText(), max_turns.value())
-                settings[p["id"]] = "demo" if demo.currentIndex() == 1 else "local"
+                p = self.store.create(title.text(), request.toPlainText(), max_turns.value(),
+                                      mode='demo' if demo.currentIndex() == 1 else 'local')
                 title.clear()
                 request.clear()
                 refresh(p["id"])
@@ -195,7 +194,7 @@ class Module:
             if pid is None or active["busy"]:
                 return
             active["busy"] = True
-            mode = settings.get(pid, "local")
+            mode = self.store.detail(pid)['project']['mode']
             # This worker emits signals; Qt widgets are only changed on UI thread.
             def work():
                 try:
