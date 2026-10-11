@@ -143,7 +143,7 @@ class CodingCompany:
             self.conn.executescript("""
                 CREATE TABLE IF NOT EXISTS projects (
                     id INTEGER PRIMARY KEY, title TEXT NOT NULL, request TEXT NOT NULL,
-                    state TEXT NOT NULL, phase TEXT NOT NULL, iteration INTEGER NOT NULL DEFAULT 1,
+                    mode TEXT NOT NULL DEFAULT 'local', state TEXT NOT NULL, phase TEXT NOT NULL, iteration INTEGER NOT NULL DEFAULT 1,
                     attempts INTEGER NOT NULL DEFAULT 0, turns INTEGER NOT NULL DEFAULT 0,
                     max_turns INTEGER NOT NULL DEFAULT 20, max_reworks INTEGER NOT NULL DEFAULT 3,
                     result TEXT NOT NULL DEFAULT '{}', last_error TEXT NOT NULL DEFAULT '',
@@ -185,17 +185,19 @@ class CodingCompany:
                               " WHERE id=?", [values[k] for k in keys] + [pid])
             self.conn.commit()
 
-    def create(self, title, request, max_turns=20, max_reworks=3):
+    def create(self, title, request, max_turns=20, max_reworks=3, mode='local'):
         title, request = str(title).strip(), str(request).strip()
         if not title or len(title) > 120 or not request or len(request) > 4000:
             raise ValueError("Project title/request missing or too long")
         max_turns = max(5, min(int(max_turns), 40))
         max_reworks = max(0, min(int(max_reworks), 5))
+        if mode not in ('local', 'demo'):
+            raise ValueError('Unknown model mode')
         with self.lock:
             row = self.conn.execute(
-                "INSERT INTO projects(title,request,state,phase,max_turns,max_reworks,created_at,updated_at)"
-                " VALUES (?,?,'ready','architect',?,?,?,?)",
-                (title, request, max_turns, max_reworks, timestamp(), timestamp()))
+                "INSERT INTO projects(title,request,mode,state,phase,max_turns,max_reworks,created_at,updated_at)"
+                " VALUES (?,?,?,'ready','architect',?,?,?,?)",
+                (title, request, mode, max_turns, max_reworks, timestamp(), timestamp()))
             self.conn.commit()
             return self._project(row.lastrowid)
 
@@ -275,7 +277,7 @@ class CodingCompany:
                     ast.parse(text, filename=path)
                 except SyntaxError as e:
                     problems.append({"file": path, "line": e.lineno, "message": e.msg})
-        return {"syntax_ok": bool(files) and not problems, "file_count": len(files),
+        return {"syntax_ok": any(k.lower().endswith(('.py', '.pyw')) for k in files) and not problems, "file_count": len(files),
                 "problems": problems, "runtime_tests_executed": False}
 
     def _record(self, p, role, outcome, response, evidence):
@@ -365,11 +367,14 @@ class CodingCompany:
                 files = self._files(pid)
                 notes = [r["notes"] for r in self.detail(pid)["reviews"] if r["decision"] == "changes"][-2:]
                 memories = [x["text"] for x in self.lessons(role)]
+                prior_turns = [{"role": t["role"], "outcome": t["outcome"],
+                                "response": t["response"][:2500]}
+                               for t in self.detail(pid)["turns"][-6:]]
                 payload = json.dumps({"request": p["request"], "role": role,
                     "iteration": p["iteration"], "previous_result": json.loads(p["result"]),
                     "feedback": notes, "verified_role_lessons": memories,
-                    "files": files, "static_checks": self._static(pid)}, ensure_ascii=False)
-                provider = model if model is not None else OllamaRoleModel(self.base)
+                    "previous_role_turns": prior_turns, "files": files, "static_checks": self._static(pid)}, ensure_ascii=False)
+                provider = model if model is not None else (DemoRoleModel() if p['mode'] == 'demo' else OllamaRoleModel(self.base))
                 answer = parse_json(provider.complete(role, payload))
                 checks = self._static(pid)
                 if role == "architect":
@@ -381,6 +386,8 @@ class CodingCompany:
                     checks = self._static(pid)
                     next_role = "tester"
                 elif role == "tester":
+                    if not isinstance(answer.get('checks'), list):
+                        raise ValueError('Tester must return checks list')
                     if not checks["syntax_ok"]:
                         return self._rework(p, role, answer, checks, "Static syntax validation failed")
                     next_role = "reviewer"
