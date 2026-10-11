@@ -67,6 +67,21 @@ echo   %PYTHON_EXE%
 "%PYTHON_EXE%" --version
 if errorlevel 1 goto :FAIL
 
+rem The previous full install can fail only at the final settings step.
+rem This recovery mode skips all package removal/installation and model downloads.
+if /I "%~1"=="--configure-only" (
+    echo.
+    echo [INFO] Configure-only recovery: no pip install/uninstall or model download.
+    call :FIND_SHARED_FFMPEG
+    if not defined FFMPEG_BIN (
+        echo [ERROR] Shared FFmpeg not found. Use Setup\04_REPAIR_VOICE.bat for full repair.
+        goto :FAIL
+    )
+    set "PATH=!FFMPEG_BIN!;!PATH!"
+    set "TORCHCODEC_FFMPEG_DIR=!FFMPEG_BIN!"
+    goto :CONFIGURE_APOLLO
+)
+
 if not exist "%XTTS_ROOT%" mkdir "%XTTS_ROOT%"
 if not exist "%LOCALAPPDATA%\Apollo\downloads" mkdir "%LOCALAPPDATA%\Apollo\downloads"
 
@@ -305,9 +320,19 @@ if "%FAILED%"=="1" goto :FAIL
 if errorlevel 1 goto :FAIL
 
 set "VOICE_SETTINGS=%APOLLO_DIR%\storage\media\voice_imprint\settings.json"
-if not exist "%APOLLO_DIR%\storage\media\voice_imprint" mkdir "%APOLLO_DIR%\storage\media\voice_imprint"
-
-"%PYTHON_EXE%" -c "import json,pathlib; p=pathlib.Path(r'%VOICE_SETTINGS%'); d={}; exec(\"try:\\n d=json.loads(p.read_text(encoding='utf-8'))\\nexcept Exception:\\n d={}\"); d['backend']='xtts_local'; d['model_dir']=r'%XTTS_TARGET%'; d['device']='auto'; d.setdefault('language','en'); d['ffmpeg_shared_bin']=r'%FFMPEG_BIN%'; d['runtime_pins']={'torch':'%TORCH_VERSION%','torchvision':'%TORCHVISION_VERSION%','torchaudio':'%TORCHAUDIO_VERSION%','torchcodec':'%TORCHCODEC_VERSION%','coqui_tts':'%COQUI_VERSION%','transformers':'%TRANSFORMERS_VERSION%'}; p.write_text(json.dumps(d,indent=2)+'\n',encoding='utf-8'); print('Apollo XTTS settings updated:',p)"
+rem Avoid nested exec(), escaped newlines and brittle quoting in cmd.exe.
+rem A real Python helper preserves existing voice settings, creates a backup,
+rem and atomically writes only on successful validation.
+"%PYTHON_EXE%" "%APOLLO_DIR%\tools\configure_xtts_settings.py" ^
+    --settings "%VOICE_SETTINGS%" ^
+    --model-dir "%XTTS_TARGET%" ^
+    --ffmpeg-bin "%FFMPEG_BIN%" ^
+    --torch "%TORCH_VERSION%" ^
+    --torchvision "%TORCHVISION_VERSION%" ^
+    --torchaudio "%TORCHAUDIO_VERSION%" ^
+    --torchcodec "%TORCHCODEC_VERSION%" ^
+    --coqui-tts "%COQUI_VERSION%" ^
+    --transformers "%TRANSFORMERS_VERSION%"
 if errorlevel 1 goto :FAIL
 
 if exist "%DOWNLOAD_HOME%" rmdir /S /Q "%DOWNLOAD_HOME%" 2>nul
