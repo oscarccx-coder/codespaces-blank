@@ -32,7 +32,7 @@ Run `INSTALL_REQUIREMENTS.bat` to create Apollo's private environment first. Opt
 7. pin Transformers
 8. import-test everything and run `pip check`
 9. download XTTS only if model files are absent
-10. configure Voice Imprint
+10. configure Voice Imprint using the separate `tools/configure_xtts_settings.py` helper, preserving other settings and backing up existing JSON. If this last step fails, `Setup/11_FINISH_XTTS_SETUP.bat` rechecks the model/config and retries **without** repeating package installation. Malformed existing settings are preserved instead of silently discarded.
 
 ## Persistent data
 

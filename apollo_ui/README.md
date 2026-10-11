@@ -17,7 +17,7 @@ For a fresh Windows PC: install Python 3.11+ (3.13 preferred), then double-click
 - **`start_apollo_ui.bat`**: launch using the private Python environment.
 - **`start_apollo_safe_mode.bat`**: launch with risky modules disabled; still uses the same private environment.
 - **`UPDATE_APOLLO_CODE.bat`**: fetch code changes in an existing clean Git checkout; does not reinstall models.
-- **`install_xtts_v2.bat`**: advanced optional CUDA/XTTS runtime installer, after core setup. May install a shared user-scope FFmpeg package.
+- **`install_xtts_v2.bat`**: advanced optional CUDA/XTTS runtime installer, after core setup. May install a shared user-scope FFmpeg package. If it reached step 10/10 but failed saving settings, run `Setup/11_FINISH_XTTS_SETUP.bat` to finish without repeating the large installation.
 - **`build_apollo_exe_safer.bat`**: optional developer EXE build, not required to run Apollo.
 
 **Important:** uninstalling requirements does **not** delete or uninstall system Python, Git, Ollama, shared FFmpeg, XTTS models, saved voices, chats, memory, projects, or `storage/`. Packages previously installed globally by older Apollo scripts are deliberately left alone because removing global dependencies could break other programs.
