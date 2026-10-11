@@ -109,7 +109,7 @@ try {
                 $newConfig = $config | ConvertTo-Json -Depth 32
                 [System.IO.File]::WriteAllText(
                     $tempFile, $newConfig + [Environment]::NewLine,
-                    (New-Object System.Text.UTF8Encoding($false))
+                    ([System.Text.UTF8Encoding]::new($false))
                 )
             } else {
                 Copy-Item -LiteralPath $file.Source -Destination $tempFile -Force
