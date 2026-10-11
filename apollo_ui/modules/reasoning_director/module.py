@@ -291,6 +291,11 @@ class Module:
         research.setToolTip("Search public sources and save research locally.")
         topic_actions.addWidget(research)
         lv.addLayout(topic_actions)
+        question_select = QComboBox()
+        question_select.setToolTip("Choose which question Apollo should research next.")
+        lv.addWidget(question_select)
+        view_evidence = QPushButton("View saved evidence for selected question")
+        lv.addWidget(view_evidence)
         actions = QHBoxLayout()
         deterministic = QPushButton("Create Follow-up Questions")
         ai = QPushButton("Generate AI Questions")
@@ -354,9 +359,25 @@ class Module:
             topic_id = select.currentData()
             rows = (self.store.questions_for(topic_id) if topic_id
                     else self.store.due_questions(limit=25))
+            selected_id = question_select.currentData()
+            question_select.blockSignals(True)
+            question_select.clear()
+            for q in rows:
+                question_select.addItem(
+                    f"#{q['id']} · {q['prompt'][:130]}", q["id"]
+                )
+            index = question_select.findData(selected_id)
+            if index >= 0:
+                question_select.setCurrentIndex(index)
+            elif rows:
+                due = next((j for j, q in enumerate(rows)
+                            if q["next_review"] <= datetime.now(timezone.utc).isoformat(timespec="seconds")), 0)
+                question_select.setCurrentIndex(due)
+            question_select.blockSignals(False)
             learn_output.setPlainText("\n\n".join(
                 f"• {q['prompt']}\n"
-                f"  Next review: {q['next_review'][:10]}"
+                f"  State: {q['state']} · Review: {q['next_review'][:10]} · "
+                f"Evidence notes: {len(self.store.research_for(q['id']))}"
                 for q in rows
             ) or "No queued questions yet.")
 
@@ -474,18 +495,17 @@ class Module:
                     raise ValueError("Add follow-up questions to this topic first.")
                 # Prefer a due question, then the earliest pending one.
                 now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                question = next((q for q in questions if q["next_review"] <= now), questions[0])
+                question = next((q for q in questions if q["id"] == question_select.currentData()),
+                                next((q for q in questions if q["next_review"] <= now), questions[0]))
                 launch("research", lambda: self.research_question(question["id"]))
             except (ValueError, KeyError) as exc:
                 QMessageBox.warning(page, "Research", str(exc))
 
         def record():
             try:
-                question_id, ok = QInputDialog.getInt(
-                    page, "Evidence", "Question ID:", 1, 1
-                )
-                if not ok:
-                    return
+                question_id = question_select.currentData()
+                if question_id is None:
+                    raise ValueError("Choose a research question first.")
                 claim, ok = QInputDialog.getMultiLineText(
                     page, "Evidence", "What was observed or claimed?"
                 )
@@ -520,6 +540,22 @@ class Module:
             except (ValueError, KeyError) as exc:
                 QMessageBox.warning(page, "Research Notes", str(exc))
 
+        def view_saved_evidence():
+            question_id = question_select.currentData()
+            if question_id is None:
+                learn_output.setPlainText("Choose a research question first.")
+                return
+            notes = self.store.research_for(question_id)
+            if not notes:
+                learn_output.setPlainText("No saved evidence for this question yet.")
+                return
+            learn_output.setPlainText("\n\n".join(
+                f"Source: {n['source']}\nRecorded: {n['created_at']}\n"
+                f"Assessment: {n['confidence']}\n{n['summary']}"
+                for n in notes
+            ))
+
+        view_evidence.clicked.connect(view_saved_evidence)
         queue.clicked.connect(create_topic)
         select.currentIndexChanged.connect(redraw_questions)
         deterministic.clicked.connect(seed_questions)
