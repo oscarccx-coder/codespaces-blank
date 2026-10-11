@@ -1,5 +1,5 @@
 # Apollo 8 manual code-only patch installer; not the Ed25519-signed updater.
-param([string]$ApolloPath = "F:\Apollo\apollo 1\apollo_ui")
+param([string]$ApolloPath = "F:\Apollo\apollo 1\apollo_ui", [switch]$CIValidate)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $packageRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -17,7 +17,7 @@ Write-Host "Only source code is replaced. Models, voices, memory, storage and Py
 Write-Host "This package is NOT Ed25519-signed and is NOT accepted by Apollo's signed in-app updater." -ForegroundColor Yellow
 Write-Host "Close Apollo before proceeding."
 Write-Host ""
-$typedPath = Read-Host "Installation directory [$ApolloPath]"
+$typedPath = if ($CIValidate) { "" } else { Read-Host "Installation directory [$ApolloPath]" }
 if (-not [string]::IsNullOrWhiteSpace($typedPath)) { $ApolloPath = $typedPath.Trim('"') }
 if (-not (Test-Path -LiteralPath $ApolloPath -PathType Container)) {
     throw "Apollo installation directory not found: $ApolloPath"
@@ -82,7 +82,7 @@ if ($toUpdate.Count -eq 0) {
 }
 Write-Host ("Preflight passed. {0} files need updating." -f $toUpdate.Count) -ForegroundColor Green
 Write-Host "A backup will be written to Apollo's storage/backups directory."
-$answer = Read-Host "Type UPDATE to back up and install Apollo 8"
+$answer = if ($CIValidate) { "UPDATE" } else { Read-Host "Type UPDATE to back up and install Apollo 8" }
 if ($answer -cne "UPDATE") {
     Write-Host "Cancelled. No files changed."
     exit 2
