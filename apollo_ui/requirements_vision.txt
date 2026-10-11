@@ -1,0 +1,3 @@
+# Optional, only needed for USB camera capture and camera detection.
+# Image file and HTTPS image analysis require no extra Python packages.
+opencv-python>=4.10,<5
