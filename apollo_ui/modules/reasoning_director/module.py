@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from apollo_reasoning import ReasoningStore, run_practice
 from apollo_growth_director import direction_report
+from apollo_learning_v8 import LearningController
 
 
 def suggest_new_questions(client, store, topic_id):
@@ -49,6 +50,8 @@ class Module:
         self.context = context or {}
         self.base = Path(self.context.get("base_dir") or ".").resolve()
         self.store = ReasoningStore(self.base)
+        self.learning = LearningController(self.base, self.store)
+        self._research_guard = threading.Lock()
 
     def tools(self):
         return [
@@ -72,6 +75,21 @@ class Module:
                             "Sources are unverified until separately examined.",
              "parameters": {"type": "object", "properties": {
                  "topic_id": {"type": "integer"}}, "required": ["topic_id"]}},
+            {"name": "learning_schedule_status",
+             "description": "View Apollo's local follow-up frequency, mode and due work.",
+             "parameters": {"type": "object", "properties": {}}},
+            {"name": "learning_set_schedule",
+             "description": "Set user-authorized learning follow-ups: manual, reminders, or automated public-source research.",
+             "parameters": {"type": "object", "properties": {
+                 "mode": {"type": "string", "enum": ["manual", "remind", "auto"]},
+                 "interval_hours": {"type": "integer"}, "review_days": {"type": "integer"}},
+                 "required": ["mode"]}},
+            {"name": "learning_suggestions",
+             "description": "List evidence-based, approval-gated improvement suggestions. No code changes.",
+             "parameters": {"type": "object", "properties": {}}},
+            {"name": "learning_pulse",
+             "description": "Check the bounded follow-up schedule; may dispatch enabled research in background.",
+             "parameters": {"type": "object", "properties": {}}},
             {"name": "growth_direction_status",
              "description": "Read learning and work priorities without making business decisions.",
              "parameters": {"type": "object", "properties": {}}},
@@ -89,9 +107,103 @@ class Module:
             return self.store.progress()
         if action == "learning_related_memory":
             return self.related_memory(a["topic_id"])
+        if action == "learning_schedule_status":
+            return self.learning.status()
+        if action == "learning_set_schedule":
+            return self.learning.configure(a["mode"], a.get("interval_hours", 24),
+                                           a.get("review_days", 7))
+        if action == "learning_suggestions":
+            return {"suggestions": self.learning.suggestions()}
+        if action == "learning_pulse":
+            return self.pulse()
         if action == "growth_direction_status":
             return direction_report(self.base)
         raise KeyError(action)
+
+    def _manager(self):
+        runtime = self.context.get("runtime")
+        return getattr(runtime, "_manager", None)
+
+    def research_question(self, question_id, review_days=None):
+        """Fetch and index one question, retaining evidence and source provenance.
+
+        Never classify fetched web text as verified. Permission checks remain in
+        ModuleManager.execute, including when invoked from a background pulse.
+        """
+        manager = self._manager()
+        record = manager.get_module("training_module") if manager else None
+        if not record or not record.get("enabled") or record.get("instance") is None:
+            raise RuntimeError("Research & Training is disabled. Enable it in Modules.")
+        with self.store.lock:
+            question = self.store.db.execute(
+                "SELECT q.*, t.name topic FROM questions q JOIN topics t ON t.id=q.topic_id "
+                "WHERE q.id=? AND t.state='active'", (int(question_id),)
+            ).fetchone()
+        if question is None:
+            raise ValueError("An active research question is required.")
+        question = dict(question)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+        filename = f"reasoning_topics/topic_{int(question['topic_id'])}_{stamp}.txt"
+        result = manager.execute(
+            "training_module", "explore_web_and_save",
+            {"query": question["prompt"], "filename": filename, "limit": 4}
+        )
+        recorded = self.learning.complete_research(
+            question_id, result,
+            review_days or self.learning.status()["review_days"]
+        )
+        # Index readable evidence for ordinary chat searches; content remains
+        # explicitly unverified, and is never an executable instruction.
+        sources = (result.get("sources") or [])[:2]
+        snippets = [
+            f"Source: {item.get('title', '')}\nURL: {item.get('url', '')}\n"
+            f"Text: {str(item.get('text') or item.get('snippet') or '')[:3800]}"
+            for item in sources if item.get("text")
+        ]
+        if snippets:
+            bank = manager.get_module("memory_bank")
+            if bank and bank.get("enabled") and bank.get("instance") is not None:
+                try:
+                    manager.execute("memory_bank", "store_memory", {
+                        "name": question["topic"],
+                        "memory_type": "web_research",
+                        "summary": "Unverified source excerpts for: " + question["prompt"][:400],
+                        "content": "\n\n".join(snippets)[:10000],
+                        "source": "Web Research",
+                        "source_ref": recorded["filename"],
+                        "tags": ["learning", "unverified", "source-backed"],
+                        "importance": 1.5,
+                    })
+                except Exception as exc:
+                    recorded["memory_index_warning"] = str(exc)[:200]
+        return {"query": question["prompt"], "topic": question["topic"],
+                "saved": result.get("saved"), "source_pages_fetched": recorded["source_pages_fetched"],
+                "evidence": recorded["evidence"], "verified": False}
+
+    def pulse(self):
+        # Timer calls only reserve work. Slow browsing runs in a worker, never
+        # in Qt's event thread, and overlapping research passes are blocked.
+        if self._research_guard.locked():
+            return {"action": "busy"}
+        status = self.learning.status()
+        if status["mode"] == "auto":
+            manager = self._manager()
+            record = manager.get_module("training_module") if manager else None
+            if not record or not record.get("enabled") or record.get("instance") is None:
+                return {"action": "unavailable", "reason": "Research module disabled"}
+        event = self.learning.reserve_due()
+        if event["action"] == "research":
+            if not self._research_guard.acquire(blocking=False):
+                return {"action": "busy"}
+            def worker():
+                try:
+                    self.research_question(event["question"]["id"], event["review_days"])
+                except Exception as exc:
+                    self.learning.fail(exc)
+                finally:
+                    self._research_guard.release()
+            threading.Thread(target=worker, daemon=True, name="ApolloLearningV8").start()
+        return event
 
     def related_memory(self, topic_id):
         topic = self.store.topic(topic_id)
@@ -123,7 +235,7 @@ class Module:
                 "note": "Stored memories may contain errors or outdated claims."}
 
     def self_test(self):
-        assert len(self.tools()) == 6
+        assert len(self.tools()) == 10
         return "Curiosity, revision, memory lookup and growth director contracts ready."
 
     def build_ui(self, parent=None, ui_context=None):
@@ -131,14 +243,14 @@ class Module:
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
             QLineEdit, QComboBox, QPlainTextEdit, QMessageBox,
-            QInputDialog, QSpinBox, QTabWidget, QMenu
+            QInputDialog, QSpinBox, QTabWidget, QMenu, QListWidget
         )
         page = QWidget(parent)
         root = QVBoxLayout(page)
         root.addWidget(QLabel("Apollo Learning"))
         notice = QLabel(
-            "Choose what Apollo should learn, then research it. Research runs only "
-            "when requested, and its source notes are saved locally."
+            "1. Add a topic. 2. Research a question. 3. Ask Apollo in Chat. "
+            "Follow-up reminders or automatic research can be enabled separately."
         )
         notice.setWordWrap(True)
         root.addWidget(notice)
@@ -161,6 +273,8 @@ class Module:
         select = QComboBox()
         topic_actions = QHBoxLayout()
         topic_actions.addWidget(select, 1)
+        ask = QPushButton("Ask Apollo in Chat")
+        topic_actions.addWidget(ask)
         research = QPushButton("Research This Topic")
         research.setToolTip("Search public sources and save research locally.")
         topic_actions.addWidget(research)
@@ -174,7 +288,7 @@ class Module:
         more = QPushButton("More options ▾")
         extra_menu = QMenu(more)
         more.setMenu(extra_menu)
-        for control in (ai, refresh, more):
+        for control in (refresh, more):
             actions.addWidget(control)
         actions.addStretch()
         lv.addLayout(actions)
@@ -298,7 +412,8 @@ class Module:
                        f"Topic: {result.get('query', '')}\n"
                        f"Source pages read: {result.get('source_pages_fetched', 0)}\n"
                        f"Saved file: {saved.get('filename', 'unknown')}\n\n"
-                       "Sources remain unverified until assessed.")
+                       "Sources are indexed in Apollo Memory Bank but remain unverified.")
+                redraw_questions()
             else:
                 finish(kind, json.dumps(result, indent=2, ensure_ascii=False))
             if kind == "questions":
@@ -324,21 +439,31 @@ class Module:
             except (ValueError, KeyError) as exc:
                 QMessageBox.warning(page, "Curiosity", str(exc))
 
+        def ask_chat():
+            try:
+                topic = self.store.topic(selected_topic())["name"]
+                window = (ui_context or {}).get("apollo_window")
+                if window is None or not hasattr(window, "chat_input"):
+                    raise ValueError("Apollo Chat is not available.")
+                window.switch_page("Chat")
+                window.chat_input.setText(
+                    f"What is {topic}, what can it do for me, and what does your knowledge base say? "
+                    "Include sources and distinguish unknowns."
+                )
+                window.chat_input.setFocus()
+            except (ValueError, KeyError) as exc:
+                QMessageBox.warning(page, "Ask Apollo", str(exc))
+
         def do_research():
             try:
                 topic_id = selected_topic()
-                topic = self.store.topic(topic_id)
-                window = (ui_context or {}).get("apollo_window")
-                manager = getattr(window, "module_manager", None)
-                record = manager.get_module("training_module") if manager else None
-                if not record or not record.get("enabled") or record.get("instance") is None:
-                    raise ValueError("Enable the Research & Training module first.")
-                stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
-                filename = f"reasoning_topics/topic_{int(topic_id)}_{stamp}.txt"
-                launch("research", lambda: manager.execute(
-                    "training_module", "explore_web_and_save",
-                    {"query": topic["name"], "filename": filename, "limit": 5}
-                ))
+                questions = self.store.questions_for(topic_id)
+                if not questions:
+                    raise ValueError("Add follow-up questions to this topic first.")
+                # Prefer a due question, then the earliest pending one.
+                now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                question = next((q for q in questions if q["next_review"] <= now), questions[0])
+                launch("research", lambda: self.research_question(question["id"]))
             except (ValueError, KeyError) as exc:
                 QMessageBox.warning(page, "Research", str(exc))
 
@@ -388,9 +513,11 @@ class Module:
         deterministic.clicked.connect(seed_questions)
         ai.clicked.connect(do_questions)
         research.clicked.connect(do_research)
+        ask.clicked.connect(ask_chat)
         extra_menu.addAction("Create follow-up questions", seed_questions)
+        extra_menu.addAction("Generate AI Questions", do_questions)
         extra_menu.addAction("Find related memories", lambda: search_related())
-        extra_menu.addAction("Record evidence manually", record)
+        extra_menu.addAction("Record Source/Observation", record)
         def search_related():
             try:
                 payload = self.related_memory(selected_topic())
@@ -408,6 +535,93 @@ class Module:
         summarize.clicked.connect(
             lambda: plan_output.setPlainText(json.dumps(direction_report(self.base), indent=2))
         )
+        # Scheduling is entirely opt-in. The main window checks every minute,
+        # but these controls decide whether it may do anything at all.
+        follow_tab = QWidget()
+        fv = QVBoxLayout(follow_tab)
+        fv.addWidget(QLabel("Apollo follow-ups"))
+        schedule_row = QHBoxLayout()
+        mode = QComboBox()
+        mode.addItem("Manual only (default)", "manual")
+        mode.addItem("Remind me", "remind")
+        mode.addItem("Research automatically", "auto")
+        interval = QSpinBox()
+        interval.setRange(1, 720)
+        interval.setSuffix(" hours")
+        review_days = QSpinBox()
+        review_days.setRange(1, 365)
+        review_days.setSuffix(" days")
+        for widget in (mode, interval, review_days):
+            schedule_row.addWidget(widget)
+        fv.addLayout(schedule_row)
+        save_schedule = QPushButton("Save follow-up settings")
+        fv.addWidget(save_schedule)
+        schedule_status = QLabel()
+        schedule_status.setWordWrap(True)
+        fv.addWidget(schedule_status)
+        fv.addWidget(QLabel("Suggested improvements (always require approval)"))
+        suggestions = QListWidget()
+        fv.addWidget(suggestions, 1)
+        proposal_btn = QPushButton("Create proposal for selected suggestion")
+        fv.addWidget(proposal_btn)
+        tabs.addTab(follow_tab, "Follow-ups & upgrades")
+
+        def update_followup():
+            data = self.learning.status()
+            mode.setCurrentIndex(max(0, mode.findData(data["mode"])))
+            interval.setValue(data["interval_hours"])
+            review_days.setValue(data["review_days"])
+            schedule_status.setText(
+                f"{data['due_questions']} questions due | Next: "
+                f"{data['next_run'] or 'not scheduled'}\n"
+                f"Last result: {data['last_message'] or 'No activity yet'}\n"
+                "Automatic mode visits public websites, saves source excerpts, "
+                "and marks notes unverified. It never installs upgrades."
+            )
+            suggestions.clear()
+            for item in self.learning.suggestions():
+                suggestions.addItem(item["title"] + " | " + item["why"][:110])
+
+        def save_followup():
+            try:
+                if mode.currentData() == "auto":
+                    answer = QMessageBox.question(
+                        page, "Automatic public research",
+                        "Allow Apollo to browse public websites on the selected schedule? "
+                        "It will not execute code or automatically apply upgrades."
+                    )
+                    if answer != QMessageBox.Yes:
+                        return
+                self.learning.configure(mode.currentData(), interval.value(), review_days.value())
+                update_followup()
+            except ValueError as exc:
+                QMessageBox.warning(page, "Follow-ups", str(exc))
+
+        def suggest_proposal():
+            index = suggestions.currentRow()
+            items = self.learning.suggestions()
+            if not 0 <= index < len(items):
+                return
+            idea = items[index]
+            manager = self._manager()
+            if manager is None:
+                QMessageBox.warning(page, "Upgrade proposal", "Apollo module manager unavailable.")
+                return
+            try:
+                result = manager.execute("self_improvement_lab", "create_proposal", {
+                    "title": idea["title"], "summary": idea["why"] + "\n" + idea["next"],
+                    "files": idea["files"]
+                })
+                QMessageBox.information(
+                    page, "Proposal saved",
+                    "Approval-gated proposal created:\n" + str(result.get("folder", ""))
+                )
+            except Exception as exc:
+                QMessageBox.warning(page, "Upgrade proposal", str(exc))
+
+        save_schedule.clicked.connect(save_followup)
+        proposal_btn.clicked.connect(suggest_proposal)
+        update_followup()
         redraw_topics()
         return page
 
