@@ -48,6 +48,7 @@ jobs:
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/circuit_lab
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/growth_lab
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/reasoning_director
+          APOLLO_BASE_DIR="$PWD" python module_validator.py modules/visual_learning
       - name: Test Raspberry Pi installation scripts for Bash syntax
         run: |
           bash -n apollo_ui/pi/install_pi.sh
