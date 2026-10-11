@@ -53,7 +53,7 @@ class Module:
   raise KeyError(a)
  def self_test(self):assert any(t['name']=='stage_multi_file_patch' for t in self.tools());return 'Self-improvement multi-file staging/approval boundary passed'
  def build_ui(self,parent=None,ui_context=None):
-  from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QListWidget,QPushButton,QTabWidget
+  from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QListWidget,QPushButton,QTabWidget,QMessageBox
   page=QWidget(parent);outer=QVBoxLayout(page)
   outer.addWidget(QLabel('Apollo Developer Lab — changes remain proposals until approved'))
   tabs=QTabWidget();outer.addWidget(tabs,1)
@@ -63,9 +63,46 @@ class Module:
    lst.clear()
    for record in self.run('list_proposals',{}).get('proposals',[]):lst.addItem(record)
   refresh.clicked.connect(load_proposals);load_proposals();tabs.addTab(proposal_page,'Proposals')
+  ideas_page=QWidget();idea_layout=QVBoxLayout(ideas_page)
+  explanation=QLabel(
+   'Apollo proposes improvements from measured learning gaps. '
+   'Nothing is applied or installed without your approval.'
+  )
+  explanation.setWordWrap(True);idea_layout.addWidget(explanation)
+  ideas=QListWidget();idea_layout.addWidget(ideas,1)
+  reload_ideas=QPushButton('Refresh Suggested Upgrades')
+  propose_idea=QPushButton('Save Selected Idea as Proposal')
+  idea_layout.addWidget(reload_ideas);idea_layout.addWidget(propose_idea)
+  suggested=[]
+  def load_ideas():
+   nonlocal suggested
+   ideas.clear();suggested=[]
+   if manager is None:
+    ideas.addItem('Apollo module manager is unavailable.');return
+   record=manager.get_module('reasoning_director')
+   instance=record.get('instance') if record and record.get('enabled') else None
+   if instance is None:
+    ideas.addItem('Enable Learning & Reasoning to see suggestions.');return
+   suggested=instance.learning.suggestions()
+   for item in suggested:
+    ideas.addItem(item['title']+' | '+item['why'])
+  def save_idea():
+   index=ideas.currentRow()
+   if not 0<=index<len(suggested):return
+   item=suggested[index]
+   result=self.run('create_proposal',{
+    'title':item['title'], 'summary':item['why']+'\n'+item['next'],
+    'files':item.get('files',[])})
+   QMessageBox.information(page,'Proposal saved',
+                           'Requires approval before implementation:\n'+result['folder'])
+   load_proposals()
+  reload_ideas.clicked.connect(load_ideas)
+  propose_idea.clicked.connect(save_idea)
+  tabs.addTab(ideas_page,'Suggested Upgrades')
   # Use existing, verified engines. A single Developer Lab surface now also
   # provides testing, verification and upgrade history without API rewrites.
   manager=(ui_context or {}).get('module_manager') if isinstance(ui_context,dict) else None
+  load_ideas()
   if manager is not None:
    for module_id,title in (
     ('verification_engine','Verifier'),

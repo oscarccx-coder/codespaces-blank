@@ -1,3 +1,14 @@
+## Apollo 8.0.0.0 — Learning and self-research development candidate
+**11 October 2026**
+
+- Research is associated with one selected question and can be revisited with a saved evidence history.
+- Chat searches saved knowledge with the actual subject from natural-language questions.
+- Manual, reminder and user-approved automatic research intervals; source-indexed memories remain unverified.
+- Self-improvement proposals are grounded in measured gaps and always require approval.
+- Full details and limits: [Apollo v8 learning notes](2026-10-11_APOLLO_V8_LEARNING.md).
+
+---
+
 ## 7.5.12.10 — Clean XTTS Runtime Stack
 **24 September 2026**
 

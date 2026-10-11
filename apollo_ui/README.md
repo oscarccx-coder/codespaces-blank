@@ -2,6 +2,10 @@
 
 Apollo is a local Windows/PySide6 assistant with Ollama, modular tools, a persistent Home hub, personal memory, isolated voice processing, update/recovery utilities and an evolving coding workspace.
 
+## Apollo 8 learning candidate
+
+The Apollo 8 development branch adds a clearer Learning interface, selectable research questions, source-indexed knowledge retrieval in Chat, opt-in follow-up intervals and approval-only self-upgrade proposals. Automatic public research works only while Apollo is running and never verifies facts or installs core updates. See [Apollo 8 learning patch notes](docs/patch_notes/2026-10-11_APOLLO_V8_LEARNING.md). The code is not a signed stable release.
+
 ## Secure GitHub release signing (first time)
 
 The signed-release updater needs a persistent Ed25519 release key, a GitHub

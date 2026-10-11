@@ -1,10 +1,10 @@
 {
   "id": "reasoning_director",
   "name": "Apollo Learning & Reasoning Director",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "entrypoint": "module.py",
   "class": "Module",
-  "description": "Persistent curiosity and research questions, evidence-aware future revision, local-model reasoning practice and user-approved hardware/work planning.",
+  "description": "Apollo v8 evidence-indexed self-research, natural Chat knowledge questions, opt-in scheduled follow-ups and approval-gated upgrade proposals.",
   "ui": {
     "enabled": true,
     "title": "Learning & Reasoning",
