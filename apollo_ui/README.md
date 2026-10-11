@@ -2,6 +2,13 @@
 
 Apollo is a local Windows/PySide6 assistant with Ollama, modular tools, a persistent Home hub, personal memory, isolated voice processing, update/recovery utilities and an evolving coding workspace.
 
+## Coding Studio (experimental)
+
+Open **Apps → Coding → Coding Studio** for a bounded, five-role local coding
+workflow with staged candidate files and explicit approval. Generated code
+is not executed or installed; automated checks are syntax-only. See
+[the Coding Studio guide](docs/features/CODING_COMPANY.md).
+
 ## Setup Centre (Windows)
 
 Open **`Setup/01_INSTALL_APOLLO.bat`** for a guided installation with optional Desktop shortcuts. Afterwards use `Setup/02_START_APOLLO.bat`. The `Setup/` folder contains labelled batch launchers for updating, voice repair, diagnostics, backups, restoring and safe mode. The original root launchers remain for compatibility. Apollo now opens a first-run Setup & Recovery wizard (also available in **Settings → Setup & Recovery**) for device preferences, Ollama/XTTS diagnostics and local backups.

@@ -18,6 +18,7 @@ MODULE_GROUPS = {
     "model_runtime": "Coding",
     "self_improvement_lab": "Coding",
     "growth_lab": "Coding",
+    "coding_company": "Coding",
     "reasoning_director": "Memory & Learning",
     "task_engine": "Coding",
     "roadmap": "Coding",
