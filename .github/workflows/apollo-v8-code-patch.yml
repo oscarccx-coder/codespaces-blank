@@ -1,0 +1,128 @@
+name: Apollo 8 manual code patch
+
+# A convenience ZIP for 7.5.13.10 installations without Git.
+# This is deliberately UNSIGNED. Never use it as an in-app signed release.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/apollo-v8-code-patch.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Verify source branch and Apollo v8 version
+        run: |
+          test "$GITHUB_REF_NAME" = "main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python -c "import json; assert json.load(open('apollo_ui/config.json'))['version'] == '8.0.0.0'"
+      - name: Create backup-first portable code patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          import shutil
+          import subprocess
+
+          base = '8518b422ebb1ccb7c1871d83eb7674618c847d4b'
+          commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          subprocess.run(['git', 'merge-base', '--is-ancestor', base, commit], check=True)
+          files = [
+              'apollo_learning_v8.py',
+              'config.json',
+              'main.py',
+              'modules/reasoning_director/module.py',
+              'modules/reasoning_director/manifest.json',
+              'modules/self_improvement_lab/module.py',
+              'version_info.txt',
+              'docs/patch_notes/2026-10-11_APOLLO_V8_LEARNING.md',
+          ]
+          target = Path('dist/patch')
+          target.mkdir(parents=True, exist_ok=True)
+          result = []
+          for filename in files:
+              source_path = Path('apollo_ui') / filename
+              data = source_path.read_bytes()
+              output = target / 'payload' / filename
+              output.parent.mkdir(parents=True, exist_ok=True)
+              output.write_bytes(data)
+              old = subprocess.run(['git', 'show', f'{base}:apollo_ui/{filename}'],
+                                   capture_output=True, check=False)
+              old_digest = hashlib.sha256(old.stdout).hexdigest() if old.returncode == 0 else None
+              result.append({
+                  'path': filename,
+                  'sha256': hashlib.sha256(data).hexdigest(),
+                  'old_sha256': old_digest,
+              })
+          manifest = {
+              'version': '8.0.0.0',
+              'from_version': '7.5.13.10',
+              'source_commit': commit,
+              'baseline_commit': base,
+              'signed': False,
+              'files': result,
+          }
+          (target / 'manifest.json').write_text(
+              json.dumps(manifest, indent=2) + '\n', encoding='utf-8'
+          )
+          shutil.copyfile('apollo_ui/tools/Apply_Apollo8_Patch.ps1',
+                          target / 'Apply_Apollo8_Patch.ps1')
+          shutil.copyfile('apollo_ui/tools/Install_Apollo8_Code_Patch.bat',
+                          target / 'Install_Apollo8_Code_Patch.bat')
+          (target / 'README.txt').write_text(
+              'APOLLO 8.0.0.0 MANUAL CODE PATCH\n\n'
+              'Only for Apollo 7.5.13.10 code installations without an update from Git.\n'
+              '1. Close Apollo completely.\n'
+              '2. Extract the whole ZIP to one folder (do not run within the ZIP).\n'
+              '3. Double-click Install_Apollo8_Code_Patch.bat.\n'
+              '4. Confirm your Apollo application directory (containing main.py).\n'
+              '5. Read the warning and type UPDATE. Restart Apollo afterward.\n\n'
+              'Preflight rejects modified/unknown baseline files before making changes.\n'
+              'Backups are stored in Apollo/storage/backups/manual_v8_<timestamp>.\n'
+              'Voice models, saved memory, workspaces and virtual environments are preserved.\n\n'
+              'WARNING: This manual patch is not digitally signed. Obtain ONLY from\n'
+              'this repository Actions run. The signed in-app updater requires an\n'
+              'official Ed25519-signed Apollo Release, which is a separate workflow.\n'
+              'A Git checkout should use Setup/03_UPDATE_APOLLO.bat instead.\n',
+              encoding='utf-8'
+          )
+          print('Package source:', commit)
+          print('Included code files:', len(files))
+          print('Patch payload bytes:', sum((target / 'payload' / f).stat().st_size for f in files))
+          PY
+      - name: Validate Python payload syntax
+        run: |
+          python - <<'PY'
+          import ast, json
+          from pathlib import Path
+          target = Path('dist/patch')
+          manifest = json.loads((target / 'manifest.json').read_text())
+          assert manifest['version'] == '8.0.0.0' and manifest['signed'] is False
+          for entry in manifest['files']:
+              p = target / 'payload' / entry['path']
+              if p.suffix == '.py':
+                  ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+          print('Python payload valid')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Apollo-8.0.0.0-Manual-Code-Patch
+          path: dist/patch/
+          if-no-files-found: error
+          retention-days: 30
