@@ -335,7 +335,7 @@ rem and atomically writes only on successful validation.
     --transformers "%TRANSFORMERS_VERSION%"
 if errorlevel 1 goto :FAIL
 
-if exist "%DOWNLOAD_HOME%" rmdir /S /Q "%DOWNLOAD_HOME%" 2>nul
+if /I not "%~1"=="--configure-only" if exist "%DOWNLOAD_HOME%" rmdir /S /Q "%DOWNLOAD_HOME%" 2>nul
 
 echo.
 echo ============================================================
