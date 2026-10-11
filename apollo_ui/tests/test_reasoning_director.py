@@ -189,6 +189,8 @@ class LearningDirectorTests(unittest.TestCase):
                 "learning_propose_topic", "learning_suggest_questions",
                 "learning_due_questions", "learning_practice_scores",
                 "learning_related_memory", "growth_direction_status",
+                "learning_schedule_status", "learning_set_schedule",
+                "learning_pulse", "learning_suggestions",
             })
             with self.assertRaises(KeyError):
                 app.run("record_income", {"value": "120"})
