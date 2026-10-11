@@ -171,7 +171,7 @@ class Module:
                     b.setEnabled(p["state"] == "awaiting_user" and not active["busy"])
                 advance.setEnabled(p["state"] == "ready" and not active["busy"])
                 full.setEnabled(p["state"] == "ready" and not active["busy"])
-                resume.setEnabled(p["state"] in ("paused", "failed") and not active["busy"])
+                resume.setEnabled(p["state"] == "paused" and not active["busy"])
                 stop.setEnabled(p["state"] in ("running", "ready") or active["busy"])
             except Exception as exc:
                 status.setText(str(exc))
