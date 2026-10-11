@@ -63,7 +63,7 @@ class CodingCompanyTests(unittest.TestCase):
         self.assertEqual([t["role"] for t in d["turns"]], [
             "architect", "developer", "tester", "reviewer", "integrator"])
         self.assertTrue((Path(d["candidate"]) / "main.py").is_file())
-        self.assertIn("NOT executed", d["validation"] if False else "NOT executed")
+        self.assertIn('no generated code executed', d['validation'])
         self.assertFalse((self.base / "main.py").exists())
         for t in d["turns"]:
             self.assertFalse(__import__("json").loads(t["evidence"]).get("runtime_tests_executed"))
@@ -183,6 +183,15 @@ class CodingCompanyTests(unittest.TestCase):
         self.assertEqual(len(module.tools()), 2)
         with self.assertRaises(KeyError):
             module.run("approve_project", {"project_id": 1})
+
+    def test_model_mode_survives_restart(self):
+        pid = self.company.create('Mode project', 'Test', mode='demo')['id']
+        second = CodingCompany(self.base)
+        try:
+            self.assertEqual(second._project(pid)['mode'], 'demo')
+            self.assertEqual(second.step(pid)['project']['phase'], 'developer')
+        finally:
+            second.close()
 
     def test_ollama_host_is_local_only(self):
         (self.base / "config.json").write_text('{"ollama_url":"http://example.org:11434"}')
