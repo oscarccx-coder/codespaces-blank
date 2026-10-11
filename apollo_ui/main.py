@@ -980,6 +980,12 @@ class ApolloWindow(QMainWindow):
                     "Apollo learning follow-up: " + str(question.get("prompt", ""))[:150],
                     30000,
                 )
+                self.runtime.notify(
+                    "Learning question due",
+                    str(question.get("topic", "Research")) + ": "
+                    + str(question.get("prompt", ""))[:250],
+                    source="reasoning_director",
+                )
             elif event.get("action") == "research":
                 self.statusBar().showMessage(
                     "Apollo is researching one due question in the background.", 20000
