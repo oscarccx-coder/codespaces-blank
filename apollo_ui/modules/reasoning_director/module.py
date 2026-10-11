@@ -197,9 +197,21 @@ class Module:
                 return {"action": "busy"}
             def worker():
                 try:
-                    self.research_question(event["question"]["id"], event["review_days"])
+                    result = self.research_question(event["question"]["id"], event["review_days"])
+                    runtime = self.context.get("runtime")
+                    if runtime:
+                        runtime.notify(
+                            "Apollo research saved",
+                            f"{result['topic']}: {result['source_pages_fetched']} source page(s) "
+                            "saved for your review. Evidence is unverified.",
+                            source="reasoning_director"
+                        )
                 except Exception as exc:
                     self.learning.fail(exc)
+                    runtime = self.context.get("runtime")
+                    if runtime:
+                        runtime.notify("Apollo research could not finish", str(exc)[:250],
+                                       level="warning", source="reasoning_director")
                 finally:
                     self._research_guard.release()
             threading.Thread(target=worker, daemon=True, name="ApolloLearningV8").start()
