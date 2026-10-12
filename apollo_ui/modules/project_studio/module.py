@@ -227,69 +227,152 @@ class Module:
             return int(cell.text()) if cell else None
 
         def refresh_projects(select_id=None):
-            prior = select_id if select_id is not None else project_id()
+            """Keep context while filtering or refreshing the saved project list."""
+            previous = select_id if select_id is not None else project_id()
+            query = project_search.text().strip().casefold()
             projects.blockSignals(True)
             projects.clear()
             chosen = None
             for item in self.store.list_projects():
-                row = QListWidgetItem(f"#{item['id']}  {item['title']}  [{item['state']}]")
+                if query and query not in (item["title"] + " " + item["brief"]).casefold():
+                    continue
+                state_name = "Approved" if item["state"] == "approved" else "In progress"
+                row = QListWidgetItem(f"{item['title']}   ·   {state_name}")
                 row.setData(Qt.UserRole, item["id"])
+                row.setToolTip(f"Project #{item['id']}, last updated {item['updated_at']}")
                 projects.addItem(row)
-                if item["id"] == prior:
+                if item["id"] == previous:
                     chosen = row
-            if chosen is not None:
+            if chosen:
                 projects.setCurrentItem(chosen)
+            elif projects.count():
+                projects.setCurrentRow(0)
             projects.blockSignals(False)
             refresh_details()
 
-        def refresh_details():
+        def update_actions():
+            """Contextual buttons stay disabled until there is a valid choice."""
             pid = project_id()
+            if pid is None:
+                for control in (add_subtask, start_worker, accept_task, rework_task,
+                                retry_task, report_bug, assign_fix, resolve_bug,
+                                approve_project, reopen_project, recover_workers):
+                    control.setEnabled(False)
+                return
+            state = self.store.details(pid)
+            selected_task = next((t for t in state["tasks"] if t["id"] == task_id()), None)
+            choices = task_actions(selected_task, state, bool(active_jobs))
+            for button, action in ((add_subtask, "subtask"), (start_worker, "draft"),
+                                   (accept_task, "accept"), (rework_task, "rework"),
+                                   (retry_task, "retry")):
+                button.setEnabled(choices[action])
+            report_bug.setEnabled(state["project"]["state"] != "approved")
+            selected_issue = next((i for i in state["issues"] if i["id"] == issue_id()), None)
+            issue_choices = issue_actions(selected_issue, state)
+            assign_fix.setEnabled(issue_choices["assign"])
+            resolve_bug.setEnabled(issue_choices["close"])
+            can_approve = (state["project"]["state"] != "approved"
+                           and bool(state["tasks"])
+                           and all(t["state"] == "accepted" for t in state["tasks"])
+                           and all(i["state"] == "closed" for i in state["issues"]))
+            approve_project.setEnabled(can_approve)
+            reopen_project.setEnabled(state["project"]["state"] == "approved")
+            recover_workers.setEnabled(
+                not active_jobs and any(t["state"] == "running" for t in state["tasks"])
+                and state["project"]["state"] != "approved"
+            )
+
+        def refresh_details():
+            """Rebuild changed rows without losing the worker or issue selection."""
+            pid = project_id()
+            previous_task = task_id()
+            previous_issue = issue_id()
+            task_tree.blockSignals(True)
+            issue_table.blockSignals(True)
             task_tree.clear()
             issue_table.setRowCount(0)
             timeline.clear()
             if pid is None:
-                project_heading.setText("Select or create a project")
-                path_label.setText("Projects are stored locally.")
+                project_heading.setText(
+                    "No matches. Clear the search." if projects.count() == 0 and project_search.text()
+                    else "Select or create an app project"
+                )
+                path_label.setText("Projects stay on this computer.")
+                overview.setText("Create a project to assign tasks, review drafts and track fixes.")
+                completion.setValue(0)
                 result_text.clear()
+                task_tree.blockSignals(False)
+                issue_table.blockSignals(False)
+                update_actions()
                 return
             state = self.store.details(pid)
-            p = state["project"]
-            project_heading.setText(f"{p['title']}  •  {p['state']}")
-            path_label.setText("Saved in workspace/app_development/" + p["folder"])
+            project = state["project"]
+            metrics = project_metrics(state)
+            project_heading.setText(f"{project['title']}  ·  {project['state'].title()}")
+            path_label.setText("Saved locally: workspace/app_development/" + project["folder"])
+            overview.setText(
+                f"{metrics['accepted']} of {metrics['total']} tasks accepted"
+                f"   •   {metrics['running']} running"
+                f"   •   {metrics['review']} awaiting review"
+                f"   •   {metrics['blocked']} blocked"
+                f"   •   {metrics['open_issues']} open issues"
+            )
+            completion.setValue(metrics["percent"])
             nodes = {}
             for task in state["tasks"]:
-                node = QTreeWidgetItem([task["title"], task["role"], task["state"], str(task["iteration"])])
+                display_state = {
+                    "todo": "To do", "running": "Working", "review": "Needs review",
+                    "accepted": "Accepted", "blocked": "Blocked"
+                }.get(task["state"], task["state"])
+                node = QTreeWidgetItem([
+                    task["title"], task["role"].title(), display_state, str(task["iteration"])
+                ])
                 node.setData(0, Qt.UserRole, task["id"])
                 nodes[task["id"]] = node
                 parent = nodes.get(task["parent_id"]) if task["parent_id"] else None
-                if parent is not None:
+                if parent:
                     parent.addChild(node)
                 else:
                     task_tree.addTopLevelItem(node)
             task_tree.expandAll()
+            if previous_task in nodes:
+                task_tree.setCurrentItem(nodes[previous_task])
             issue_table.setRowCount(len(state["issues"]))
             for i, issue in enumerate(state["issues"]):
-                for j, value in enumerate((str(issue["id"]), issue["title"], issue["state"],
-                                           str(issue["assigned_task"] or "Unassigned"))):
+                for j, value in enumerate((
+                    str(issue["id"]), issue["title"], issue["state"].replace("_", " ").title(),
+                    str(issue["assigned_task"] or "Unassigned")
+                )):
                     issue_table.setItem(i, j, QTableWidgetItem(value))
+                if issue["id"] == previous_issue:
+                    issue_table.selectRow(i)
             timeline.setPlainText("\n".join(
                 f"{e['created_at']}  {e['kind']}  {e['detail']}"
                 for e in self.store.audit(pid)
-            ))
-            result_text.clear()
+            ) or "No activity yet. Start by assigning a worker.")
+            task_tree.blockSignals(False)
+            issue_table.blockSignals(False)
+            display_task()
+            update_actions()
 
         def display_task():
             tid = task_id()
             if tid is None:
+                result_text.setPlainText(
+                    "Select a task to view instructions, request a local AI draft, "
+                    "or read the feedback from the last review."
+                )
+                update_actions()
                 return
             task = self.store._task(tid)
             result_text.setPlainText(
-                f"ROLE: {task['role']}\nSTATUS: {task['state']}\n\n"
-                f"INSTRUCTIONS\n{task['brief']}\n\n"
-                f"DRAFT (NOT EXECUTED)\n{task['result'] or 'No draft yet'}\n\n"
-                f"REVIEW / ISSUES\n{task['feedback'] or '(none)'}\n\n"
-                f"EVIDENCE\n{task['evidence'] or '(none)'}"
+                f"WORKER: {task['role'].title()}    STATUS: {task['state'].title()}\n\n"
+                f"JOB\n{task['brief']}\n\n"
+                f"DRAFT (NOT EXECUTED)\n{task['result'] or 'Start this task to request a draft.'}\n\n"
+                f"REVIEW FEEDBACK\n{task['feedback'] or 'No review yet.'}\n\n"
+                f"EVIDENCE\n{task['evidence'] or 'Evidence has not been attached.'}"
             )
+            update_actions()
 
         def add_project_action():
             title, ok = QInputDialog.getText(page, "New App Project", "Project name:")
@@ -300,6 +383,7 @@ class Module:
                 return
             try:
                 data = self.store.add_project(title, brief)
+                project_search.clear()
                 refresh_projects(data["project"]["id"])
             except (ValueError, OSError) as exc:
                 alert(exc)
@@ -451,9 +535,11 @@ class Module:
             refresh_projects(pid)
 
         new_project.clicked.connect(add_project_action)
-        refresh_btn.clicked.connect(refresh_projects)
+        refresh_btn.clicked.connect(lambda: refresh_projects())
+        project_search.textChanged.connect(lambda _: refresh_projects())
         projects.itemSelectionChanged.connect(refresh_details)
         task_tree.itemSelectionChanged.connect(display_task)
+        issue_table.itemSelectionChanged.connect(update_actions)
         add_subtask.clicked.connect(add_subtask_action)
         start_worker.clicked.connect(draft_action)
         accept_task.clicked.connect(lambda: review_action(True))
