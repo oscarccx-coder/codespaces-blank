@@ -32,6 +32,17 @@ class StudioTests(unittest.TestCase):
         finally:
             other.close()
 
+    def test_interrupted_job_can_be_recovered_and_retried(self):
+        self.store.start_task(self.first)
+        self.assertEqual(self.store.recover_interrupted_tasks(self.pid), 1)
+        self.assertEqual(self.store._task(self.first)["state"], "blocked")
+        self.assertEqual(self.store.recover_interrupted_tasks(self.pid), 0)
+        self.store.reopen_task(self.first, "User reviewed interruption")
+        self.store.start_task(self.first)
+        self.store.submit_task(self.first, "Retried draft", "Re-review needed")
+        self.assertEqual(self.store._task(self.first)["state"], "review")
+        self.assertTrue(any(x["kind"] == "interrupted" for x in self.store.audit(self.pid)))
+
     def test_subtasks_and_review_not_fabricated(self):
         subtask = self.store.add_subtask(self.first, "Design API", "Define JSON inputs and errors.", "architect")
         self.assertEqual(subtask["parent_id"], self.first)
