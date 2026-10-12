@@ -1,0 +1,13 @@
+{
+  "id": "project_studio",
+  "name": "Apollo Project Studio",
+  "version": "0.1.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Local app-development projects with reviewable AI worker drafts, task/subtask assignments, reopenable bugs and manual approvals. Generated code is never executed.",
+  "ui": {
+    "enabled": true,
+    "title": "Project Studio",
+    "default_placement": "apps"
+  }
+}
