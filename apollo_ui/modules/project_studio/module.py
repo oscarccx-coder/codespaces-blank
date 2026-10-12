@@ -118,7 +118,8 @@ class Module:
         start_worker = QPushButton("Draft with Local AI")
         accept_task = QPushButton("Accept Draft")
         rework_task = QPushButton("Request Changes")
-        for b in (add_subtask, start_worker, accept_task, rework_task):
+        retry_task = QPushButton("Retry / Reopen")
+        for b in (add_subtask, start_worker, accept_task, rework_task, retry_task):
             task_buttons.addWidget(b)
         tasks_layout.addLayout(task_buttons)
         task_tree = QTreeWidget()
@@ -158,8 +159,10 @@ class Module:
         footer = QHBoxLayout()
         approve_project = QPushButton("Approve Reviewed Project")
         reopen_project = QPushButton("Reopen Project")
+        recover_workers = QPushButton("Recover Interrupted Jobs")
         footer.addWidget(approve_project)
         footer.addWidget(reopen_project)
+        footer.addWidget(recover_workers)
         right_layout.addLayout(footer)
 
         active_jobs = []
@@ -326,6 +329,36 @@ class Module:
             except (ValueError, KeyError) as exc:
                 alert(exc)
 
+        def retry_action():
+            tid = task_id()
+            if tid is None:
+                return alert("Select a task to retry.")
+            reason, ok = QInputDialog.getText(page, "Retry Selected Task", "Why is this task being reopened?")
+            if not ok or not reason.strip():
+                return
+            try:
+                self.store.reopen_task(tid, reason)
+                refresh_details()
+            except (ValueError, KeyError) as exc:
+                alert(exc)
+
+        def recover_action():
+            pid = project_id()
+            if pid is None:
+                return alert("Select a project first.")
+            if active_jobs:
+                return alert("Workers are still running in this Apollo session. Wait for them to finish.")
+            if QMessageBox.question(
+                page, "Recover Interrupted Workers",
+                "Mark any jobs stuck on Running as Blocked so you can inspect and retry them? "
+                "This does not discard existing drafts.",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            ) != QMessageBox.Yes:
+                return
+            count = self.store.recover_interrupted_tasks(pid)
+            refresh_details()
+            QMessageBox.information(page, "Recovery Complete", f"Recovered {count} interrupted job(s).")
+
         def issue_action():
             pid = project_id()
             if pid is None:
@@ -384,6 +417,8 @@ class Module:
         start_worker.clicked.connect(draft_action)
         accept_task.clicked.connect(lambda: review_action(True))
         rework_task.clicked.connect(lambda: review_action(False))
+        retry_task.clicked.connect(retry_action)
+        recover_workers.clicked.connect(recover_action)
         report_bug.clicked.connect(issue_action)
         assign_fix.clicked.connect(lambda: issue_transition(False))
         resolve_bug.clicked.connect(lambda: issue_transition(True))
