@@ -79,7 +79,7 @@ class StudioTests(unittest.TestCase):
             self.store.submit_task(tid, "Synthetic role draft", "Reviewed in test")
             self.store.review_task(tid, True, "Synthetic human approval")
         self.assertEqual(self.store.approve_project(self.pid)["state"], "approved")
-        with self.assertRaisesRegex(ValueError, "Approved"):
+        with self.assertRaisesRegex(ValueError, "Reopen the project"):
             self.store.report_issue(self.pid, "Bug", "An untested issue")
         self.store.reopen_project(self.pid, "New issue needs attention")
         self.assertEqual(self.store.report_issue(self.pid, "Bug", "New issue")["state"], "open")
@@ -116,7 +116,7 @@ class StudioTests(unittest.TestCase):
                 assert req.full_url == "http://127.0.0.1:11434/api/generate"
                 payload = json.loads(req.data)
                 assert payload["stream"] is False
-                self.assertNotIn("tools", payload)
+                assert "tools" not in payload
                 return DummyResponse()
 
         with patch("apollo_project_workers.urllib.request.build_opener", return_value=DummyOpener()):
