@@ -34,7 +34,7 @@ jobs:
       - name: Report beta-readiness criteria (do not publish)
         working-directory: apollo_ui
         run: |
-          python -m unittest -v tests.test_beta_readiness
+          python -m unittest -v tests.test_beta_readiness tests.test_update_backup_failure
           python tools/beta_readiness.py
       - name: Run existing shell and module manager tests
         working-directory: apollo_ui
