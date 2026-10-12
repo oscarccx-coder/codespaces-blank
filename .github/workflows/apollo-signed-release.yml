@@ -85,6 +85,11 @@ jobs:
         run: |
           python apollo_health_check.py --root .
           python -m unittest -v tests.test_release_pipeline tests.test_pi_headless tests.test_github_updates tests.test_update_preflight
+      - name: Enforce owner-reviewed beta and stable release gate
+        working-directory: apollo_ui
+        env:
+          RELEASE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'beta' }}
+        run: python tools/beta_readiness.py --gate "$RELEASE_CHANNEL"
       - name: Publish immutable signed Release
         working-directory: apollo_ui
         env:
