@@ -115,7 +115,7 @@ class StudioTests(unittest.TestCase):
                 self_req = req
                 assert req.full_url == "http://127.0.0.1:11434/api/generate"
                 payload = json.loads(req.data)
-                self.assertFalse(payload["stream"])
+                assert payload["stream"] is False
                 self.assertNotIn("tools", payload)
                 return DummyResponse()
 
