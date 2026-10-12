@@ -139,6 +139,28 @@ QPushButton:hover {
 QPushButton:pressed {
     background: #0c4941;
 }
+QPushButton:disabled {
+    color: #7a9d97;
+    background: #0a1b1c;
+    border: 1px solid #183a39;
+}
+QPushButton:focus {
+    border: 2px solid #72eddb;
+}
+QPushButton#primaryAction {
+    background: #166c5e;
+    border: 1px solid #4ee2c8;
+    color: #f1fffb;
+    font-weight: 700;
+}
+QPushButton#primaryAction:hover {
+    background: #1a8775;
+}
+QPushButton#primaryAction:disabled {
+    background: #143630;
+    border-color: #36665c;
+    color: #9cbdb5;
+}
 QPushButton#windowClose {
     background: #2a1418;
     border: 1px solid #74313c;
@@ -215,6 +237,16 @@ QListWidget::item {
     border-radius: 8px;
     padding: 10px;
     margin: 4px;
+}
+QListWidget::item:selected, QTreeWidget::item:selected, QTableWidget::item:selected {
+    background: #16675e;
+    color: #f4fffc;
+}
+QToolTip {
+    background: #0e292b;
+    color: #e4fff9;
+    border: 1px solid #2a8c7d;
+    padding: 6px;
 }
 QScrollArea {
     border: none;
@@ -1273,7 +1305,9 @@ class ApolloWindow(QMainWindow):
         h.setContentsMargins(0, 0, 0, 0)
 
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Ask Apollo anything...")
+        self.search.setPlaceholderText("Ask Apollo...  •  Enter to send  •  Ctrl+K for commands")
+        self.search.setAccessibleName("Ask Apollo a question")
+        self.search.setToolTip("Write a message to send to Chat. Press Ctrl+K to find an app or command.")
         self.search.returnPressed.connect(self.top_search_send)
         h.addWidget(self.search, 1)
 
@@ -1384,11 +1418,11 @@ class ApolloWindow(QMainWindow):
         hero_top = QHBoxLayout()
         hero_text = QVBoxLayout()
         hero_text.addWidget(label(
-            f"Good morning, {self.config.get('user_name', 'Oscar')}",
+            f"Welcome back, {self.config.get('user_name', 'there')}",
             26, "#e9fffb", True
         ))
         hero_text.addWidget(label(
-            "Apollo OS shell is active. Pin, size and organise the tools you actually use.",
+            "Your assistant, projects and tools in one place.",
             12, "#b9dcd6"
         ))
         hero_top.addLayout(hero_text, 1)
@@ -1398,12 +1432,24 @@ class ApolloWindow(QMainWindow):
         manage_btn.clicked.connect(self.open_hub_manager)
         hero_top.addWidget(manage_btn)
         hv.addLayout(hero_top)
+        quick_actions = QHBoxLayout()
+        quick_projects = QPushButton("Open Project Studio")
+        quick_projects.setObjectName("primaryAction")
+        quick_projects.setToolTip("Open saved apps, worker tasks and project bug reports.")
+        quick_projects.clicked.connect(lambda: self.open_module_app("project_studio"))
+        quick_updates = QPushButton("Check Apollo Updates")
+        quick_updates.setToolTip("View release channel, update status and recovery details.")
+        quick_updates.clicked.connect(lambda: self.open_module_app("update_manager"))
+        quick_actions.addWidget(quick_projects)
+        quick_actions.addWidget(quick_updates)
+        quick_actions.addStretch(1)
+        hv.addLayout(quick_actions)
         hv.addSpacing(8)
         hv.addWidget(label(
             "“Understand. Learn. Assist. Protect. Evolve.”",
             11, "#62ddc8"
         ))
-        hero.setMinimumHeight(145)
+        hero.setMinimumHeight(175)
         main.addWidget(hero)
 
         apps_heading = QHBoxLayout()
