@@ -298,6 +298,26 @@ class StudioStore:
                 (int(project_id), min(100, max(1, int(limit)))))
             return [dict(x) for x in rows.fetchall()]
 
+    def recover_interrupted_tasks(self, project_id):
+        """Owner-triggered recovery after an app exit or killed model process.
+
+        The UI should confirm no worker is actively drafting before calling.
+        It intentionally does NOT auto-retry or pretend a draft succeeded.
+        """
+        with self.lock:
+            self._project(project_id)
+            running = self.conn.execute(
+                "SELECT id FROM tasks WHERE project_id=? AND state='running'",
+                (int(project_id),)).fetchall()
+            with self.conn:
+                for item in running:
+                    self.conn.execute(
+                        "UPDATE tasks SET state='blocked',feedback=?,updated_at=? WHERE id=?",
+                        ("Worker interrupted before review. Retry requires user action.", utcnow(), item["id"]))
+                    self._event(int(project_id), item["id"], "interrupted",
+                                "Running worker marked blocked for explicit user review and retry")
+            return len(running)
+
     def approve_project(self, project_id):
         """Must be called only after user clicks explicit UI approval."""
         with self.lock:
