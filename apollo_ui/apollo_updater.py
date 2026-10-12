@@ -126,12 +126,19 @@ def apply_update(target, stage, restart=False, wait_pid=None):
     version = str(manifest.get("version", "unknown"))
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup = storage.backups / "core_updates" / f"before-{version}-{stamp}"
-    backup.mkdir(parents=True, exist_ok=True)
-    transaction = {"version": version, "created": [], "replaced": [], "removed": []}
-
     config_path = target / "config.json"
-    if config_path.exists():
-        shutil.copy2(config_path, backup / "config.json")
+    # A full disk, denied folder or locked config must refuse installation
+    # before *any* live application source file is modified.
+    try:
+        backup.mkdir(parents=True, exist_ok=True)
+        if config_path.exists():
+            shutil.copy2(config_path, backup / "config.json")
+    except OSError as exc:
+        return {
+            "ok": False, "stage": "backup", "restored": True,
+            "error": f"Backup failed; no live files changed: {type(exc).__name__}: {exc}",
+        }
+    transaction = {"version": version, "created": [], "replaced": [], "removed": []}
 
     def backup_existing(rel):
         dest = target / rel
