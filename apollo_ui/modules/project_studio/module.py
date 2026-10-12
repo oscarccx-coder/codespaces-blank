@@ -7,6 +7,7 @@ from pathlib import Path
 
 from apollo_project_studio import StudioStore
 from apollo_project_workers import draft_for_task, model_from_config
+from project_studio_view_model import project_metrics, task_actions, issue_actions
 
 
 class Module:
@@ -47,7 +48,8 @@ class Module:
     def build_ui(self, parent=None, ui_context=None):
         from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal
         from PySide6.QtWidgets import (
-            QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+            QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGridLayout,
+            QLineEdit, QProgressBar,
             QListWidget, QListWidgetItem, QSplitter, QTabWidget,
             QTreeWidget, QTreeWidgetItem, QPlainTextEdit, QMessageBox,
             QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView,
@@ -73,8 +75,11 @@ class Module:
 
         page = QWidget(parent)
         outer = QVBoxLayout(page)
+        outer.setContentsMargins(16, 14, 16, 14)
+        outer.setSpacing(10)
         heading = QLabel("Project Studio")
         heading.setStyleSheet("font-size:24px;font-weight:700;")
+        page.setObjectName("projectStudioPage")
         outer.addWidget(heading)
         summary = QLabel(
             "Build apps with specialist AI drafts. Create a project, divide it into tasks, "
@@ -89,12 +94,20 @@ class Module:
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.addWidget(QLabel("Your app projects"))
+        project_search = QLineEdit()
+        project_search.setPlaceholderText("Find a project...")
+        project_search.setClearButtonEnabled(True)
+        project_search.setAccessibleName("Search app projects")
+        left_layout.addWidget(project_search)
         projects = QListWidget()
+        projects.setAccessibleName("Saved app projects")
+        projects.setToolTip("Select a project to view tasks, issues and activity.")
         left_layout.addWidget(projects, 1)
         new_project = QPushButton("+ New App Project")
         refresh_btn = QPushButton("Refresh")
         left_layout.addWidget(new_project)
         left_layout.addWidget(refresh_btn)
+        left.setMinimumWidth(190)
         split.addWidget(left)
 
         right = QWidget()
@@ -105,6 +118,17 @@ class Module:
         path_label = QLabel("Projects are saved in workspace/app_development/")
         path_label.setWordWrap(True)
         right_layout.addWidget(path_label)
+        overview = QLabel("No project selected. Create one to begin.")
+        overview.setWordWrap(True)
+        overview.setStyleSheet("color:#9fcfc6; font-weight:600; padding:4px 0;")
+        right_layout.addWidget(overview)
+        completion = QProgressBar()
+        completion.setRange(0, 100)
+        completion.setValue(0)
+        completion.setTextVisible(True)
+        completion.setFormat("%p% tasks reviewed")
+        completion.setAccessibleName("Project task completion")
+        right_layout.addWidget(completion)
         tabs = QTabWidget()
         right_layout.addWidget(tabs, 1)
         split.addWidget(right)
@@ -113,37 +137,43 @@ class Module:
 
         tasks_tab = QWidget()
         tasks_layout = QVBoxLayout(tasks_tab)
-        task_buttons = QHBoxLayout()
+        task_buttons = QGridLayout()
+        task_buttons.setHorizontalSpacing(8)
+        task_buttons.setVerticalSpacing(6)
         add_subtask = QPushButton("+ Subtask")
         start_worker = QPushButton("Draft with Local AI")
         accept_task = QPushButton("Accept Draft")
         rework_task = QPushButton("Request Changes")
         retry_task = QPushButton("Retry / Reopen")
-        for b in (add_subtask, start_worker, accept_task, rework_task, retry_task):
-            task_buttons.addWidget(b)
+        for index, button in enumerate((add_subtask, start_worker, accept_task, rework_task, retry_task)):
+            task_buttons.addWidget(button, index // 3, index % 3)
         tasks_layout.addLayout(task_buttons)
         task_tree = QTreeWidget()
         task_tree.setHeaderLabels(["Task", "Worker", "Status", "Iteration"])
         task_tree.setColumnWidth(0, 270)
+        task_tree.setAccessibleName("Project worker tasks and subtasks")
+        task_tree.setAlternatingRowColors(True)
         tasks_layout.addWidget(task_tree, 2)
         result_text = QPlainTextEdit()
         result_text.setReadOnly(True)
+        result_text.setAccessibleName("Selected task instructions and draft")
         result_text.setPlaceholderText("Select a task to see its instructions, draft and review feedback.")
         tasks_layout.addWidget(result_text, 1)
         tabs.addTab(tasks_tab, "Tasks & Workers")
 
         bugs_tab = QWidget()
         bugs_layout = QVBoxLayout(bugs_tab)
-        bug_buttons = QHBoxLayout()
+        bug_buttons = QGridLayout()
         report_bug = QPushButton("+ Report Issue")
         assign_fix = QPushButton("Create Fix Task")
         resolve_bug = QPushButton("Close Reviewed Issue")
-        for b in (report_bug, assign_fix, resolve_bug):
-            bug_buttons.addWidget(b)
+        for index, button in enumerate((report_bug, assign_fix, resolve_bug)):
+            bug_buttons.addWidget(button, index // 2, index % 2)
         bugs_layout.addLayout(bug_buttons)
         issue_table = QTableWidget(0, 4)
         issue_table.setHorizontalHeaderLabels(["ID", "Issue", "Status", "Fix task"])
         issue_table.setSelectionBehavior(QTableWidget.SelectRows)
+        issue_table.setAccessibleName("Reported project bugs and fix tasks")
         issue_table.setEditTriggers(QTableWidget.NoEditTriggers)
         issue_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         bugs_layout.addWidget(issue_table)
@@ -156,16 +186,27 @@ class Module:
         history_layout.addWidget(timeline)
         tabs.addTab(history_tab, "Activity")
 
-        footer = QHBoxLayout()
+        footer = QGridLayout()
         approve_project = QPushButton("Approve Reviewed Project")
         reopen_project = QPushButton("Reopen Project")
         recover_workers = QPushButton("Recover Interrupted Jobs")
-        footer.addWidget(approve_project)
-        footer.addWidget(reopen_project)
-        footer.addWidget(recover_workers)
+        footer.addWidget(approve_project, 0, 0)
+        footer.addWidget(reopen_project, 0, 1)
+        footer.addWidget(recover_workers, 1, 0, 1, 2)
+        approve_project.setToolTip("Only after every task is reviewed and every issue is closed; no app is executed.")
+        recover_workers.setToolTip("Safely mark interrupted worker drafts as blocked, ready for manual retry.")
         right_layout.addLayout(footer)
 
         active_jobs = []
+        for button, tip in (
+            (start_worker, "Ask the local model for a draft. It cannot execute generated code."),
+            (accept_task, "Only a submitted draft can be accepted after your review."),
+            (rework_task, "Send a submitted draft back for corrections."),
+            (retry_task, "Reopen an accepted, blocked or reviewed task for another attempt."),
+            (assign_fix, "Create an implementation task from the selected open issue."),
+            (resolve_bug, "Close an issue only after its fix task is accepted."),
+        ):
+            button.setToolTip(tip)
 
         def alert(message):
             QMessageBox.warning(page, "Project Studio", str(message))
