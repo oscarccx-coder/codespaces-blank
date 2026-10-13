@@ -33,7 +33,7 @@ def task_actions(task: dict | None, project: dict, active_worker: bool = False) 
     state = task.get("state", "")
     running = any(t.get("state") == "running" for t in project.get("tasks", []))
     return {
-        "subtask": editable and task.get("parent_id") is None and state != "accepted",
+        "subtask": editable and task.get("parent_id") is None and state == "todo",
         "draft": editable and state == "todo" and not running and not active_worker,
         "accept": editable and state == "review",
         "rework": editable and state == "review",
