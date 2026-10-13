@@ -30,7 +30,7 @@ jobs:
         run: python apollo_health_check.py --root .
       - name: Run custom sidebar, voice and updater regression suite
         working-directory: apollo_ui
-        run: python -m unittest -v tests.test_sidebar_layout tests.test_sidebar_gui_wiring tests.test_voice_queue_state tests.test_update_preflight tests.test_memory_corrections tests.test_personality_controls tests.test_recovery_snapshots tests.test_system_job_ui tests.test_local_config tests.test_xtts_shared_path tests.test_xtts_worker_protocol tests.test_github_updates tests.test_obd_reader tests.test_voice_management tests.test_window_geometry tests.test_voice_ui_wiring tests.test_ui_simplification tests.test_setup_centre tests.test_xtts_settings_finalization tests.test_consolidation_ram tests.test_release_pipeline tests.test_release_signing_setup tests.test_pi_headless tests.test_circuit_lab tests.test_growth_lab tests.test_reasoning_director tests.test_learning_v8 tests.test_visual_learning tests.test_windows_setup
+        run: python -m unittest -v tests.test_sidebar_layout tests.test_sidebar_gui_wiring tests.test_voice_queue_state tests.test_update_preflight tests.test_memory_corrections tests.test_personality_controls tests.test_recovery_snapshots tests.test_system_job_ui tests.test_local_config tests.test_xtts_shared_path tests.test_xtts_worker_protocol tests.test_github_updates tests.test_obd_reader tests.test_voice_management tests.test_window_geometry tests.test_voice_ui_wiring tests.test_ui_simplification tests.test_setup_centre tests.test_xtts_settings_finalization tests.test_consolidation_ram tests.test_release_pipeline tests.test_release_signing_setup tests.test_pi_headless tests.test_circuit_lab tests.test_growth_lab tests.test_reasoning_director tests.test_learning_v8 tests.test_visual_learning tests.test_windows_setup tests.test_project_studio tests.test_update_download_resume tests.test_update_backup_failure tests.test_ui_project_polish tests.test_foundry_phase1 tests.test_foundry_sandbox
       - name: Run existing shell and module manager tests
         working-directory: apollo_ui
         run: |
@@ -47,6 +47,7 @@ jobs:
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/vehicle_diagnostics
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/circuit_lab
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/growth_lab
+          APOLLO_BASE_DIR="$PWD" python module_validator.py modules/project_studio
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/reasoning_director
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/visual_learning
       - name: Test Raspberry Pi installation scripts for Bash syntax
@@ -86,6 +87,12 @@ jobs:
         run: |
           .venv\Scripts\python.exe -c "import sys, PySide6, numpy, psutil; assert sys.prefix != sys.base_prefix"
           .venv\Scripts\python.exe -m pip check
+      - name: Smoke test Project Studio and Update Centre with real Qt widgets
+        working-directory: apollo_ui
+        shell: cmd
+        run: |
+          set QT_QPA_PLATFORM=offscreen
+          .venv\Scripts\python.exe -m unittest -v tests.test_windows_ui_polish tests.test_windows_foundry_ui
       - name: Check numbered Setup batch entrypoints
         working-directory: apollo_ui
         shell: cmd
@@ -103,3 +110,21 @@ jobs:
           call Setup\08_UNINSTALL_REQUIREMENTS.bat --yes
           if exist .venv\pyvenv.cfg exit /b 1
           if not exist requirements.txt exit /b 1
+  
+  foundry-sandbox-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build owner-controlled headless Qt sandbox image
+        run: docker build --pull -t apollo-foundry-qt:phase1 -f apollo_ui/foundry_sandbox/Dockerfile apollo_ui/foundry_sandbox
+      - name: Verify GUI events, launch, and failing tests inside Docker
+        working-directory: apollo_ui
+        env:
+          APOLLO_FOUNDRY_INTEGRATION: "1"
+        run: python -m unittest -v tests.test_foundry_sandbox_docker

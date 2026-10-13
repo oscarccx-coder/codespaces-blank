@@ -115,24 +115,53 @@ def latest_release(channel, releases=None):
 
 
 def download_release_asset(url, destination, progress=None, max_bytes=MAX_PACKAGE_BYTES):
-    """Bounded atomic download; redirects may only end on GitHub's asset CDN."""
+    """Resume a bounded download, atomically publish only complete files.
+
+    Signed packages are verified by UpdateService before staging or applying.
+    Interrupted .part data is untrusted and never installed directly.
+    """
     url = _asset_url(url)
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     tmp = destination.with_name(destination.name + ".part")
+    previous = tmp.stat().st_size if tmp.exists() else 0
+    if previous > max_bytes:
+        tmp.unlink()
+        previous = 0
+    request = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT,
+                      **({"Range": f"bytes={previous}-"} if previous else {})},
+    )
     try:
-        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
         with urllib.request.urlopen(request, timeout=60) as response:
             final = urllib.parse.urlsplit(response.geturl())
             if (final.scheme != "https" or final.hostname not in {
                 "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"
             }):
                 raise ValueError("GitHub asset redirect left the allowed HTTPS hosts.")
+
+            status = response.status
+            start = 0
+            mode = "wb"
+            if previous and status == 206:
+                # Only append if Content-Range confirms the exact offset.
+                match = re.fullmatch(r"bytes (\d+)-(\d+)/(\d+|\*)",
+                                     response.headers.get("Content-Range", "").strip())
+                if not match or int(match[1]) != previous or int(match[2]) < previous:
+                    raise ValueError("Invalid resume range from GitHub asset host.")
+                if match[3] != "*" and int(match[3]) > max_bytes:
+                    raise ValueError("GitHub update package exceeds the download limit.")
+                start, mode = previous, "ab"
+            elif status != 200:
+                raise ValueError("Unexpected HTTP status for GitHub release download.")
+
             length = response.headers.get("Content-Length")
-            if length and int(length) > max_bytes:
+            if length is not None and start + int(length) > max_bytes:
                 raise ValueError("GitHub update package exceeds the download limit.")
-            amount = 0
-            with tmp.open("wb") as output:
+            amount = start
+            with tmp.open(mode) as output:
+                if progress:
+                    progress(amount, start + int(length) if length else 0)
                 while True:
                     chunk = response.read(1024 * 1024)
                     if not chunk:
@@ -142,11 +171,16 @@ def download_release_asset(url, destination, progress=None, max_bytes=MAX_PACKAG
                         raise ValueError("GitHub update package exceeds the download limit.")
                     output.write(chunk)
                     if progress:
-                        progress(amount, int(length) if length else 0)
-        if not amount:
-            raise ValueError("GitHub release asset was empty.")
+                        progress(amount, start + int(length) if length else 0)
+            if amount == 0:
+                raise ValueError("GitHub release asset was empty.")
+            if length is not None and amount != start + int(length):
+                raise OSError("GitHub update connection closed before the expected length.")
+        # Only completed responses become .zip; signature/hash checks still
+        # decide if it is a trusted package.
         tmp.replace(destination)
-        return {"file": str(destination), "bytes": amount}
-    finally:
-        if tmp.exists():
-            tmp.unlink()
+        return {"file": str(destination), "bytes": amount,
+                "resumed_bytes": start, "transferred_bytes": amount - start}
+    except (OSError, ValueError):
+        # Keep the untrusted partial for a retry, never touch the live app.
+        raise

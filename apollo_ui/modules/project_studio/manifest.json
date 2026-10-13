@@ -1,0 +1,13 @@
+{
+  "id": "project_studio",
+  "name": "Apollo Foundry",
+  "version": "0.3.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Saved AI coding projects, change requests, static UI wiring and owner-approved Docker-only sandbox unit/GUI testing.",
+  "ui": {
+    "enabled": true,
+    "title": "Foundry",
+    "default_placement": "apps"
+  }
+}

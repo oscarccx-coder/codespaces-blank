@@ -15,6 +15,7 @@ MODULE_GROUPS = {
     "circuit_lab": "Everyday",
     "notification_center": "Everyday",
     "workspace_manager": "Coding",
+    "project_studio": "Coding",
     "model_runtime": "Coding",
     "self_improvement_lab": "Coding",
     "growth_lab": "Coding",

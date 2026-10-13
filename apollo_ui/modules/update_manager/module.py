@@ -62,15 +62,17 @@ class Module:
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox,
             QPushButton, QCheckBox, QPlainTextEdit, QFileDialog, QMessageBox,
+            QProgressBar,
         )
 
         page = QWidget(parent)
         layout = QVBoxLayout(page)
-        layout.setSpacing(10)
+        layout.setContentsMargins(18, 16, 18, 14)
+        layout.setSpacing(11)
         title = QLabel("Apollo Updates")
         title.setStyleSheet("font-size:22px;font-weight:700;")
         layout.addWidget(title)
-        note = QLabel("Install verified Apollo code updates without reinstalling voice models or user data.")
+        note = QLabel("Secure code updates without redownloading voice models or replacing saved projects.")
         note.setWordWrap(True)
         layout.addWidget(note)
 
@@ -81,6 +83,9 @@ class Module:
 
         status = QLabel()
         status.setWordWrap(True)
+        status.setObjectName("updateStatus")
+        status.setStyleSheet("padding:12px;border:1px solid #17675d;"
+                             "border-radius:10px;background:#0b282a;font-weight:600;")
         layout.addWidget(status)
 
         source = QComboBox()
@@ -102,15 +107,23 @@ class Module:
 
         configuration_row("Update source", source)
         configuration_row("Server URL", server)
-        configuration_row("Channel", channel)
         advanced_layout.addWidget(auto_check)
         source.currentIndexChanged.connect(
             lambda _: server.setEnabled(source.currentData() == "server")
         )
 
+        channel_row = QHBoxLayout()
+        channel_label = QLabel("Release channel")
+        channel_label.setToolTip("Stable is recommended for daily use; Beta includes experimental features.")
+        channel.setToolTip("Select stable or signed beta updates.")
+        channel_row.addWidget(channel_label)
+        channel_row.addWidget(channel, 1)
+        layout.addLayout(channel_row)
+
         actions = QHBoxLayout()
         combined_btn = QPushButton("Update Apollo")
         combined_btn.setMinimumHeight(44)
+        combined_btn.setObjectName("primaryAction")
         combined_btn.setToolTip("Check, download, verify and install a newer signed release.")
         actions.addWidget(combined_btn)
         actions.addStretch()
@@ -121,8 +134,11 @@ class Module:
         stage_btn = QPushButton("Download & Verify")
         install_btn = QPushButton("Install staged update")
         advanced_actions = QHBoxLayout()
-        for control in (save_btn, check_btn, stage_btn, install_btn):
+        for control in (save_btn, stage_btn, install_btn):
             advanced_actions.addWidget(control)
+        check_btn.setText("Check only")
+        check_btn.setMinimumHeight(44)
+        actions.insertWidget(1, check_btn)
         advanced_layout.addLayout(advanced_actions)
 
         trust_row = QHBoxLayout()
@@ -134,7 +150,15 @@ class Module:
 
         progress = QLabel("No update operation running.")
         progress.setWordWrap(True)
+        progress.setAccessibleName("Update activity and error status")
         layout.addWidget(progress)
+        progress_bar = QProgressBar()
+        progress_bar.setRange(0, 100)
+        progress_bar.setValue(0)
+        progress_bar.setFormat("%p% downloaded")
+        progress_bar.setAccessibleName("Update download progress")
+        progress_bar.hide()
+        layout.addWidget(progress_bar)
         advanced_toggle.setToolTip("Settings, signing-key setup and diagnostic information.")
         layout.addWidget(advanced_toggle)
         advanced_layout.addWidget(QLabel("Update details and diagnostics"))
@@ -156,6 +180,7 @@ class Module:
             finished = Signal(str, object)
             failed = Signal(str, str)
             progress = Signal(str)
+            transferred = Signal(int, int)
 
         signals = UpdateSignals(page)
         state = {"busy": False}
@@ -175,14 +200,14 @@ class Module:
             channel.setCurrentText(str(settings.get("channel", "stable")))
             auto_check.setChecked(bool(settings.get("auto_check", False)))
             status.setText(
-                f"Apollo {info['current_version']}  •  "
-                f"Update source: {settings.get('source', 'github')}  •  "
-                f"Signing key: {'trusted' if info['trusted_key'] else 'setup required'}"
+                f"Installed: Apollo {info['current_version']}\n"
+                f"Source: {'GitHub Releases' if settings.get('source') == 'github' else 'Local server'}"
+                f"  •  Signing: {'Trusted key' if info['trusted_key'] else 'Setup needed'}"
             )
             latest = info.get("last_install")
             if latest and latest.get("ok") is False:
                 progress.setText(
-                    "Last update FAILED and rollback was attempted. See Apollo's update logs."
+                    "Previous update failed. Review the logs under Advanced options."
                 )
             pretty(info)
 
@@ -201,6 +226,9 @@ class Module:
             state["busy"] = bool(yes)
             for btn in controls:
                 btn.setEnabled(not yes)
+            channel.setEnabled(not yes)
+            source.setEnabled(not yes)
+            server.setEnabled(not yes and source.currentData() == "server")
 
         def run_async(kind):
             if state["busy"]:
@@ -216,10 +244,13 @@ class Module:
                     QMessageBox.warning(page, "Update settings", str(exc))
                     return
             set_busy(True)
-            progress.setText("Checking GitHub releases..." if kind == "check"
-                             else "Preparing signed update...")
+            progress_bar.setValue(0)
+            progress_bar.setVisible(kind in {"stage", "combined"})
+            progress.setText("Checking signed releases..." if kind == "check"
+                             else "Preparing a verified Apollo update...")
 
             def report(amount, total):
+                signals.transferred.emit(int(amount), int(total))
                 if total:
                     signals.progress.emit(
                         f"Downloaded {amount / 1048576:.1f} / {total / 1048576:.1f} MiB"
@@ -274,6 +305,7 @@ class Module:
 
         def finished(kind, result):
             set_busy(False)
+            progress_bar.setVisible(False)
             pretty(result)
             if kind == "key":
                 fingerprint = result["fingerprint"]
@@ -316,12 +348,22 @@ class Module:
 
         def failed(kind, message):
             set_busy(False)
+            progress_bar.setVisible(False)
             progress.setText(f"{kind} failed: {message}")
             pretty({"ok": False, "error": message})
 
         signals.finished.connect(finished)
         signals.failed.connect(failed)
         signals.progress.connect(progress.setText)
+
+        def update_download_progress(amount, total):
+            if total > 0:
+                progress_bar.setRange(0, 100)
+                progress_bar.setValue(min(100, int(amount * 100 / total)))
+            else:
+                progress_bar.setRange(0, 0)
+
+        signals.transferred.connect(update_download_progress)
 
         def do_install():
             confirmation = QMessageBox.question(
