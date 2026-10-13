@@ -1,0 +1,209 @@
+"""Apollo Foundry: opt-in, container-only runtime tests for untrusted project code.
+
+Refuse to run when Docker or an owner-installed image is unavailable.
+Never run generated code through host Python, shell=True, or in Apollo's venv.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from pathlib import Path
+import os
+import secrets
+import shutil
+import subprocess
+import tempfile
+import time
+
+PYTHON_IMAGE = "python:3.13-slim"
+QT_IMAGE = "apollo-foundry-qt:phase1"
+SANDBOX_KINDS = {"unit": PYTHON_IMAGE, "gui": QT_IMAGE}
+MAX_FILE_COUNT = 100
+MAX_FILE_BYTES = 512 * 1024
+MAX_TOTAL_BYTES = 5 * 1024 * 1024
+ALLOWED_EXTENSIONS = {".py", ".json", ".toml", ".txt", ".md", ".yaml", ".yml", ".qss", ".png", ".svg", ".ico"}
+SKIP_DIRS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", "node_modules", ".mypy_cache", "storage", "secrets"}
+OUTPUT_LIMIT = 15000
+RUN_TIMEOUTS = {"unit": 45, "gui": 18}
+
+# Only launch.py from the private project snapshot is started, by the Docker image.
+# A process that remains alive for 3 seconds passes the *startup survival*
+# smoke test, NOT a claim that any widget actually works.
+_GUI_SMOKE = r"""
+import subprocess, sys, time
+p = subprocess.Popen([sys.executable, "-B", "launch.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+try:
+    time.sleep(3)
+    rc = p.poll()
+    if rc is not None:
+        out, err = p.communicate(timeout=1)
+        print("GUI exited before smoke window. Code:", rc)
+        print((err or out).decode("utf-8", "replace")[-4000:])
+        sys.exit(1)
+    print("GUI STARTUP SURVIVED 3s. This does NOT verify widget events.")
+finally:
+    if p.poll() is None:
+        p.terminate()
+        try:
+            p.communicate(timeout=2)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            p.communicate()
+"""
+
+
+class SandboxUnavailable(RuntimeError):
+    pass
+
+
+def _now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def availability(kind, *, docker_bin=None):
+    if kind not in SANDBOX_KINDS:
+        raise ValueError("Unknown Foundry sandbox test kind")
+    binary = docker_bin or shutil.which("docker")
+    if not binary:
+        return {"ok": False, "reason": "Docker is not installed or is not on PATH.", "image": SANDBOX_KINDS[kind]}
+    try:
+        proc = subprocess.run(
+            [binary, "image", "inspect", SANDBOX_KINDS[kind]],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            text=True, timeout=12, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return {"ok": False, "reason": f"Docker not responding: {type(error).__name__}", "image": SANDBOX_KINDS[kind]}
+    if proc.returncode != 0:
+        return {"ok": False, "reason": f"Required trusted image not installed: {SANDBOX_KINDS[kind]}. No automatic pulls.", "image": SANDBOX_KINDS[kind]}
+    return {"ok": True, "image": SANDBOX_KINDS[kind], "reason": "Container image installed"}
+
+
+def _make_snapshot(src: Path, dest: Path):
+    src = Path(src).resolve()
+    if not src.is_dir():
+        raise ValueError("Selected app project folder is missing.")
+    if src.is_symlink():
+        raise ValueError("Symlinked app projects cannot run.")
+    count = 0
+    total = 0
+    dest.mkdir(mode=0o755)
+    for current, dirs, files in os.walk(src, followlinks=False):
+        current_dir = Path(current)
+        if current_dir.is_symlink():
+            raise ValueError("Symlinked project directory is forbidden.")
+        for name in list(dirs):
+            p = current_dir / name
+            if p.is_symlink():
+                raise ValueError("Symlinked project paths are forbidden.")
+            if name.startswith(".") or name in SKIP_DIRS:
+                dirs.remove(name)
+        for name in files:
+            f = current_dir / name
+            if f.is_symlink():
+                raise ValueError("Symlinked source files cannot run.")
+            if name.startswith(".") or f.suffix.lower() not in ALLOWED_EXTENSIONS:
+                continue
+            stat = f.stat()
+            count += 1
+            total += stat.st_size
+            if count > MAX_FILE_COUNT or total > MAX_TOTAL_BYTES or stat.st_size > MAX_FILE_BYTES:
+                raise ValueError("App source exceeds Foundry sandbox file or size limits.")
+            relative = f.relative_to(src)
+            out = dest / relative
+            out.parent.mkdir(parents=True, exist_ok=True)
+            with f.open("rb") as read, out.open("xb") as write:
+                shutil.copyfileobj(read, write, MAX_FILE_BYTES + 1)
+            out.chmod(0o644)
+    return count
+
+
+def _container_args(binary, container_name, snapshot, kind):
+    # Restrict both writable paths and Linux capabilities. No socket,
+    # Apollo storage, user home, environment secrets or network is mounted.
+    args = [
+        binary, "run", "--rm", "--pull=never", "--name", container_name,
+        "--network=none", "--read-only", "--cap-drop=ALL",
+        "--security-opt=no-new-privileges:true",
+        "--pids-limit=64", "--cpus=1", "--memory=768m", "--memory-swap=768m",
+        "--user=65534:65534",
+        "--tmpfs=/tmp:rw,nosuid,nodev,size=64m,mode=1777",
+        "--env=PYTHONDONTWRITEBYTECODE=1", "--env=PYTHONNOUSERSITE=1",
+        "--env=QT_QPA_PLATFORM=offscreen", "--env=HOME=/tmp",
+        "--workdir=/work",
+        "--mount", f"type=bind,source={snapshot},target=/work,readonly",
+        SANDBOX_KINDS[kind],
+    ]
+    if kind == "unit":
+        args.extend(["python", "-B", "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"])
+    else:
+        args.extend(["python", "-B", "-c", _GUI_SMOKE])
+    return args
+
+
+def run_sandbox(project_folder, kind, *, docker_bin=None):
+    """Attempt Docker-only testing; return an auditable structured result.
+
+    Caller must show a human confirmation first. This method will never
+    execute project code outside a container, even when Docker is missing.
+    """
+    if kind not in SANDBOX_KINDS:
+        raise ValueError("Invalid sandbox test kind")
+    start = time.monotonic()
+    base = {"kind": f"docker-{kind}", "phase": "Foundry Sandbox",
+            "created_at": _now(), "executed_project_code": False,
+            "passed_ui_interactions": False, "status": "unavailable",
+            "output": "", "reason": "", "image": SANDBOX_KINDS[kind]}
+    check = availability(kind, docker_bin=docker_bin)
+    if not check["ok"]:
+        return {**base, "reason": check["reason"], "duration_seconds": round(time.monotonic()-start, 2)}
+    binary = docker_bin or shutil.which("docker")
+    if not binary:
+        return {**base, "reason": "Docker executable disappeared."}
+    src = Path(project_folder)
+    if kind == "unit" and not (src / "tests").is_dir():
+        return {**base, "status": "incomplete", "reason": "Add a tests/ folder with test_*.py files."}
+    if kind == "gui" and not (src / "launch.py").is_file():
+        return {**base, "status": "incomplete", "reason": "Add launch.py to start the app GUI."}
+
+    with tempfile.TemporaryDirectory(prefix="apollo-foundry-") as temp:
+        snapshot = Path(temp) / "project"
+        _make_snapshot(src, snapshot)
+        name = "apollo-foundry-" + secrets.token_hex(7)
+        argv = _container_args(binary, name, str(snapshot.resolve()), kind)
+        # Output is bounded after the process ends. Docker itself caps memory
+        # and CPU; timeout kills and forcibly removes the named container.
+        try:
+            proc = subprocess.run(
+                argv, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                errors="replace", timeout=RUN_TIMEOUTS[kind], check=False,
+            )
+            status = "passed" if proc.returncode == 0 else "failed"
+            stdout = (proc.stdout or "")[-OUTPUT_LIMIT//2:]
+            stderr = (proc.stderr or "")[-OUTPUT_LIMIT//2:]
+            return {
+                **base, "status": status, "reason": f"Docker exited with code {proc.returncode}",
+                "executed_project_code": proc.returncode in (0, 1),
+                "output": (stdout + "\n" + stderr)[-OUTPUT_LIMIT:],
+                "duration_seconds": round(time.monotonic()-start, 2),
+            }
+        except subprocess.TimeoutExpired as error:
+            try:
+                subprocess.run(
+                    [binary, "rm", "-f", name], timeout=8, check=False,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+            return {
+                **base, "status": "timeout", "reason": "Container runtime limit exceeded; cleanup attempted",
+                "executed_project_code": True,
+                "duration_seconds": round(time.monotonic()-start, 2),
+                "output": (str(error.stderr or "") + str(error.stdout or ""))[-OUTPUT_LIMIT:],
+            }
+        except OSError as error:
+            return {
+                **base, "status": "unavailable",
+                "reason": f"Docker could not be started: {type(error).__name__}: {error}",
+                "duration_seconds": round(time.monotonic()-start, 2),
+            }
