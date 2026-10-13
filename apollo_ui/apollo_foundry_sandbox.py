@@ -16,7 +16,7 @@ import time
 
 PYTHON_IMAGE = "python:3.13-slim"
 QT_IMAGE = "apollo-foundry-qt:phase1"
-SANDBOX_KINDS = {"unit": PYTHON_IMAGE, "gui": QT_IMAGE}
+SANDBOX_KINDS = {"unit": QT_IMAGE, "gui": QT_IMAGE}
 MAX_FILE_COUNT = 100
 MAX_FILE_BYTES = 512 * 1024
 MAX_TOTAL_BYTES = 5 * 1024 * 1024
@@ -162,6 +162,8 @@ def run_sandbox(project_folder, kind, *, docker_bin=None):
     src = Path(project_folder)
     if kind == "unit" and not (src / "tests").is_dir():
         return {**base, "status": "incomplete", "reason": "Add a tests/ folder with test_*.py files."}
+    if kind == "unit" and not any((src / "tests").rglob("test_*.py")):
+        return {**base, "status": "incomplete", "reason": "No tests/test_*.py files found; refusing false-green zero-test run."}
     if kind == "gui" and not (src / "launch.py").is_file():
         return {**base, "status": "incomplete", "reason": "Add launch.py to start the app GUI."}
 
@@ -178,11 +180,13 @@ def run_sandbox(project_folder, kind, *, docker_bin=None):
                 errors="replace", timeout=RUN_TIMEOUTS[kind], check=False,
             )
             status = "passed" if proc.returncode == 0 else "failed"
+            if kind == "unit" and "Ran 0 tests" in (proc.stderr or ""):
+                status = "incomplete"
             stdout = (proc.stdout or "")[-OUTPUT_LIMIT//2:]
             stderr = (proc.stderr or "")[-OUTPUT_LIMIT//2:]
             return {
                 **base, "status": status, "reason": f"Docker exited with code {proc.returncode}",
-                "executed_project_code": proc.returncode in (0, 1),
+                "executed_project_code": proc.returncode not in (125, 126, 127),
                 "output": (stdout + "\n" + stderr)[-OUTPUT_LIMIT:],
                 "duration_seconds": round(time.monotonic()-start, 2),
             }
