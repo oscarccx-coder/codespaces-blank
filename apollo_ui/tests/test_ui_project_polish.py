@@ -71,7 +71,7 @@ class ProjectPresentationTests(unittest.TestCase):
         studio = texts["modules/project_studio/module.py"]
         for phrase in (
             'project_search.textChanged.connect',
-            'def update_actions():',
+            'def update_actions(project_state=None):',
             'def refresh_projects(select_id=None):',
             'task_tree.setCurrentItem(nodes[previous_task])',
             'completion.setValue(metrics["percent"])',
