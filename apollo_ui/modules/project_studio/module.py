@@ -506,6 +506,50 @@ class Module:
             except (ValueError, KeyError) as exc:
                 alert(exc)
 
+        def finished_manager_plan(tid, proposal, error):
+            active_jobs[:] = [item for item in active_jobs if item[0] != f"plan:{tid}"]
+            if error:
+                alert("Manager proposal could not be produced: " + error[:500])
+                update_actions()
+                return
+            edited, ok = QInputDialog.getMultiLineText(
+                page, "Review AI Manager Plan",
+                "Review and edit this JSON proposal. Nothing is added until you accept.",
+                proposal
+            )
+            if not ok:
+                update_actions()
+                return
+            try:
+                data = json.loads(edited)
+                tasks = validate_subtask_plan(data)
+                self.store.add_subtasks(tid, tasks)
+                refresh_details()
+            except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+                alert("Subtask plan was NOT added: " + str(exc))
+            finally:
+                update_actions()
+
+        def propose_manager_plan_action():
+            tid, pid = task_id(), project_id()
+            if tid is None or pid is None:
+                return alert("Select a top-level task to divide into subtasks.")
+            if active_jobs:
+                return alert("Finish the current local model job before starting another.")
+            try:
+                model = model_from_config(self.base)
+                state = self.store.details(pid)
+                target = next((t for t in state["tasks"] if t["id"] == tid), None)
+                if not target or target["parent_id"] is not None or target["state"] != "todo":
+                    raise ValueError("Choose a not-started top-level task for the manager.")
+                signals = WorkerSignal()
+                signals.finished.connect(finished_manager_plan)
+                active_jobs.append((f"plan:{tid}", signals))
+                QThreadPool.globalInstance().start(PlanJob(tid, state, model, signals))
+                update_actions()
+            except (ValueError, KeyError, OSError) as exc:
+                alert(exc)
+
         def finished_job(tid, draft, error):
             try:
                 if error:
@@ -748,6 +792,7 @@ class Module:
         rework_task.clicked.connect(lambda: review_action(False))
         retry_task.clicked.connect(retry_action)
         change_request.clicked.connect(request_change_action)
+        plan_subtasks.clicked.connect(propose_manager_plan_action)
         starter_btn.clicked.connect(create_starter_action)
         run_checks_btn.clicked.connect(run_static_checks_action)
         fix_checks_btn.clicked.connect(request_check_fix_action)
