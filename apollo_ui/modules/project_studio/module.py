@@ -198,11 +198,12 @@ class Module:
         checks_intro.setWordWrap(True)
         checks_layout.addWidget(checks_intro)
         checks_buttons = QHBoxLayout()
+        starter_btn = QPushButton("Create Starter UI")
         run_checks_btn = QPushButton("Run UI & Code Checks")
         run_checks_btn.setObjectName("primaryAction")
         fix_checks_btn = QPushButton("Request Fix for Failures")
         show_folder_btn = QPushButton("Open Project Folder")
-        for button in (run_checks_btn, fix_checks_btn, show_folder_btn):
+        for button in (starter_btn, run_checks_btn, fix_checks_btn, show_folder_btn):
             checks_buttons.addWidget(button)
         checks_layout.addLayout(checks_buttons)
         checks_status = QLabel("No checks run. Add code and foundry.json, then run checks.")
@@ -236,6 +237,7 @@ class Module:
         for button, tip in (
             (change_request, "Request a change for this task, or the whole project if no task is selected."),
             (run_checks_btn, "Check syntax and declared UI/backend links without executing project code."),
+            (starter_btn, "Create a sample Qt app with a working save button and backend. Never overwrite files."),
             (fix_checks_btn, "Turn failed static checks into a reviewable implementation task."),
             (start_worker, "Ask the local model for a draft. It cannot execute generated code."),
             (accept_task, "Only a submitted draft can be accepted after your review."),
@@ -295,7 +297,7 @@ class Module:
                 for control in (add_subtask, change_request, start_worker, accept_task,
                                 rework_task, retry_task, report_bug, assign_fix, resolve_bug,
                                 approve_project, reopen_project, recover_workers,
-                                run_checks_btn, fix_checks_btn, show_folder_btn):
+                                starter_btn, run_checks_btn, fix_checks_btn, show_folder_btn):
                     control.setEnabled(False)
                 return
             state = self.store.details(pid)
@@ -306,6 +308,7 @@ class Module:
                                    (retry_task, "retry")):
                 button.setEnabled(choices[action])
             change_request.setEnabled(state["project"]["state"] != "approved")
+            starter_btn.setEnabled(state["project"]["state"] != "approved")
             run_checks_btn.setEnabled(True)
             show_folder_btn.setEnabled(True)
             recent_checks = self.store.check_history(pid, 1)
@@ -575,6 +578,24 @@ class Module:
             except (ValueError, KeyError) as exc:
                 alert(exc)
 
+        def create_starter_action():
+            pid = project_id()
+            if pid is None:
+                return alert("Select a project first.")
+            if QMessageBox.question(
+                page, "Create Starter UI",
+                "Create a small Qt UI + Python backend for this project? "
+                "Existing source files are never overwritten and nothing is launched.",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            ) != QMessageBox.Yes:
+                return
+            try:
+                self.store.create_starter_ui(pid)
+                refresh_details()
+                tabs.setCurrentWidget(checks_tab)
+            except (FileExistsError, OSError, ValueError, KeyError) as exc:
+                alert(exc)
+
         def run_static_checks_action():
             pid = project_id()
             if pid is None:
@@ -701,6 +722,7 @@ class Module:
         rework_task.clicked.connect(lambda: review_action(False))
         retry_task.clicked.connect(retry_action)
         change_request.clicked.connect(request_change_action)
+        starter_btn.clicked.connect(create_starter_action)
         run_checks_btn.clicked.connect(run_static_checks_action)
         fix_checks_btn.clicked.connect(request_check_fix_action)
         show_folder_btn.clicked.connect(open_project_folder_action)
