@@ -110,7 +110,7 @@ class FoundryPhaseOneTests(unittest.TestCase):
 
     def test_starter_ui_can_be_checked_without_running_it(self):
         created = self.store.create_starter_ui(self.project_id)
-        self.assertEqual(set(created["files"]), {"ui.py", "service.py", "foundry.json", "launch.py"})
+        self.assertEqual(set(created["files"]), {"ui.py", "service.py", "foundry.json", "launch.py", "tests/test_ui.py"})
         self.assertFalse(created["executed"])
         report = self.store.run_checks(self.project_id)
         self.assertEqual(report["status"], "passed", report["checks"])
