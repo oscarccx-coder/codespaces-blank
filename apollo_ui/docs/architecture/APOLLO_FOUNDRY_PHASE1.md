@@ -2,7 +2,7 @@
 
 **Product name:** Apollo Foundry
 **Developer module identifier:** `project_studio` (kept for update compatibility)
-**Stage:** Apollo Build 8 alpha, Foundry Phase 1 internal test candidate.
+**Stage:** Apollo Build 8 alpha, Foundry sandbox-enabled internal test candidate.
 **Not:** A stable beta release, a code execution sandbox, or an autonomous software company.
 
 ## What you can test now
@@ -153,6 +153,18 @@ for Failures** to create a reviewable implementer task with the findings.
 History retains at most 30 reports per project. All of this is **local
 and outside GitHub-tracked application source**; do not commit personal
 app briefs, voice assets, medical records or project databases.
+
+## Isolated runtime testing now available
+
+The separate **Sandbox Testing** tab can execute unit tests and a headless
+GUI startup smoke inside a restricted Docker container, but **only after
+owner confirmation**. The container has no network, no direct Apollo user
+data mount and a strict time/CPU/memory budget.
+
+See [Foundry Docker Sandbox](APOLLO_FOUNDRY_SANDBOX.md) for Docker Desktop
+setup, the trusted PySide6 image, real click-to-backend tests, and security
+limitations. These runs are saved separately from static checks and can be
+turned into a reviewed **Send Failures to Worker** task.
 
 ## Test matrix for Phase 1
 
