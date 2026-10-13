@@ -56,6 +56,20 @@ Tests of actual click-to-backend behavior in CI execute only *Apollo-owned
 trusted PySide6 fixture code*. Running generated/third-party app code needs a
 later real sandbox, restricted permissions and a human opt-in.
 
+### Start with a working example
+
+In the **UI & Code Tests** tab, click **Create Starter UI**. Foundry
+creates `service.py`, `ui.py`, `launch.py` and `foundry.json` inside the
+selected app's local folder. It refuses to overwrite existing source.
+Click **Run UI & Code Checks** to verify the reference contract. For an
+**owner-initiated manual** live demo, you can later run `python launch.py`
+from that project folder using an environment with PySide6 installed.
+
+The button in this starter app is wired to a backend counter and confirmation
+label. It is an inspectable example, not a generated commercial application.
+Any **real** application still needs actual runtime tests and an isolated
+execution environment before Apollo can run code on its own.
+
 ### App file contract
 
 Place these files in the app project folder (you may use
