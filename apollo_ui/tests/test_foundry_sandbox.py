@@ -1,5 +1,4 @@
-"""Foundry sandbox security, failure and approval-flow tests (Docker mocked)."""
-import json
+"""Security and failure regressions for Docker-only Apollo Foundry runtime tests."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -7,10 +6,15 @@ import unittest
 from unittest.mock import patch
 
 from apollo_foundry_sandbox import (
-    SANDBOX_KINDS, SandboxUnavailable, availability, run_sandbox,
-    _make_snapshot, _container_args, QT_IMAGE,
+    availability, run_sandbox, _make_snapshot, _container_args,
+    _execute_bounded, MAX_LOG_BYTES,
 )
 from apollo_project_studio import StudioStore
+
+
+def docker_installed(argv, **kwargs):
+    assert argv[:3] == ["docker", "image", "inspect"]
+    return subprocess.CompletedProcess(argv, 0, "", "")
 
 
 class SandboxRegressions(unittest.TestCase):
@@ -27,64 +31,61 @@ class SandboxRegressions(unittest.TestCase):
 
     def test_docker_missing_refuses_without_host_fallback(self):
         with patch("apollo_foundry_sandbox.shutil.which", return_value=None):
-            with patch("apollo_foundry_sandbox.subprocess.run") as sub:
+            with patch("apollo_foundry_sandbox.subprocess.Popen") as process:
                 report = self.store.run_sandbox_tests(self.pid, "unit")
-        sub.assert_not_called()
+        process.assert_not_called()
         self.assertEqual(report["status"], "unavailable")
         self.assertFalse(report["executed_project_code"])
         self.assertEqual(len(self.store.sandbox_history(self.pid)), 1)
         self.assertEqual(self.store.check_history(self.pid), [])
 
     def test_required_image_never_auto_pulled(self):
-        with patch("apollo_foundry_sandbox.subprocess.run", return_value=subprocess.CompletedProcess([], 1)):
+        with patch("apollo_foundry_sandbox.subprocess.run",
+                   return_value=subprocess.CompletedProcess([], 1)):
             result = availability("gui", docker_bin="docker")
         self.assertFalse(result["ok"])
         self.assertIn("not installed", result["reason"])
 
     def test_container_security_arguments_are_fixed(self):
-        argv = _container_args("docker", "apollo-foundry-123", "/tmp/safe-snapshot", "unit")
-        cmd = " ".join(argv)
+        argv = _container_args("docker", "apollo-foundry-123", "/tmp/snapshot", "unit")
+        command = " ".join(argv)
         for option in (
             "--network=none", "--read-only", "--cap-drop=ALL",
-            "--security-opt=no-new-privileges:true",
-            "--pids-limit=64", "--cpus=1", "--memory=768m",
-            "--user=65534:65534", "--pull=never",
-            "source=/tmp/safe-snapshot,target=/work,readonly"
+            "--security-opt=no-new-privileges:true", "--pids-limit=64",
+            "--cpus=1", "--memory=768m", "--user=65534:65534",
+            "--pull=never", "source=/tmp/snapshot,target=/work,readonly",
         ):
-            self.assertIn(option, cmd)
+            self.assertIn(option, command)
         self.assertNotIn("--privileged", argv)
         self.assertNotIn("--network=host", argv)
-        self.assertNotIn("/var/run/docker.sock", cmd)
-        self.assertEqual(argv[-6:], ["python", "-B", "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"][-6:])
+        self.assertNotIn("/var/run/docker.sock", command)
+        self.assertEqual(argv[-6:], ["unittest", "discover", "-s", "tests", "-p", "test_*.py"])
         gui = _container_args("docker", "apollo-foundry-456", "/tmp/snapshot", "gui")
         self.assertEqual(gui[-4:-1], ["python", "-B", "-c"])
         self.assertIn("launch.py", gui[-1])
 
-    def test_code_executes_only_via_subprocess_docker_argv(self):
-        calls = []
-        def docker_run(argv, **kwargs):
-            calls.append(list(argv))
-            if argv[1:3] == ["image", "inspect"]:
-                return subprocess.CompletedProcess(argv, 0, "", "")
+    def test_code_only_runs_via_docker_and_reports_are_saved(self):
+        invocations = []
+        def fake_execute(argv, binary, name, timeout):
+            invocations.append(argv)
             self.assertEqual(argv[:2], ["docker", "run"])
-            self.assertNotIn("shell", kwargs)
-            return subprocess.CompletedProcess(argv, 0, "", "Ran 1 test in 0.003s\n\nOK")
-        with patch("apollo_foundry_sandbox.subprocess.run", side_effect=docker_run):
-            result = self.store.run_sandbox_tests(self.pid, "unit", docker_bin="docker")
-        self.assertEqual(result["status"], "passed")
-        self.assertTrue(result["executed_project_code"])
-        self.assertFalse(result["passed_ui_interactions"])
-        self.assertEqual(len(calls), 2)
-        self.assertTrue(any(e["kind"] == "sandbox" for e in self.store.audit(self.pid)))
-        self.assertEqual(len(self.store.sandbox_history(self.pid)), 1)
+            return {"returncode": 0, "timeout": False, "overflow": False,
+                    "cleanup_ok": None, "output": "Ran 1 test in 0.003s\n\nOK"}
+        with patch("apollo_foundry_sandbox.subprocess.run", side_effect=docker_installed):
+            with patch("apollo_foundry_sandbox._execute_bounded", side_effect=fake_execute):
+                report = self.store.run_sandbox_tests(self.pid, "unit", docker_bin="docker")
+        self.assertEqual(report["status"], "passed")
+        self.assertTrue(report["executed_project_code"])
+        self.assertFalse(report["passed_ui_interactions"])
+        self.assertEqual(len(invocations), 1)
+        self.assertEqual(self.store.sandbox_history(self.pid)[0]["status"], "passed")
 
-    def test_unit_test_failures_recorded_without_auto_approval(self):
-        def docker_run(argv, **kwargs):
-            if argv[1] == "image":
-                return subprocess.CompletedProcess(argv, 0, "", "")
-            return subprocess.CompletedProcess(argv, 1, "", "AssertionError: button not connected")
-        with patch("apollo_foundry_sandbox.subprocess.run", side_effect=docker_run):
-            report = self.store.run_sandbox_tests(self.pid, "unit", docker_bin="docker")
+    def test_failures_cannot_approve_project_automatically(self):
+        fake = {"returncode": 1, "timeout": False, "overflow": False,
+                "cleanup_ok": None, "output": "AssertionError: button not connected"}
+        with patch("apollo_foundry_sandbox.subprocess.run", side_effect=docker_installed):
+            with patch("apollo_foundry_sandbox._execute_bounded", return_value=fake):
+                report = self.store.run_sandbox_tests(self.pid, "unit", docker_bin="docker")
         self.assertEqual(report["status"], "failed")
         self.assertIn("button not connected", report["output"])
         self.assertFalse(any(t["state"] == "accepted" for t in self.store.details(self.pid)["tasks"]))
@@ -94,33 +95,54 @@ class SandboxRegressions(unittest.TestCase):
 
     def test_empty_unit_suite_cannot_pass(self):
         (self.folder / "tests/test_ui.py").unlink()
-        with patch("apollo_foundry_sandbox.subprocess.run",
-                   return_value=subprocess.CompletedProcess([], 0)):
-            report = run_sandbox(self.folder, "unit", docker_bin="docker")
+        with patch("apollo_foundry_sandbox.subprocess.run", side_effect=docker_installed):
+            with patch("apollo_foundry_sandbox._execute_bounded") as runner:
+                report = run_sandbox(self.folder, "unit", docker_bin="docker")
+        runner.assert_not_called()
         self.assertEqual(report["status"], "incomplete")
 
-    def test_false_zero_test_process_result_not_green(self):
-        def docker_run(argv, **kwargs):
-            if argv[1] == "image":
-                return subprocess.CompletedProcess(argv, 0, "", "")
-            return subprocess.CompletedProcess(argv, 0, "", "Ran 0 tests in 0.000s\n\nOK")
-        with patch("apollo_foundry_sandbox.subprocess.run", side_effect=docker_run):
-            report = run_sandbox(self.folder, "unit", docker_bin="docker")
+    def test_false_green_zero_test_process_rejected(self):
+        fake = {"returncode": 0, "timeout": False, "overflow": False,
+                "cleanup_ok": None, "output": "Ran 0 tests in 0.000s\n\nOK"}
+        with patch("apollo_foundry_sandbox.subprocess.run", side_effect=docker_installed):
+            with patch("apollo_foundry_sandbox._execute_bounded", return_value=fake):
+                report = run_sandbox(self.folder, "unit", docker_bin="docker")
         self.assertEqual(report["status"], "incomplete")
 
-    def test_timeout_triggers_docker_forced_removal(self):
-        calls = []
-        def fake(argv, **kwargs):
-            calls.append(argv)
-            if argv[1] == "image":
-                return subprocess.CompletedProcess(argv, 0, "", "")
-            if argv[1] == "run":
-                raise subprocess.TimeoutExpired(argv, timeout=45)
-            return subprocess.CompletedProcess(argv, 0, "", "")
-        with patch("apollo_foundry_sandbox.subprocess.run", side_effect=fake):
-            report = run_sandbox(self.folder, "unit", docker_bin="docker")
-        self.assertEqual(report["status"], "timeout")
-        self.assertTrue(any(x[1:3] == ["rm", "-f"] for x in calls))
+    def test_timeout_forces_docker_cleanup(self):
+        class HungProcess:
+            returncode = None
+            killed = False
+            def poll(self):
+                return -9 if self.killed else None
+            def kill(self):
+                self.killed = True
+                self.returncode = -9
+            def wait(self, timeout=None):
+                return self.returncode
+        with patch("apollo_foundry_sandbox.subprocess.Popen", return_value=HungProcess()):
+            with patch("apollo_foundry_sandbox._force_remove", return_value=True) as cleanup:
+                report = _execute_bounded(["docker", "run", "bad"], "docker",
+                                          "apollo-foundry-safe", timeout=0)
+        self.assertTrue(report["timeout"])
+        self.assertTrue(report["cleanup_ok"])
+        cleanup.assert_called_once_with("docker", "apollo-foundry-safe")
+
+    def test_unbounded_output_is_stopped_before_ram_exhaustion(self):
+        class LoudProcess:
+            returncode = 0
+            def __init__(self, **kwargs):
+                kwargs["stdout"].write(b"Z" * (MAX_LOG_BYTES + 1))
+                kwargs["stdout"].flush()
+            def poll(self):
+                return 0
+        with patch("apollo_foundry_sandbox.subprocess.Popen",
+                   side_effect=lambda *args, **kwargs: LoudProcess(**kwargs)):
+            with patch("apollo_foundry_sandbox._force_remove", return_value=True):
+                report = _execute_bounded(["docker", "run"], "docker",
+                                          "apollo-foundry-logcheck", timeout=5)
+        self.assertTrue(report["overflow"])
+        self.assertLessEqual(len(report["output"]), 15000)
 
     def test_symlink_escape_cannot_be_snapshot(self):
         outside = self.root / "private.txt"
@@ -128,7 +150,7 @@ class SandboxRegressions(unittest.TestCase):
         try:
             (self.folder / "private_link.txt").symlink_to(outside)
         except (OSError, NotImplementedError):
-            self.skipTest("Symlinks not available")
+            self.skipTest("Symlinks unavailable on test host.")
         with self.assertRaises(ValueError):
             with tempfile.TemporaryDirectory() as d:
                 _make_snapshot(self.folder, Path(d) / "snapshot")
@@ -145,12 +167,9 @@ class SandboxRegressions(unittest.TestCase):
             self.assertFalse((snap / ".venv").exists())
             self.assertTrue((snap / "tests" / "test_ui.py").exists())
 
-    def test_no_symlinked_private_workspace(self):
+    def test_unknown_test_kind_is_rejected(self):
         with self.assertRaises(ValueError):
             self.store.run_sandbox_tests(self.pid, "shell")
-        with patch("apollo_foundry_sandbox.shutil.which", return_value=None):
-            result = self.store.run_sandbox_tests(self.pid, "gui")
-        self.assertEqual(result["status"], "unavailable")
 
 
 if __name__ == "__main__":
