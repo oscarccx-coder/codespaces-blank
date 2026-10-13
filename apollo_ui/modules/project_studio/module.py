@@ -356,8 +356,12 @@ class Module:
             projects.blockSignals(False)
             refresh_details()
 
-        def update_actions():
-            """Contextual buttons stay disabled until there is a valid choice."""
+        def update_actions(project_state=None):
+            """Contextual buttons stay disabled until there is a valid choice.
+
+            Reuse the current project snapshot on UI refresh rather than
+            needlessly fetching the same full task/issue tables again.
+            """
             pid = project_id()
             if pid is None:
                 for control in (add_subtask, change_request, plan_subtasks, start_worker, accept_task,
@@ -367,7 +371,7 @@ class Module:
                                 sandbox_unit, sandbox_gui, sandbox_fix):
                     control.setEnabled(False)
                 return
-            state = self.store.details(pid)
+            state = project_state if project_state is not None else self.store.details(pid)
             selected_task = next((t for t in state["tasks"] if t["id"] == task_id()), None)
             choices = task_actions(selected_task, state, bool(active_jobs))
             for button, action in ((add_subtask, "subtask"), (start_worker, "draft"),
@@ -527,17 +531,18 @@ class Module:
             ) or "No activity yet. Start by assigning a worker.")
             task_tree.blockSignals(False)
             issue_table.blockSignals(False)
-            display_task()
-            update_actions()
+            display_task(update_controls=False)
+            update_actions(state)
 
-        def display_task():
+        def display_task(update_controls=True):
             tid = task_id()
             if tid is None:
                 result_text.setPlainText(
                     "Select a task to view instructions, request a local AI draft, "
                     "or read the feedback from the last review."
                 )
-                update_actions()
+                if update_controls:
+                    update_actions()
                 return
             task = self.store._task(tid)
             result_text.setPlainText(
@@ -547,7 +552,8 @@ class Module:
                 f"REVIEW FEEDBACK\n{task['feedback'] or 'No review yet.'}\n\n"
                 f"EVIDENCE\n{task['evidence'] or 'Evidence has not been attached.'}"
             )
-            update_actions()
+            if update_controls:
+                update_actions()
 
         def add_project_action():
             title, ok = QInputDialog.getText(page, "New App Project", "Project name:")
