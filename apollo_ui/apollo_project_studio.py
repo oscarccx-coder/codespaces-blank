@@ -133,24 +133,38 @@ class StudioStore:
             if self.conn.execute("SELECT count(*) FROM projects").fetchone()[0] >= MAX_PROJECTS:
                 raise ValueError("Project limit reached. Archive work before creating more.")
             created = utcnow()
-            with self.conn:
-                cur = self.conn.execute(
-                    "INSERT INTO projects(title,brief,created_at,updated_at) VALUES(?,?,?,?)",
-                    (title, brief, created, created))
-                pid = cur.lastrowid
-                # Relative paths cannot escape the workspace: ID is SQLite assigned.
-                folder = f"app-{pid:04d}-{safe_slug(title)}"
-                self.conn.execute("UPDATE projects SET folder=? WHERE id=?", (folder, pid))
-                for name, role, text in PROJECT_TEMPLATE:
-                    self._new_task(pid, title=name, brief=text, role=role)
-                self._event(pid, None, "created", "Project created with five default review stages")
-            if self.db_path != ":memory:":
-                project_folder = self.project_folder(pid)
-                project_folder.mkdir(parents=True, exist_ok=True)
-                info = project_folder / "PROJECT.md"
-                if not info.exists():
-                    # Developer project brief is local, never shipped in signed releases.
-                    info.write_text("# " + title + "\n\n" + brief + "\n", encoding="utf-8")
+            project_folder = None
+            folder_created = False
+            try:
+                # Keep the project row and initial workspace creation in a
+                # single transaction. A disk/path error cannot leave a phantom
+                # app in the user's project list.
+                with self.conn:
+                    cur = self.conn.execute(
+                        "INSERT INTO projects(title,brief,created_at,updated_at) VALUES(?,?,?,?)",
+                        (title, brief, created, created))
+                    pid = cur.lastrowid
+                    folder = f"app-{pid:04d}-{safe_slug(title)}"
+                    self.conn.execute("UPDATE projects SET folder=? WHERE id=?", (folder, pid))
+                    for name, role, detail in PROJECT_TEMPLATE:
+                        self._new_task(pid, title=name, brief=detail, role=role)
+                    self._event(pid, None, "created", "Project created with five default review stages")
+                    if self.db_path != ":memory:":
+                        project_folder = self.project_folder(pid)
+                        # IDs are unique; never adopt or overwrite an existing
+                        # folder even if it looks like a legitimate project.
+                        project_folder.mkdir(parents=True, exist_ok=False)
+                        folder_created = True
+                        with (project_folder / "PROJECT.md").open("x", encoding="utf-8") as output:
+                            output.write("# " + title + "\n\n" + brief + "\n")
+            except Exception:
+                if folder_created and project_folder is not None:
+                    (project_folder / "PROJECT.md").unlink(missing_ok=True)
+                    try:
+                        project_folder.rmdir()
+                    except OSError:
+                        pass  # Never remove unexpected user files.
+                raise
             return self.details(pid)
 
     def _new_task(self, project_id, *, title, brief, role, parent_id=None):
