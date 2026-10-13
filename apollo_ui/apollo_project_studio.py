@@ -89,6 +89,13 @@ class StudioStore:
             created_at TEXT NOT NULL,
             FOREIGN KEY(project_id) REFERENCES projects(id)
         );
+        -- Persistent databases created on earlier builds get these indexes
+        -- automatically, without destroying or migrating project records.
+        CREATE INDEX IF NOT EXISTS idx_foundry_tasks_project ON tasks(project_id, id);
+        CREATE INDEX IF NOT EXISTS idx_foundry_tasks_parent ON tasks(parent_id, state);
+        CREATE INDEX IF NOT EXISTS idx_foundry_issues_project ON issues(project_id, id);
+        CREATE INDEX IF NOT EXISTS idx_foundry_events_project ON events(project_id, id);
+        CREATE INDEX IF NOT EXISTS idx_foundry_tests_project_kind ON test_runs(project_id, kind, id);
         """)
         self.conn.commit()
 
