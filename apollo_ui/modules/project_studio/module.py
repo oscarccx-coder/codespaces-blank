@@ -375,10 +375,10 @@ class Module:
                     f"Latest static check: {latest['status'].upper()}  •  "
                     "Runtime UI: NOT TESTED  •  Project code: NOT EXECUTED"
                 )
-                checks_report.setPlainText("\\n".join(
+                checks_report.setPlainText("\n".join(
                     f"[{item['status'].upper()}] {item['check']}: {item['detail']}"
                     for item in latest['checks']
-                ) + "\\n\\n" + latest['note'])
+                ) + "\n\n" + latest['note'])
             else:
                 checks_status.setText("No checks run. Add Python files and foundry.json to the project folder.")
                 checks_report.setPlainText(
