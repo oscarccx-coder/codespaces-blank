@@ -27,6 +27,28 @@ class FoundryWindowTests(unittest.TestCase):
         self.base = Path(self.temp.name)
         (self.base / "config.json").write_text('{"model":"qwen2.5-coder:7b"}')
 
+    def test_sandbox_controls_require_owner_confirmation(self):
+        from PySide6.QtWidgets import QTabWidget, QPushButton, QMessageBox
+        from modules.project_studio.module import Module
+
+        module = Module({"base_dir": self.base})
+        self.addCleanup(module.close)
+        state = module.store.add_project("Safe UI", "Test sandbox controls")
+        panel = module.build_ui()
+        self.addCleanup(panel.close)
+        buttons = {button.text(): button for button in panel.findChildren(QPushButton)}
+        self.assertIn("Run Tests in Sandbox", buttons)
+        self.assertIn("GUI Launch Smoke Test", buttons)
+        self.assertIn("Send Failures to Worker", buttons)
+        tabs = panel.findChild(QTabWidget)
+        self.assertIn("Sandbox Testing", [tabs.tabText(i) for i in range(tabs.count())])
+        with patch.object(QMessageBox, "question", return_value=QMessageBox.No):
+            with patch("apollo_foundry_sandbox.subprocess.run") as runner:
+                buttons["Run Tests in Sandbox"].click()
+                buttons["GUI Launch Smoke Test"].click()
+        runner.assert_not_called()
+        self.assertEqual(module.store.sandbox_history(state["project"]["id"]), [])
+
     def test_trusted_reference_button_calls_backend(self):
         from PySide6.QtWidgets import QWidget, QPushButton
 
