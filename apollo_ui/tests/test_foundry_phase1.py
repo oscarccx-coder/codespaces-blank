@@ -3,6 +3,9 @@ from pathlib import Path
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
+
+from apollo_project_workers import propose_subtasks, validate_subtask_plan
 
 from apollo_foundry_checks import scan_project
 from apollo_project_studio import StudioStore
@@ -54,6 +57,56 @@ class FoundryPhaseOneTests(unittest.TestCase):
         (self.folder / "ui.py").write_text(ui, encoding="utf-8")
         (self.folder / "service.py").write_text(backend, encoding="utf-8")
         (self.folder / "foundry.json").write_text(json.dumps(contract), encoding="utf-8")
+
+    def test_manager_proposal_does_not_create_jobs_until_review(self):
+        before = len(self.store.details(self.project_id)["tasks"])
+        suggestions = [
+            {"title": "Design save workflow", "brief": "Specify API and acceptance checks", "role": "architect"},
+            {"title": "Test button callback", "brief": "Define click-through and failure tests", "role": "tester"},
+        ]
+
+        class Response:
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def read(self, count):
+                return json.dumps({
+                    "response": json.dumps({"tasks": suggestions})
+                }).encode("utf-8")
+
+        class LocalOnly:
+            def open(self, request, timeout):
+                assert request.full_url == "http://127.0.0.1:11434/api/generate"
+                data = json.loads(request.data)
+                assert data["format"] == "json"
+                assert "tools" not in data
+                return Response()
+
+        with patch("apollo_project_workers.urllib.request.build_opener", return_value=LocalOnly()):
+            proposal = propose_subtasks(self.store.details(self.project_id), self.task_id, "qwen2.5-coder:7b")
+
+        self.assertEqual(proposal, suggestions)
+        self.assertEqual(len(self.store.details(self.project_id)["tasks"]), before)
+        accepted = self.store.add_subtasks(self.task_id, proposal)
+        self.assertEqual(len(accepted), 2)
+        self.assertEqual(len(self.store.details(self.project_id)["tasks"]), before + 2)
+        self.assertEqual({entry["parent_id"] for entry in accepted}, {self.task_id})
+
+    def test_manager_plan_invalid_data_rejected_atomically(self):
+        original = len(self.store.details(self.project_id)["tasks"])
+        invalid = [
+            {"title": "One", "brief": "OK", "role": "implementer"},
+            {"title": "Two", "brief": "BAD", "role": "root"},
+        ]
+        with self.assertRaises(ValueError):
+            validate_subtask_plan({"tasks": invalid})
+        with self.assertRaises(ValueError):
+            self.store.add_subtasks(self.task_id, invalid)
+        self.assertEqual(len(self.store.details(self.project_id)["tasks"]), original)
+        with self.assertRaises(ValueError):
+            self.store.add_subtasks(self.task_id, [{"title": "Duplicate", "brief": "x", "role": "tester"}] * 2)
+        self.assertEqual(len(self.store.details(self.project_id)["tasks"]), original)
 
     def test_starter_ui_can_be_checked_without_running_it(self):
         created = self.store.create_starter_ui(self.project_id)
