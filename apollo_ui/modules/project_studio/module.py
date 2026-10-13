@@ -552,6 +552,93 @@ class Module:
             refresh_details()
             QMessageBox.information(page, "Recovery Complete", f"Recovered {count} interrupted job(s).")
 
+        def request_change_action():
+            pid = project_id()
+            if pid is None:
+                return alert("Select an app project first.")
+            tid = task_id()
+            subject = self.store._task(tid)["title"] if tid else "Entire app project"
+            change, ok = QInputDialog.getMultiLineText(
+                page, "Request a Change", f"What would you like changed?\nTarget: {subject}"
+            )
+            if not ok or not change.strip():
+                return
+            try:
+                queued = self.store.request_change(pid, change, tid)
+                refresh_details()
+                tabs.setCurrentWidget(tasks_tab)
+                for idx in range(task_tree.topLevelItemCount()):
+                    node = task_tree.topLevelItem(idx)
+                    if node.data(0, Qt.UserRole) == queued["task_id"]:
+                        task_tree.setCurrentItem(node)
+                        break
+            except (ValueError, KeyError) as exc:
+                alert(exc)
+
+        def run_static_checks_action():
+            pid = project_id()
+            if pid is None:
+                return alert("Select an app project first.")
+            run_checks_btn.setEnabled(False)
+            try:
+                report = self.store.run_checks(pid)
+                refresh_details()
+                tabs.setCurrentWidget(checks_tab)
+                if report["status"] == "failed":
+                    QMessageBox.warning(
+                        page, "Foundry checks found problems",
+                        "UI/code link checks failed. The recorded findings can be "
+                        "sent to an implementer using Request Fix for Failures."
+                    )
+            except (OSError, ValueError, KeyError, UnicodeError) as exc:
+                alert("The test run could not start: " + str(exc))
+            finally:
+                update_actions()
+
+        def request_check_fix_action():
+            pid = project_id()
+            if pid is None:
+                return alert("Select a project first.")
+            history = self.store.check_history(pid, 1)
+            if not history or history[0]["status"] != "failed":
+                return alert("Only a failed, saved check run can create a fix task.")
+            failures = [
+                f"{item['check']}: {item['detail']}"
+                for item in history[0]["report"]["checks"] if item["status"] == "fail"
+            ]
+            instructions = (
+                "Correct these static syntax/UI-to-code check failures:\n"
+                + "\n".join(failures)[:3800]
+                + "\nConfirm the changes with another static check. "
+                  "Do not claim this proves runtime GUI functionality."
+            )
+            if QMessageBox.question(
+                page, "Create Fix Task", "Assign the detected UI/code failures to an implementer?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            ) != QMessageBox.Yes:
+                return
+            try:
+                self.store.request_change(pid, instructions)
+                refresh_details()
+                tabs.setCurrentWidget(tasks_tab)
+            except (ValueError, KeyError) as exc:
+                alert(exc)
+
+        def open_project_folder_action():
+            pid = project_id()
+            if pid is None:
+                return alert("Select a project first.")
+            try:
+                from PySide6.QtCore import QUrl
+                from PySide6.QtGui import QDesktopServices
+                folder = self.store.project_folder(pid)
+                if not folder.is_dir():
+                    raise FileNotFoundError("The saved project folder is missing.")
+                if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder))):
+                    raise RuntimeError("The desktop could not open the project folder.")
+            except (ValueError, OSError, RuntimeError, KeyError) as exc:
+                alert(exc)
+
         def issue_action():
             pid = project_id()
             if pid is None:
@@ -613,6 +700,10 @@ class Module:
         accept_task.clicked.connect(lambda: review_action(True))
         rework_task.clicked.connect(lambda: review_action(False))
         retry_task.clicked.connect(retry_action)
+        change_request.clicked.connect(request_change_action)
+        run_checks_btn.clicked.connect(run_static_checks_action)
+        fix_checks_btn.clicked.connect(request_check_fix_action)
+        show_folder_btn.clicked.connect(open_project_folder_action)
         recover_workers.clicked.connect(recover_action)
         report_bug.clicked.connect(issue_action)
         assign_fix.clicked.connect(lambda: issue_transition(False))
