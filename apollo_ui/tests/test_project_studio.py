@@ -21,6 +21,44 @@ class StudioTests(unittest.TestCase):
         self.pid = state["project"]["id"]
         self.first = state["tasks"][0]["id"]
 
+    def test_project_creation_rolls_back_when_folder_is_reserved(self):
+        # The next project ID is sequential; an attacker-created directory
+        # must not be adopted or overwritten.
+        stolen = self.root / "workspace" / "app_development" / "app-0002-unsafe"
+        stolen.mkdir(parents=True)
+        original = stolen / "PROJECT.md"
+        original.write_text("EXISTING OWNER DATA", encoding="utf-8")
+        before = len(self.store.list_projects())
+        with self.assertRaises(FileExistsError):
+            self.store.add_project("Unsafe", "Do not overwrite")
+        self.assertEqual(original.read_text(encoding="utf-8"), "EXISTING OWNER DATA")
+        self.assertEqual(len(self.store.list_projects()), before)
+
+    def test_task_limit_applies_to_issue_fix_assignment(self):
+        issue = self.store.report_issue(self.pid, "Stop crashing", "A reproducible bug")
+        with patch("apollo_project_studio.MAX_TASKS", 5):
+            with self.assertRaisesRegex(ValueError, "task limit"):
+                self.store.assign_issue(issue["id"])
+        self.assertEqual(self.store.issue(issue["id"])["state"], "open")
+        self.assertEqual(len(self.store.details(self.pid)["tasks"]), 5)
+
+    def test_subtasks_cannot_be_added_to_active_worker(self):
+        self.store.start_task(self.first)
+        with self.assertRaisesRegex(ValueError, "not-started"):
+            self.store.add_subtask(self.first, "Late plan", "This should be rejected", "tester")
+
+    def test_issue_closure_does_not_repeat_or_change_approved_projects(self):
+        issue = self.store.report_issue(self.pid, "Fix", "Review first")
+        assigned = self.store.assign_issue(issue["id"])
+        with self.assertRaisesRegex(ValueError, "reviewer"):
+            self.store.close_issue(issue["id"])
+        self.store.start_task(assigned["id"])
+        self.store.submit_task(assigned["id"], "Draft", "Tested")
+        self.store.review_task(assigned["id"], True, "Accepted")
+        self.store.close_issue(issue["id"])
+        with self.assertRaisesRegex(ValueError, "Only assigned"):
+            self.store.close_issue(issue["id"])
+
     def test_projects_and_workspaces_persist(self):
         saved = self.store.details(self.pid)
         self.assertEqual(len(saved["tasks"]), 5)
@@ -68,7 +106,7 @@ class StudioTests(unittest.TestCase):
 
     def test_rework_and_issue_closure_need_real_review(self):
         issue = self.store.report_issue(self.pid, "Crashes on start", "Reproduce failed launch in sandbox")
-        with self.assertRaisesRegex(ValueError, "reviewer"):
+        with self.assertRaisesRegex(ValueError, "Only assigned"):
             self.store.close_issue(issue["id"])
         fix = self.store.assign_issue(issue["id"])
         self.assertEqual(fix["role"], "implementer")
