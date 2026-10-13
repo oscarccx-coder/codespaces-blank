@@ -638,8 +638,10 @@ class Module:
             except (ValueError, KeyError) as exc:
                 alert(exc)
             finally:
-                refresh_details()
+                # The finished job must leave the active queue before UI state
+                # is derived, otherwise subsequent worker buttons stay disabled.
                 active_jobs[:] = [x for x in active_jobs if x[0] != tid]
+                refresh_details()
 
         def draft_action():
             tid, pid = task_id(), project_id()
