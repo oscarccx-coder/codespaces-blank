@@ -1,7 +1,7 @@
 # Apollo Foundry — Phase 1 test candidate
 
 **Product name:** Apollo Foundry
-**Developer module identifier:** \`project_studio\` (kept for update compatibility)
+**Developer module identifier:** `project_studio` (kept for update compatibility)
 **Stage:** Apollo Build 8 alpha, Foundry Phase 1 internal test candidate.
 **Not:** A stable beta release, a code execution sandbox, or an autonomous software company.
 
@@ -11,7 +11,7 @@ In **Home → Open Apollo Foundry**, create or select an application project.
 Each new project gets initial Architect, Implementer, Tester, Reviewer and
 Integrator jobs, with optional Manager-assigned subtasks. These jobs are
 stored in local SQLite and app files stay under
-\`workspace/app_development/app-<id>-<slug>\`.
+`workspace/app_development/app-<id>-<slug>`.
 
 ### Revise work by saying "change this"
 
@@ -30,7 +30,7 @@ From the Foundry Tasks & Workers tab:
 7. If the app was previously approved, **Reopen Project** explicitly first.
 
 From normal **Apollo Chat**, the coding module exposes the tool
-\`queue_app_change(project_id,request,task_id?)\`. An exact project ID is
+`queue_app_change(project_id,request,task_id?)`. An exact project ID is
 required, so requests cannot silently affect the wrong app. This tool only
 queues a change; it cannot execute a worker, modify project source files,
 run tests, approve changes or deploy anything. Chat routing depends on
@@ -61,18 +61,18 @@ later real sandbox, restricted permissions and a human opt-in.
 Place these files in the app project folder (you may use
 **Open Project Folder** in the test tab):
 
-\`service.py\`:
-\`\`\`python
+`service.py`:
+```python
 class AppService:
     def __init__(self):
         self.saved = 0
 
     def save(self):
         self.saved += 1
-\`\`\`
+```
 
-\`ui.py\`:
-\`\`\`python
+`ui.py`:
+```python
 from PySide6.QtWidgets import QWidget, QPushButton
 
 class AppWindow(QWidget):
@@ -84,10 +84,10 @@ class AppWindow(QWidget):
 
     def on_save(self):
         self.backend.save()
-\`\`\`
+```
 
-\`foundry.json\`:
-\`\`\`json
+`foundry.json`:
+```json
 {
   "schema_version": 1,
   "ui": {
@@ -106,7 +106,7 @@ class AppWindow(QWidget):
     ]
   }
 }
-\`\`\`
+```
 
 **How it works:** selecting **Run UI & Code Checks** validates the declared
 source wiring without importing the app, importing PySide6, executing its
@@ -136,10 +136,10 @@ app briefs, voice assets, medical records or project databases.
 | Bad wiring | Missing connect/callback/backend produces FAILED |
 | Malformed source | Syntax error produces FAILED, not a crash |
 | Untrusted source | Source top-level code is never imported or executed |
-| Path traversal | References to \`../...\` rejected |
+| Path traversal | References to `../...` rejected |
 | Symlink | Workspace symlink rejected |
 | Revisions | "Change this…" records target task and editable implementer job |
-| Chat | \`queue_app_change\` requires project ID and cannot run code |
+| Chat | `queue_app_change` requires project ID and cannot run code |
 | Failed checks | Owner can queue a fix ticket with recorded findings |
 | Worker failure | Interrupted worker can be marked blocked and manually retried |
 | Review gate | No AI tool can approve project, deploy or execute generated code |
@@ -154,7 +154,7 @@ app briefs, voice assets, medical records or project databases.
 - [ ] Real Windows PC manual GUI test with the configured Ollama model.
 - [ ] Create project; launch Foundry; draft/accept/revise; close and reopen
   Apollo; confirm no lost data.
-- [ ] Put the sample \`ui.py\`, \`service.py\` and \`foundry.json\` in a new
+- [ ] Put the sample `ui.py`, `service.py` and `foundry.json` in a new
   project folder; run checks and inspect PASS.
 - [ ] Deliberately remove the signal hookup; rerun and inspect FAIL.
 - [ ] Press Request Fix for Failures; confirm assigned job and issue.
