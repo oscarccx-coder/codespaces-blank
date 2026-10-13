@@ -8,6 +8,7 @@ from __future__ import annotations
 import ast
 from datetime import datetime, timezone
 import json
+from itertools import islice
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 MAX_SOURCE_FILES = 60
@@ -104,7 +105,7 @@ def scan_project(folder: Path) -> dict:
 
     if not folder.is_dir():
         raise ValueError("Project folder does not exist")
-    paths = list(folder.rglob("*"))
+    paths = list(islice(folder.rglob("*"), 351))
     if len(paths) > 350:
         raise ValueError("Project contains too many paths for a quick scan")
     if any(p.is_symlink() for p in paths):
@@ -173,6 +174,12 @@ def scan_project(folder: Path) -> dict:
                     if field != "backend_file":
                         raise ValueError(f"Binding {idx}: invalid {field}")
             widget, signal, handler = (binding[x] for x in ("widget", "signal", "handler"))
+            if not _has_widget(cls, binding["backend_attribute"]):
+                add(f"backend-object:{idx}", "fail",
+                    f"UI does not assign self.{binding['backend_attribute']}")
+            else:
+                add(f"backend-object:{idx}", "pass",
+                    f"UI assigns self.{binding['backend_attribute']}")
             if not _has_widget(cls, widget):
                 add(f"widget:{idx}", "fail", f"UI widget self.{widget} is not declared")
             else:
