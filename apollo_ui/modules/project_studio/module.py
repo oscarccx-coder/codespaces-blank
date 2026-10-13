@@ -124,13 +124,13 @@ class Module:
         outer = QVBoxLayout(page)
         outer.setContentsMargins(16, 14, 16, 14)
         outer.setSpacing(10)
-        heading = QLabel("Apollo Foundry  •  Phase 1")
+        heading = QLabel("Apollo Foundry  •  Sandbox Alpha")
         heading.setStyleSheet("font-size:24px;font-weight:700;")
         page.setObjectName("projectStudioPage")
         outer.addWidget(heading)
         summary = QLabel(
             "Plan apps, assign specialists, request changes and check UI-to-code links. "
-            "Phase 1 runs safe static checks. Generated code does not execute or publish automatically."
+            "Static checks and optional isolated Docker tests. No generated code executes, installs, or publishes without your approval."
         )
         summary.setWordWrap(True)
         outer.addWidget(summary)
