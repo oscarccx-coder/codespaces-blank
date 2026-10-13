@@ -144,7 +144,7 @@ class StudioTests(unittest.TestCase):
         try:
             self.assertTrue(module.self_test())
             names = {t["name"] for t in module.tools()}
-            self.assertEqual(names, {"list_app_projects", "app_project_status"})
+            self.assertEqual(names, {"list_app_projects", "app_project_status", "queue_app_change"})
             with self.assertRaises(KeyError):
                 module.run("approve_project", {"project_id": 1})
         finally:
