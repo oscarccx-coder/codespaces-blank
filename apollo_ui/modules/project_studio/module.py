@@ -87,6 +87,23 @@ class Module:
                 except Exception as error:
                     self.signals.finished.emit(self.item, "", f"{type(error).__name__}: {error}")
 
+        class SandboxJob(QRunnable):
+            def __init__(self, project_id, kind, store, signals):
+                super().__init__()
+                self.project_id = project_id
+                self.kind = kind
+                self.store = store
+                self.signals = signals
+
+            def run(self):
+                try:
+                    report = self.store.run_sandbox_tests(self.project_id, self.kind)
+                    self.signals.finished.emit(self.project_id, json.dumps(report), "")
+                except Exception as error:
+                    self.signals.finished.emit(
+                        self.project_id, "", f"{type(error).__name__}: {error}"
+                    )
+
         class PlanJob(QRunnable):
             def __init__(self, item, state, model, signals):
                 super().__init__()
@@ -235,6 +252,31 @@ class Module:
         checks_layout.addWidget(checks_report, 1)
         tabs.addTab(checks_tab, "UI & Code Tests")
 
+        sandbox_tab = QWidget()
+        sandbox_layout = QVBoxLayout(sandbox_tab)
+        sandbox_intro = QLabel(
+            "Run generated project code only inside an isolated Docker container. "
+            "No network, read-only app snapshot, bounded memory/CPU, no direct host Python fallback. "
+            "Requires Docker Desktop and preinstalled trusted images."
+        )
+        sandbox_intro.setWordWrap(True)
+        sandbox_layout.addWidget(sandbox_intro)
+        sandbox_buttons = QHBoxLayout()
+        sandbox_unit = QPushButton("Run Tests in Sandbox")
+        sandbox_gui = QPushButton("GUI Launch Smoke Test")
+        sandbox_fix = QPushButton("Send Failures to Worker")
+        for button in (sandbox_unit, sandbox_gui, sandbox_fix):
+            sandbox_buttons.addWidget(button)
+        sandbox_layout.addLayout(sandbox_buttons)
+        sandbox_status = QLabel("No sandbox run recorded for this project.")
+        sandbox_status.setWordWrap(True)
+        sandbox_layout.addWidget(sandbox_status)
+        sandbox_report = QPlainTextEdit()
+        sandbox_report.setReadOnly(True)
+        sandbox_report.setAccessibleName("Isolated Foundry runtime test report")
+        sandbox_layout.addWidget(sandbox_report, 1)
+        tabs.addTab(sandbox_tab, "Sandbox Testing")
+
         history_tab = QWidget()
         history_layout = QVBoxLayout(history_tab)
         timeline = QPlainTextEdit()
@@ -266,6 +308,9 @@ class Module:
             (retry_task, "Reopen an accepted, blocked or reviewed task for another attempt."),
             (assign_fix, "Create an implementation task from the selected open issue."),
             (resolve_bug, "Close an issue only after its fix task is accepted."),
+            (sandbox_unit, "Run project's unittest discovery inside a locked-down Docker container."),
+            (sandbox_gui, "Start launch.py in a PySide6 Docker image and check for early startup failure; no GUI interactions are verified."),
+            (sandbox_fix, "Queue failures from the last sandbox run as a human-reviewable fix task."),
         ):
             button.setToolTip(tip)
 
@@ -318,7 +363,8 @@ class Module:
                 for control in (add_subtask, change_request, plan_subtasks, start_worker, accept_task,
                                 rework_task, retry_task, report_bug, assign_fix, resolve_bug,
                                 approve_project, reopen_project, recover_workers,
-                                starter_btn, run_checks_btn, fix_checks_btn, show_folder_btn):
+                                starter_btn, run_checks_btn, fix_checks_btn, show_folder_btn,
+                                sandbox_unit, sandbox_gui, sandbox_fix):
                     control.setEnabled(False)
                 return
             state = self.store.details(pid)
@@ -337,6 +383,15 @@ class Module:
             starter_btn.setEnabled(state["project"]["state"] != "approved")
             run_checks_btn.setEnabled(True)
             show_folder_btn.setEnabled(True)
+            sandbox_unit.setEnabled(not active_jobs)
+            sandbox_gui.setEnabled(not active_jobs)
+            sandbox_runs = self.store.sandbox_history(pid, 1)
+            sandbox_fix.setEnabled(
+                state["project"]["state"] != "approved"
+                and bool(sandbox_runs)
+                and sandbox_runs[0]["status"] in ("failed", "timeout")
+                and not active_jobs
+            )
             recent_checks = self.store.check_history(pid, 1)
             fix_checks_btn.setEnabled(
                 state["project"]["state"] != "approved"
@@ -379,6 +434,8 @@ class Module:
                 completion.setValue(0)
                 checks_status.setText("Select an app project to see its test results.")
                 checks_report.clear()
+                sandbox_status.setText("Select a project to see sandbox test results.")
+                sandbox_report.clear()
                 result_text.clear()
                 task_tree.blockSignals(False)
                 issue_table.blockSignals(False)
@@ -414,6 +471,27 @@ class Module:
                     "Phase 1 checks Python syntax and declared UI-to-backend signals. "
                     "A green result is not proof that your generated app can launch. "
                     "Use the reference contract format from Foundry documentation."
+                )
+            recent_sandbox = self.store.sandbox_history(pid, 1)
+            if recent_sandbox:
+                recent = recent_sandbox[0]["report"]
+                sandbox_status.setText(
+                    f"{recent['kind']}: {recent['status'].upper()}  •  "
+                    f"Code executed: {'YES, in Docker' if recent.get('executed_project_code') else 'NO'}"
+                )
+                sandbox_report.setPlainText(
+                    f"Date: {recent['created_at']}\n"
+                    f"Image: {recent.get('image', 'not available')}\n"
+                    f"Reason: {recent.get('reason', '')}\n"
+                    f"GUI interactions verified: {'YES' if recent.get('passed_ui_interactions') else 'NO'}\n\n"
+                    + recent.get("output", "")
+                )
+            else:
+                sandbox_status.setText("No isolated test has run. Docker Desktop and approved images are required.")
+                sandbox_report.setPlainText(
+                    "Run Tests in Sandbox uses Python unittest tests. "
+                    "GUI Launch Smoke Test checks whether launch.py stays alive for three seconds. "
+                    "Neither test grants generated code access to Apollo's files or network."
                 )
             nodes = {}
             for task in state["tasks"]:
