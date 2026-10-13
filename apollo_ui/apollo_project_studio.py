@@ -472,9 +472,9 @@ class StudioStore:
                 self._event(project["id"], None, "test",
                             f"Static UI check: {report['status']} (not a runtime GUI test)")
                 self.conn.execute(
-                    "DELETE FROM test_runs WHERE project_id=? AND id NOT IN "
-                    "(SELECT id FROM test_runs WHERE project_id=? ORDER BY id DESC LIMIT 30)",
-                    (project["id"], project["id"]),
+                    "DELETE FROM test_runs WHERE project_id=? AND kind=? AND id NOT IN "
+                    "(SELECT id FROM test_runs WHERE project_id=? AND kind=? ORDER BY id DESC LIMIT 30)",
+                    (project["id"], report["kind"], project["id"], report["kind"]),
                 )
             return report
 
@@ -483,7 +483,47 @@ class StudioStore:
             self._project(project_id)
             rows = self.conn.execute(
                 "SELECT id,status,kind,created_at,report FROM test_runs "
-                "WHERE project_id=? ORDER BY id DESC LIMIT ?",
+                "WHERE project_id=? AND kind='static-ui-contract' ORDER BY id DESC LIMIT ?",
+                (int(project_id), min(30, max(1, int(limit)))),
+            ).fetchall()
+            return [
+                {**{k: row[k] for k in ("id", "status", "kind", "created_at")},
+                 "report": json.loads(row["report"])}
+                for row in rows
+            ]
+
+    def run_sandbox_tests(self, project_id, kind, *, docker_bin=None):
+        """Owner-initiated container execution, with persistent auditable report."""
+        from apollo_foundry_sandbox import run_sandbox
+        if kind not in ("unit", "gui"):
+            raise ValueError("Sandbox test type must be unit or gui.")
+        with self.lock:
+            project = self._project(project_id)
+            folder = self.project_folder(project_id)
+        # Do NOT keep the DB mutex through a long-running Docker job.
+        report = run_sandbox(folder, kind, docker_bin=docker_bin)
+        with self.lock, self.conn:
+            self.conn.execute(
+                "INSERT INTO test_runs(project_id,status,kind,report,created_at) VALUES(?,?,?,?,?)",
+                (project["id"], report["status"], report["kind"],
+                 json.dumps(report, ensure_ascii=False), utcnow()),
+            )
+            self._event(project["id"], None, "sandbox",
+                        f"Docker {kind} test: {report['status']} (report saved)")
+            self.conn.execute(
+                "DELETE FROM test_runs WHERE project_id=? AND kind=? AND id NOT IN "
+                "(SELECT id FROM test_runs WHERE project_id=? AND kind=? ORDER BY id DESC LIMIT 30)",
+                (project["id"], report["kind"], project["id"], report["kind"]),
+            )
+        return report
+
+    def sandbox_history(self, project_id, limit=10):
+        with self.lock:
+            self._project(project_id)
+            rows = self.conn.execute(
+                "SELECT id,status,kind,created_at,report FROM test_runs "
+                "WHERE project_id=? AND kind IN ('docker-unit','docker-gui') "
+                "ORDER BY id DESC LIMIT ?",
                 (int(project_id), min(30, max(1, int(limit)))),
             ).fetchall()
             return [
