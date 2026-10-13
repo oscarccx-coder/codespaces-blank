@@ -55,6 +55,22 @@ class FoundryPhaseOneTests(unittest.TestCase):
         (self.folder / "service.py").write_text(backend, encoding="utf-8")
         (self.folder / "foundry.json").write_text(json.dumps(contract), encoding="utf-8")
 
+    def test_starter_ui_can_be_checked_without_running_it(self):
+        created = self.store.create_starter_ui(self.project_id)
+        self.assertEqual(set(created["files"]), {"ui.py", "service.py", "foundry.json", "launch.py"})
+        self.assertFalse(created["executed"])
+        report = self.store.run_checks(self.project_id)
+        self.assertEqual(report["status"], "passed", report["checks"])
+        self.assertFalse(report["verified_runtime_ui"])
+        self.assertFalse(report["executed_project_code"])
+
+    def test_starter_never_overwrites_existing_user_code(self):
+        (self.folder / "ui.py").write_text("KEEP USER SOURCE")
+        with self.assertRaises(FileExistsError):
+            self.store.create_starter_ui(self.project_id)
+        self.assertEqual((self.folder / "ui.py").read_text(), "KEEP USER SOURCE")
+        self.assertFalse((self.folder / "foundry.json").exists())
+
     def test_no_code_is_not_green(self):
         result = self.store.run_checks(self.project_id)
         self.assertEqual(result["status"], "incomplete")
