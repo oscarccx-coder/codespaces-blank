@@ -1,13 +1,13 @@
 {
   "id": "project_studio",
-  "name": "Apollo Project Studio",
-  "version": "0.1.0",
+  "name": "Apollo Foundry",
+  "version": "0.2.0",
   "entrypoint": "module.py",
   "class": "Module",
-  "description": "Local app-development projects with reviewable AI worker drafts, task/subtask assignments, reopenable bugs and manual approvals. Generated code is never executed.",
+  "description": "Phase 1 coding group: persistent AI worker drafts, reviewable change requests, saved static UI-to-backend checks, and explicit owner approval. Generated apps are not executed automatically.",
   "ui": {
     "enabled": true,
-    "title": "Project Studio",
+    "title": "Foundry",
     "default_placement": "apps"
   }
 }
