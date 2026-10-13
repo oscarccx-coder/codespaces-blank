@@ -36,6 +36,20 @@ queues a change; it cannot execute a worker, modify project source files,
 run tests, approve changes or deploy anything. Chat routing depends on
 existing Apollo tool catalog and local model support.
 
+### Manager proposes the task breakdown
+
+Select a **not-started top-level task** in **Tasks & Workers**, then choose
+**Manager: Plan Subtasks**. The local Ollama model drafts up to eight subtasks
+with specialist roles and acceptance instructions. Foundry shows the
+proposal as editable JSON in a confirmation dialog. You can modify or cancel
+it; only after explicit acceptance are the subtasks written together to the
+local project database. Invalid roles, duplicates, excessive task counts and
+malformed responses are rejected without partially inserting jobs.
+
+This is **one owner-initiated planning request**, not a continuous independent
+coding company. Worker source changes still require a review and a future
+sandboxed execution/test subsystem.
+
 ### UI & Code Tests tab
 
 This is Foundry's safe **Phase 1 static test runner**. It inspects only
