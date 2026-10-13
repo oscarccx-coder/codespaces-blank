@@ -3,10 +3,13 @@
 Workers generate drafts in a bounded background thread; only the owner can
 accept tasks, close issues or approve projects. No draft is ever executed.
 """
+import json
 from pathlib import Path
 
 from apollo_project_studio import StudioStore
-from apollo_project_workers import draft_for_task, model_from_config
+from apollo_project_workers import (
+    draft_for_task, model_from_config, propose_subtasks, validate_subtask_plan
+)
 from project_studio_view_model import project_metrics, task_actions, issue_actions
 
 
@@ -84,6 +87,22 @@ class Module:
                 except Exception as error:
                     self.signals.finished.emit(self.item, "", f"{type(error).__name__}: {error}")
 
+        class PlanJob(QRunnable):
+            def __init__(self, item, state, model, signals):
+                super().__init__()
+                self.item = item
+                self.state = state
+                self.model = model
+                self.signals = signals
+
+            def run(self):
+                try:
+                    tasks = propose_subtasks(self.state, self.item, self.model)
+                    proposal = json.dumps({"tasks": tasks}, indent=2)
+                    self.signals.finished.emit(self.item, proposal, "")
+                except Exception as error:
+                    self.signals.finished.emit(self.item, "", f"{type(error).__name__}: {error}")
+
         page = QWidget(parent)
         outer = QVBoxLayout(page)
         outer.setContentsMargins(16, 14, 16, 14)
@@ -152,12 +171,13 @@ class Module:
         task_buttons.setVerticalSpacing(6)
         add_subtask = QPushButton("+ Subtask")
         change_request = QPushButton("Change this…")
+        plan_subtasks = QPushButton("Manager: Plan Subtasks")
         start_worker = QPushButton("Draft with Local AI")
         accept_task = QPushButton("Accept Draft")
         rework_task = QPushButton("Request Changes")
         retry_task = QPushButton("Retry / Reopen")
-        for index, button in enumerate((add_subtask, change_request, start_worker,
-                                         accept_task, rework_task, retry_task)):
+        for index, button in enumerate((add_subtask, plan_subtasks, change_request,
+                                         start_worker, accept_task, rework_task, retry_task)):
             task_buttons.addWidget(button, index // 3, index % 3)
         tasks_layout.addLayout(task_buttons)
         task_tree = QTreeWidget()
@@ -236,6 +256,7 @@ class Module:
         active_jobs = []
         for button, tip in (
             (change_request, "Request a change for this task, or the whole project if no task is selected."),
+            (plan_subtasks, "Ask the local AI manager to propose editable subtasks. Nothing is queued until you approve."),
             (run_checks_btn, "Check syntax and declared UI/backend links without executing project code."),
             (starter_btn, "Create a sample Qt app with a working save button and backend. Never overwrite files."),
             (fix_checks_btn, "Turn failed static checks into a reviewable implementation task."),
@@ -294,7 +315,7 @@ class Module:
             """Contextual buttons stay disabled until there is a valid choice."""
             pid = project_id()
             if pid is None:
-                for control in (add_subtask, change_request, start_worker, accept_task,
+                for control in (add_subtask, change_request, plan_subtasks, start_worker, accept_task,
                                 rework_task, retry_task, report_bug, assign_fix, resolve_bug,
                                 approve_project, reopen_project, recover_workers,
                                 starter_btn, run_checks_btn, fix_checks_btn, show_folder_btn):
@@ -308,6 +329,11 @@ class Module:
                                    (retry_task, "retry")):
                 button.setEnabled(choices[action])
             change_request.setEnabled(state["project"]["state"] != "approved")
+            plan_subtasks.setEnabled(
+                state["project"]["state"] != "approved" and not active_jobs
+                and selected_task is not None and selected_task["parent_id"] is None
+                and selected_task["state"] == "todo"
+            )
             starter_btn.setEnabled(state["project"]["state"] != "approved")
             run_checks_btn.setEnabled(True)
             show_folder_btn.setEnabled(True)
