@@ -23,6 +23,7 @@ MAX_TOTAL_BYTES = 5 * 1024 * 1024
 ALLOWED_EXTENSIONS = {".py", ".json", ".toml", ".txt", ".md", ".yaml", ".yml", ".qss", ".png", ".svg", ".ico"}
 SKIP_DIRS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", "node_modules", ".mypy_cache", "storage", "secrets"}
 OUTPUT_LIMIT = 15000
+MAX_LOG_BYTES = 256 * 1024
 RUN_TIMEOUTS = {"unit": 45, "gui": 18}
 
 # Only launch.py from the private project snapshot is started, by the Docker image.
@@ -113,7 +114,10 @@ def _make_snapshot(src: Path, dest: Path):
             out = dest / relative
             out.parent.mkdir(parents=True, exist_ok=True)
             with f.open("rb") as read, out.open("xb") as write:
-                shutil.copyfileobj(read, write, MAX_FILE_BYTES + 1)
+                payload = read.read(MAX_FILE_BYTES + 1)
+                if len(payload) > MAX_FILE_BYTES:
+                    raise ValueError("Project file changed or grew beyond snapshot budget")
+                write.write(payload)
             out.chmod(0o644)
     return count
 
@@ -139,6 +143,70 @@ def _container_args(binary, container_name, snapshot, kind):
     else:
         args.extend(["python", "-B", "-c", _GUI_SMOKE])
     return args
+
+
+def _force_remove(binary, name):
+    """Only remove the exact randomly named Foundry container."""
+    try:
+        command = subprocess.run(
+            [binary, "rm", "-f", name], stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=8, check=False,
+        )
+        return command.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def _execute_bounded(argv, binary, name, timeout):
+    """Run Docker with capped on-disk output, never an unlimited RAM pipe."""
+    with tempfile.TemporaryFile() as output:
+        proc = subprocess.Popen(
+            argv, stdin=subprocess.DEVNULL,
+            stdout=output, stderr=subprocess.STDOUT,
+        )
+        expires = time.monotonic() + timeout
+        timed_out = False
+        overflow = False
+        cleanup_ok = None
+        try:
+            while proc.poll() is None:
+                size = os.fstat(output.fileno()).st_size
+                if size > MAX_LOG_BYTES:
+                    overflow = True
+                    break
+                if time.monotonic() >= expires:
+                    timed_out = True
+                    break
+                time.sleep(0.05)
+            if os.fstat(output.fileno()).st_size > MAX_LOG_BYTES:
+                overflow = True
+            if timed_out or overflow:
+                cleanup_ok = _force_remove(binary, name)
+                if proc.poll() is None:
+                    proc.kill()
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+        finally:
+            if proc.poll() is None:
+                cleanup_ok = _force_remove(binary, name)
+                proc.kill()
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    pass
+        size = os.fstat(output.fileno()).st_size
+        output.seek(max(0, size - OUTPUT_LIMIT))
+        text = output.read(OUTPUT_LIMIT).decode("utf-8", "replace")
+        return {
+            "returncode": proc.returncode,
+            "output": text,
+            "timeout": timed_out,
+            "overflow": overflow,
+            "cleanup_ok": cleanup_ok,
+        }
 
 
 def run_sandbox(project_folder, kind, *, docker_bin=None):
@@ -173,38 +241,31 @@ def run_sandbox(project_folder, kind, *, docker_bin=None):
         _make_snapshot(src, snapshot)
         name = "apollo-foundry-" + secrets.token_hex(7)
         argv = _container_args(binary, name, str(snapshot.resolve()), kind)
-        # Output is bounded after the process ends. Docker itself caps memory
-        # and CPU; timeout kills and forcibly removes the named container.
+        # A file-backed log is polled while Docker runs. A generated app
+        # cannot consume unlimited Apollo RAM by flooding stdout.
         try:
-            proc = subprocess.run(
-                argv, stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                errors="replace", timeout=RUN_TIMEOUTS[kind], check=False,
-            )
-            status = "passed" if proc.returncode == 0 else "failed"
-            if kind == "unit" and "Ran 0 tests" in (proc.stderr or ""):
-                status = "incomplete"
-            stdout = (proc.stdout or "")[-OUTPUT_LIMIT//2:]
-            stderr = (proc.stderr or "")[-OUTPUT_LIMIT//2:]
+            proc = _execute_bounded(argv, binary, name, RUN_TIMEOUTS[kind])
+            code = proc["returncode"]
+            if proc["timeout"]:
+                status, reason = "timeout", "Container exceeded its time limit"
+            elif proc["overflow"]:
+                status, reason = "failed", "Test log output exceeded the bounded output quota"
+            elif code == 0:
+                status, reason = "passed", "Docker test process completed successfully"
+            elif code in (125, 126, 127):
+                status, reason = "unavailable", f"Docker could not start the test (exit {code})"
+            else:
+                status, reason = "failed", f"Isolated test exited with code {code}"
+            if kind == "unit" and "Ran 0 tests" in proc["output"]:
+                status, reason = "incomplete", "No tests were discovered"
+            if proc["cleanup_ok"] is False:
+                reason += ". Warning: Docker container cleanup could not be confirmed."
             return {
-                **base, "status": status, "reason": f"Docker exited with code {proc.returncode}",
-                "executed_project_code": proc.returncode not in (125, 126, 127),
-                "output": (stdout + "\n" + stderr)[-OUTPUT_LIMIT:],
+                **base, "status": status, "reason": reason,
+                "executed_project_code": code not in (125, 126, 127)
+                and (code is not None or proc["timeout"] or proc["overflow"]),
+                "output": proc["output"],
                 "duration_seconds": round(time.monotonic()-start, 2),
-            }
-        except subprocess.TimeoutExpired as error:
-            try:
-                subprocess.run(
-                    [binary, "rm", "-f", name], timeout=8, check=False,
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    stdin=subprocess.DEVNULL,
-                )
-            except (OSError, subprocess.TimeoutExpired):
-                pass
-            return {
-                **base, "status": "timeout", "reason": "Container runtime limit exceeded; cleanup attempted",
-                "executed_project_code": True,
-                "duration_seconds": round(time.monotonic()-start, 2),
-                "output": (str(error.stderr or "") + str(error.stdout or ""))[-OUTPUT_LIMIT:],
             }
         except OSError as error:
             return {
