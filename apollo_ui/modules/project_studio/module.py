@@ -88,14 +88,13 @@ class Module:
         outer = QVBoxLayout(page)
         outer.setContentsMargins(16, 14, 16, 14)
         outer.setSpacing(10)
-        heading = QLabel("Project Studio")
+        heading = QLabel("Apollo Foundry  •  Phase 1")
         heading.setStyleSheet("font-size:24px;font-weight:700;")
         page.setObjectName("projectStudioPage")
         outer.addWidget(heading)
         summary = QLabel(
-            "Build apps with specialist AI drafts. Create a project, divide it into tasks, "
-            "assign a worker, review the result and reopen bugs. "
-            "No generated code executes, installs or publishes without your approval."
+            "Plan apps, assign specialists, request changes and check UI-to-code links. "
+            "Phase 1 runs safe static checks. Generated code does not execute or publish automatically."
         )
         summary.setWordWrap(True)
         outer.addWidget(summary)
@@ -152,11 +151,13 @@ class Module:
         task_buttons.setHorizontalSpacing(8)
         task_buttons.setVerticalSpacing(6)
         add_subtask = QPushButton("+ Subtask")
+        change_request = QPushButton("Change this…")
         start_worker = QPushButton("Draft with Local AI")
         accept_task = QPushButton("Accept Draft")
         rework_task = QPushButton("Request Changes")
         retry_task = QPushButton("Retry / Reopen")
-        for index, button in enumerate((add_subtask, start_worker, accept_task, rework_task, retry_task)):
+        for index, button in enumerate((add_subtask, change_request, start_worker,
+                                         accept_task, rework_task, retry_task)):
             task_buttons.addWidget(button, index // 3, index % 3)
         tasks_layout.addLayout(task_buttons)
         task_tree = QTreeWidget()
@@ -190,6 +191,29 @@ class Module:
         bugs_layout.addWidget(issue_table)
         tabs.addTab(bugs_tab, "Issues & Rework")
 
+        checks_tab = QWidget()
+        checks_layout = QVBoxLayout(checks_tab)
+        checks_intro = QLabel("Static checks: Python syntax, UI buttons, signals, handlers and backend links. "
+                              "These checks DO NOT launch generated software. A real GUI test remains required.")
+        checks_intro.setWordWrap(True)
+        checks_layout.addWidget(checks_intro)
+        checks_buttons = QHBoxLayout()
+        run_checks_btn = QPushButton("Run UI & Code Checks")
+        run_checks_btn.setObjectName("primaryAction")
+        fix_checks_btn = QPushButton("Request Fix for Failures")
+        show_folder_btn = QPushButton("Open Project Folder")
+        for button in (run_checks_btn, fix_checks_btn, show_folder_btn):
+            checks_buttons.addWidget(button)
+        checks_layout.addLayout(checks_buttons)
+        checks_status = QLabel("No checks run. Add code and foundry.json, then run checks.")
+        checks_status.setWordWrap(True)
+        checks_layout.addWidget(checks_status)
+        checks_report = QPlainTextEdit()
+        checks_report.setReadOnly(True)
+        checks_report.setAccessibleName("Stored static project check report")
+        checks_layout.addWidget(checks_report, 1)
+        tabs.addTab(checks_tab, "UI & Code Tests")
+
         history_tab = QWidget()
         history_layout = QVBoxLayout(history_tab)
         timeline = QPlainTextEdit()
@@ -210,6 +234,9 @@ class Module:
 
         active_jobs = []
         for button, tip in (
+            (change_request, "Request a change for this task, or the whole project if no task is selected."),
+            (run_checks_btn, "Check syntax and declared UI/backend links without executing project code."),
+            (fix_checks_btn, "Turn failed static checks into a reviewable implementation task."),
             (start_worker, "Ask the local model for a draft. It cannot execute generated code."),
             (accept_task, "Only a submitted draft can be accepted after your review."),
             (rework_task, "Send a submitted draft back for corrections."),
@@ -265,9 +292,10 @@ class Module:
             """Contextual buttons stay disabled until there is a valid choice."""
             pid = project_id()
             if pid is None:
-                for control in (add_subtask, start_worker, accept_task, rework_task,
-                                retry_task, report_bug, assign_fix, resolve_bug,
-                                approve_project, reopen_project, recover_workers):
+                for control in (add_subtask, change_request, start_worker, accept_task,
+                                rework_task, retry_task, report_bug, assign_fix, resolve_bug,
+                                approve_project, reopen_project, recover_workers,
+                                run_checks_btn, fix_checks_btn, show_folder_btn):
                     control.setEnabled(False)
                 return
             state = self.store.details(pid)
@@ -277,6 +305,15 @@ class Module:
                                    (accept_task, "accept"), (rework_task, "rework"),
                                    (retry_task, "retry")):
                 button.setEnabled(choices[action])
+            change_request.setEnabled(state["project"]["state"] != "approved")
+            run_checks_btn.setEnabled(True)
+            show_folder_btn.setEnabled(True)
+            recent_checks = self.store.check_history(pid, 1)
+            fix_checks_btn.setEnabled(
+                state["project"]["state"] != "approved"
+                and bool(recent_checks)
+                and recent_checks[0]["status"] == "failed"
+            )
             report_bug.setEnabled(state["project"]["state"] != "approved")
             selected_issue = next((i for i in state["issues"] if i["id"] == issue_id()), None)
             issue_choices = issue_actions(selected_issue, state)
@@ -311,6 +348,8 @@ class Module:
                 path_label.setText("Projects stay on this computer.")
                 overview.setText("Create a project to assign tasks, review drafts and track fixes.")
                 completion.setValue(0)
+                checks_status.setText("Select an app project to see its test results.")
+                checks_report.clear()
                 result_text.clear()
                 task_tree.blockSignals(False)
                 issue_table.blockSignals(False)
@@ -329,6 +368,24 @@ class Module:
                 f"   •   {metrics['open_issues']} open issues"
             )
             completion.setValue(metrics["percent"])
+            recent_checks = self.store.check_history(pid, 1)
+            if recent_checks:
+                latest = recent_checks[0]["report"]
+                checks_status.setText(
+                    f"Latest static check: {latest['status'].upper()}  •  "
+                    "Runtime UI: NOT TESTED  •  Project code: NOT EXECUTED"
+                )
+                checks_report.setPlainText("\\n".join(
+                    f"[{item['status'].upper()}] {item['check']}: {item['detail']}"
+                    for item in latest['checks']
+                ) + "\\n\\n" + latest['note'])
+            else:
+                checks_status.setText("No checks run. Add Python files and foundry.json to the project folder.")
+                checks_report.setPlainText(
+                    "Phase 1 checks Python syntax and declared UI-to-backend signals. "
+                    "A green result is not proof that your generated app can launch. "
+                    "Use the reference contract format from Foundry documentation."
+                )
             nodes = {}
             for task in state["tasks"]:
                 display_state = {
