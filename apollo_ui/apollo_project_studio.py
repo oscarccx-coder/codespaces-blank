@@ -331,11 +331,11 @@ class StudioStore:
         if not re.fullmatch(r"app-\d{4,}-[a-z0-9-]{1,42}", folder):
             raise ValueError("Invalid saved project path; refusing filesystem access.")
         base = self.root / "workspace" / "app_development"
-        if base.is_symlink() or (base / folder).is_symlink():
+        if any(path.is_symlink() for path in (self.root / "workspace", base, base / folder)):
             raise ValueError("Symlinked project folder is not allowed.")
         target = (base / folder).resolve()
-        if not target.is_relative_to(base.resolve()):
-            raise ValueError("Project path escapes workspace.")
+        if not target.is_relative_to(self.root):
+            raise ValueError("Project path escapes Apollo's private workspace.")
         return target
 
     def create_starter_ui(self, project_id):
