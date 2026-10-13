@@ -79,11 +79,12 @@ def availability(kind, *, docker_bin=None):
 
 
 def _make_snapshot(src: Path, dest: Path):
-    src = Path(src).resolve()
-    if not src.is_dir():
-        raise ValueError("Selected app project folder is missing.")
+    src = Path(src)
     if src.is_symlink():
         raise ValueError("Symlinked app projects cannot run.")
+    src = src.resolve()
+    if not src.is_dir():
+        raise ValueError("Selected app project folder is missing.")
     count = 0
     total = 0
     dest.mkdir(mode=0o755)
