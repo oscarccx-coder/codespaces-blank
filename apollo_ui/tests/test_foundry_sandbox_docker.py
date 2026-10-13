@@ -35,6 +35,34 @@ class RealDockerFoundryTests(unittest.TestCase):
         self.assertIn("GUI STARTUP SURVIVED 3s", report["output"])
         self.assertFalse(report["passed_ui_interactions"])
 
+    def test_container_restrictions_hold_at_runtime(self):
+        """Enforce isolation inside Docker, not merely by checking CLI args."""
+        folder = self.store.project_folder(self.pid)
+        (folder / "tests" / "test_isolation.py").write_text(
+            "import os\n"
+            "import socket\n"
+            "from pathlib import Path\n"
+            "import tempfile\n"
+            "import unittest\n\n"
+            "class SandboxRestrictions(unittest.TestCase):\n"
+            "    def test_user_is_non_root(self):\n"
+            "        self.assertNotEqual(os.geteuid(), 0)\n"
+            "    def test_project_files_are_read_only(self):\n"
+            "        with self.assertRaises(OSError):\n"
+            "            Path('/work/forbidden-write.txt').write_text('no')\n"
+            "    def test_network_is_disabled(self):\n"
+            "        with self.assertRaises(OSError):\n"
+            "            socket.create_connection(('1.1.1.1', 53), timeout=1)\n"
+            "    def test_no_docker_socket_and_tmp_is_writable(self):\n"
+            "        self.assertFalse(Path('/var/run/docker.sock').exists())\n"
+            "        with tempfile.TemporaryFile() as f:\n"
+            "            f.write(b'ok')\n",
+            encoding="utf-8",
+        )
+        report = self.store.run_sandbox_tests(self.pid, "unit")
+        self.assertEqual(report["status"], "passed", report)
+        self.assertIn("Ran 5 tests", report["output"])
+
     def test_real_failing_test_must_report_failure(self):
         folder = self.store.project_folder(self.pid)
         (folder / "tests" / "test_ui.py").write_text(
