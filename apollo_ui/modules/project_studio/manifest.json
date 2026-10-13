@@ -1,10 +1,10 @@
 {
   "id": "project_studio",
   "name": "Apollo Foundry",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "entrypoint": "module.py",
   "class": "Module",
-  "description": "Phase 1 coding group: persistent AI worker drafts, reviewable change requests, saved static UI-to-backend checks, and explicit owner approval. Generated apps are not executed automatically.",
+  "description": "Saved AI coding projects, change requests, static UI wiring and owner-approved Docker-only sandbox unit/GUI testing.",
   "ui": {
     "enabled": true,
     "title": "Foundry",
