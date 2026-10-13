@@ -136,6 +136,8 @@ class SandboxRegressions(unittest.TestCase):
                 kwargs["stdout"].flush()
             def poll(self):
                 return 0
+            def wait(self, timeout=None):
+                return 0
         with patch("apollo_foundry_sandbox.subprocess.Popen",
                    side_effect=lambda *args, **kwargs: LoudProcess(**kwargs)):
             with patch("apollo_foundry_sandbox._force_remove", return_value=True):
