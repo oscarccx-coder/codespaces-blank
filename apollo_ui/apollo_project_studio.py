@@ -338,6 +338,87 @@ class StudioStore:
             raise ValueError("Project path escapes workspace.")
         return target
 
+    def create_starter_ui(self, project_id):
+        """Create a tiny trusted, inspectable sample app. Never overwrite files.
+
+        No app is launched. This is a source template to test UI contracts,
+        not an autonomous code writer or an execution sandbox.
+        """
+        with self.lock:
+            project = self._project(project_id)
+            if project["state"] == "approved":
+                raise ValueError("Reopen the project before adding a starter app.")
+            folder = self.project_folder(project_id)
+            folder.mkdir(parents=True, exist_ok=True)
+            sample = {
+                "service.py": (
+                    "class AppService:\n"
+                    "    def __init__(self):\n"
+                    "        self.saved = 0\n\n"
+                    "    def save(self):\n"
+                    "        self.saved += 1\n"
+                    "        return self.saved\n"
+                ),
+                "ui.py": (
+                    "from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton\n"
+                    "from service import AppService\n\n"
+                    "class AppWindow(QWidget):\n"
+                    "    def __init__(self, backend=None):\n"
+                    "        super().__init__()\n"
+                    "        self.backend = backend or AppService()\n"
+                    "        self.setWindowTitle('Apollo Foundry Starter App')\n"
+                    "        layout = QVBoxLayout(self)\n"
+                    "        self.message = QLabel('Ready to save')\n"
+                    "        self.save_button = QPushButton('Save')\n"
+                    "        self.save_button.clicked.connect(self.on_save)\n"
+                    "        layout.addWidget(self.message)\n"
+                    "        layout.addWidget(self.save_button)\n\n"
+                    "    def on_save(self):\n"
+                    "        value = self.backend.save()\n"
+                    "        self.message.setText(f'Saved {value} time(s)')\n"
+                ),
+                "launch.py": (
+                    "import sys\n"
+                    "from PySide6.QtWidgets import QApplication\n"
+                    "from ui import AppWindow\n\n"
+                    "if __name__ == '__main__':\n"
+                    "    app = QApplication(sys.argv)\n"
+                    "    window = AppWindow()\n"
+                    "    window.show()\n"
+                    "    sys.exit(app.exec())\n"
+                ),
+                "foundry.json": json.dumps({
+                    "schema_version": 1, "ui": {
+                        "file": "ui.py", "class": "AppWindow",
+                        "bindings": [{
+                            "widget": "save_button", "signal": "clicked",
+                            "handler": "on_save", "backend_attribute": "backend",
+                            "backend_file": "service.py", "backend_class": "AppService",
+                            "backend_method": "save",
+                        }],
+                    },
+                }, indent=2) + "\n",
+            }
+            # Refuse partial overwrites and user-created symlinks.
+            if any((folder / name).exists() or (folder / name).is_symlink() for name in sample):
+                raise FileExistsError("Starter UI files already exist. Existing project code was not changed.")
+            created = []
+            try:
+                for name, content in sample.items():
+                    dest = folder / name
+                    with dest.open("x", encoding="utf-8", newline="\n") as output:
+                        output.write(content)
+                    created.append(dest)
+            except OSError:
+                for dest in created:
+                    dest.unlink(missing_ok=True)
+                raise
+            with self.conn:
+                self._event(project["id"], None, "starter-created",
+                            "Added inspectable UI, backend, manifest and manual launcher; nothing executed")
+            return {"project_id": project["id"], "files": list(sample), "executed": False,
+                    "note": "Starter source created locally. Run static checks, then test real GUI manually."}
+
     def run_checks(self, project_id):
         """User-triggered, static only; no generated project code executes."""
         from apollo_foundry_checks import scan_project
