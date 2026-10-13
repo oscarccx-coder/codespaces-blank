@@ -764,6 +764,84 @@ class Module:
             finally:
                 update_actions()
 
+        def sandbox_finished(pid, raw_report, error):
+            active_jobs[:] = [x for x in active_jobs if x[0] != f"sandbox:{pid}"]
+            if error:
+                sandbox_status.setText("Sandbox failed before a report could be saved.")
+                sandbox_report.setPlainText(error)
+                alert("Sandbox could not start: " + error[:450])
+            else:
+                try:
+                    report = json.loads(raw_report)
+                except (ValueError, TypeError):
+                    report = {"status": "failed", "reason": "Malformed sandbox report"}
+                if report.get("status") in ("unavailable", "incomplete"):
+                    sandbox_status.setText(
+                        "Sandbox not run: " + report.get("reason", "Missing prerequisite")
+                    )
+                if report.get("status") in ("failed", "timeout"):
+                    sandbox_status.setText(
+                        "Sandbox detected a failure. Review logs and use Send Failures to Worker."
+                    )
+            refresh_details()
+            tabs.setCurrentWidget(sandbox_tab)
+
+        def run_sandbox_action(kind):
+            pid = project_id()
+            if pid is None:
+                return alert("Select an app project first.")
+            if active_jobs:
+                return alert("A worker or sandbox run is already active.")
+            what = ("project unit tests" if kind == "unit" else "a three-second GUI startup smoke test")
+            if QMessageBox.question(
+                page, "Run Isolated Foundry Sandbox",
+                f"Run {what} in a Docker container?\n\n"
+                "Untrusted project code will execute inside a restricted container "
+                "with no network or access to Apollo's storage. "
+                "Docker's isolation is not an absolute security guarantee. "
+                "No fallback will run on the host if Docker is unavailable.",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            ) != QMessageBox.Yes:
+                return
+            signals = WorkerSignal()
+            signals.finished.connect(sandbox_finished)
+            active_jobs.append((f"sandbox:{pid}", signals))
+            sandbox_status.setText("Starting isolated Docker test…")
+            sandbox_report.setPlainText(
+                "Preparing a read-only project snapshot. Generated code is never "
+                "launched directly by Apollo's Python interpreter."
+            )
+            QThreadPool.globalInstance().start(SandboxJob(pid, kind, self.store, signals))
+            update_actions()
+
+        def sandbox_fix_action():
+            pid = project_id()
+            if pid is None:
+                return alert("Select a project first.")
+            history = self.store.sandbox_history(pid, 1)
+            if not history or history[0]["status"] not in ("failed", "timeout"):
+                return alert("Run a sandbox test that identifies a failure first.")
+            report = history[0]["report"]
+            note = (
+                f"Foundry isolated {report['kind']} test reported {report['status']}.\n"
+                f"Cause: {report.get('reason', '')}\n"
+                f"Output:\n{report.get('output', '')[-3200:]}\n"
+                "Propose a source fix and appropriate regression tests. "
+                "Do not claim a passing test or apply changes without approval."
+            )
+            if QMessageBox.question(
+                page, "Send Sandbox Failures to Worker",
+                "Create a new reviewed coding task from the last sandbox failure?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            ) != QMessageBox.Yes:
+                return
+            try:
+                self.store.request_change(pid, note)
+                refresh_details()
+                tabs.setCurrentWidget(tasks_tab)
+            except (ValueError, KeyError) as error:
+                alert(error)
+
         def request_check_fix_action():
             pid = project_id()
             if pid is None:
@@ -875,6 +953,9 @@ class Module:
         run_checks_btn.clicked.connect(run_static_checks_action)
         fix_checks_btn.clicked.connect(request_check_fix_action)
         show_folder_btn.clicked.connect(open_project_folder_action)
+        sandbox_unit.clicked.connect(lambda: run_sandbox_action("unit"))
+        sandbox_gui.clicked.connect(lambda: run_sandbox_action("gui"))
+        sandbox_fix.clicked.connect(sandbox_fix_action)
         recover_workers.clicked.connect(recover_action)
         report_bug.clicked.connect(issue_action)
         assign_fix.clicked.connect(lambda: issue_transition(False))
