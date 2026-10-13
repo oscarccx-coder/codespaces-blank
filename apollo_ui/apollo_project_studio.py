@@ -548,7 +548,21 @@ class StudioStore:
             project = self._project(project_id)
             folder = self.project_folder(project_id)
         # Do NOT keep the DB mutex through a long-running Docker job.
-        report = run_sandbox(folder, kind, docker_bin=docker_bin)
+        try:
+            report = run_sandbox(folder, kind, docker_bin=docker_bin)
+        except (OSError, ValueError, UnicodeError) as error:
+            # An unsafe/missing project file should still leave an auditable
+            # failed attempt. Never silently report a rejected run as PASS.
+            from datetime import datetime, timezone
+            from apollo_foundry_sandbox import SANDBOX_KINDS
+            report = {
+                "kind": f"docker-{kind}", "phase": "Foundry Sandbox",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "executed_project_code": False, "passed_ui_interactions": False,
+                "status": "refused", "output": "",
+                "reason": f"Input check refused execution: {type(error).__name__}: {str(error)[:350]}",
+                "image": SANDBOX_KINDS[kind],
+            }
         with self.lock, self.conn:
             self.conn.execute(
                 "INSERT INTO test_runs(project_id,status,kind,report,created_at) VALUES(?,?,?,?,?)",

@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -40,7 +41,10 @@ class FriendlyWindowsUITests(unittest.TestCase):
         buttons = {b.text(): b for b in panel.findChildren(QPushButton)}
         self.assertTrue(buttons["Draft with Local AI"].isEnabled())
         self.assertFalse(buttons["Accept Draft"].isEnabled())
-        buttons["Refresh"].click()
+        with patch.object(module.store, "details", wraps=module.store.details) as fetch:
+            buttons["Refresh"].click()
+            # One project snapshot, not duplicate full-table fetches.
+            self.assertEqual(fetch.call_count, 1)
         self.assertEqual(task_tree.currentItem().data(0, 0x0100), chosen_id)
         self.assertTrue(buttons["Draft with Local AI"].isEnabled())
 
