@@ -1,4 +1,4 @@
-"""Human-controlled Project Studio frontend for Apollo.
+"""Human-controlled Apollo Foundry frontend for Phase 1 coding.
 
 Workers generate drafts in a bounded background thread; only the owner can
 accept tasks, close issues or approve projects. No draft is ever executed.
