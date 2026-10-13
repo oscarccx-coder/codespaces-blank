@@ -178,6 +178,44 @@ class StudioStore:
                 self._event(parent["project_id"], new_id, "subtask", "Assigned to " + role)
             return self._task(new_id)
 
+    def add_subtasks(self, parent_id, proposals):
+        """Atomically store a user-approved manager subtask proposal."""
+        if not isinstance(proposals, list) or not 1 <= len(proposals) <= 8:
+            raise ValueError("A manager proposal requires 1 to 8 subtasks.")
+        approved = []
+        for entry in proposals:
+            if not isinstance(entry, dict) or set(entry) != {"title", "brief", "role"}:
+                raise ValueError("Every subtask must have title, brief and role.")
+            role = entry["role"]
+            if role not in ROLES:
+                raise ValueError("Invalid worker role in manager proposal.")
+            approved.append({
+                "title": clean_text(entry["title"], 120, name="Task title"),
+                "brief": clean_text(entry["brief"], 5000, name="Task brief"),
+                "role": role,
+            })
+        if len({item["title"].casefold() for item in approved}) != len(approved):
+            raise ValueError("Manager plan contains duplicate subtask names.")
+        with self.lock:
+            parent = self._task(parent_id)
+            if parent["parent_id"] is not None or parent["state"] != "todo":
+                raise ValueError("Choose a not-started top-level task for this plan.")
+            if self._project(parent["project_id"])["state"] == "approved":
+                raise ValueError("Reopen the approved project first.")
+            count = self.conn.execute(
+                "SELECT count(*) FROM tasks WHERE project_id=?", (parent["project_id"],)
+            ).fetchone()[0]
+            if count + len(approved) > MAX_TASKS:
+                raise ValueError("Project task limit would be exceeded.")
+            with self.conn:
+                ids = []
+                for entry in approved:
+                    ident = self._new_task(parent["project_id"], parent_id=parent["id"], **entry)
+                    ids.append(ident)
+                    self._event(parent["project_id"], ident, "manager-plan",
+                                "Owner approved role " + entry["role"])
+            return [self._task(tid) for tid in ids]
+
     def start_task(self, task_id):
         with self.lock:
             task = self._task(task_id)
