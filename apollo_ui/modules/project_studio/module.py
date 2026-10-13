@@ -17,14 +17,21 @@ class Module:
         self.store = StudioStore(self.base, memory=bool(context.get("validation")))
 
     def tools(self):
-        # Read-only tools; creating projects, drafting, changes and approvals
-        # are exclusively explicit user actions through the UI.
+        # AI can read projects and queue a non-executing change request only.
+        # Drafting, approving, closing issues, and all code changes remain UI-controlled.
         integer = {"type": "integer"}
         return [
             {"name": "list_app_projects", "description": "Read user-created app development projects.",
              "parameters": {"type": "object", "properties": {}}},
             {"name": "app_project_status", "description": "Read tasks, subtasks and issues for one project.",
              "parameters": {"type": "object", "properties": {"project_id": integer}, "required": ["project_id"]}},
+            {"name": "queue_app_change",
+             "description": "Queue a requested project change as a reviewable task. Requires exact project ID. Never edits or runs code.",
+             "parameters": {"type": "object", "properties": {
+                 "project_id": integer,
+                 "request": {"type": "string"},
+                 "task_id": integer,
+             }, "required": ["project_id", "request"]}},
         ]
 
     def run(self, action, arguments):
@@ -33,6 +40,10 @@ class Module:
             return {"projects": self.store.list_projects()}
         if action == "app_project_status":
             return self.store.details(args["project_id"])
+        if action == "queue_app_change":
+            return self.store.request_change(
+                args["project_id"], args["request"], args.get("task_id")
+            )
         raise KeyError(action)
 
     def self_test(self):
@@ -40,7 +51,7 @@ class Module:
             data = self.store.add_project("Check", "Synthetic, local validation")
             assert len(data["tasks"]) == 5
             assert all(t["state"] == "todo" for t in data["tasks"])
-        return "Project Studio stores staged local projects. AI tools are read-only."
+        return "Foundry tracks project drafts and queued changes. No auto-execution or approvals."
 
     def close(self):
         self.store.close()
