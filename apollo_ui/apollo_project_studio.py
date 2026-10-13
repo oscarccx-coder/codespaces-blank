@@ -425,6 +425,21 @@ class StudioStore:
                     "    window.show()\n"
                     "    sys.exit(app.exec())\n"
                 ),
+                "tests/test_ui.py": (
+                    "import unittest\n"
+                    "from PySide6.QtWidgets import QApplication\n"
+                    "from ui import AppWindow\n\n"
+                    "class StarterUITests(unittest.TestCase):\n"
+                    "    def test_save_button_reaches_backend_and_updates_label(self):\n"
+                    "        app = QApplication.instance() or QApplication([])\n"
+                    "        window = AppWindow()\n"
+                    "        try:\n"
+                    "            window.save_button.click()\n"
+                    "            self.assertEqual(window.backend.saved, 1)\n"
+                    "            self.assertEqual(window.message.text(), 'Saved 1 time(s)')\n"
+                    "        finally:\n"
+                    "            window.close()\n"
+                ),
                 "foundry.json": json.dumps({
                     "schema_version": 1, "ui": {
                         "file": "ui.py", "class": "AppWindow",
@@ -444,6 +459,7 @@ class StudioStore:
             try:
                 for name, content in sample.items():
                     dest = folder / name
+                    dest.parent.mkdir(parents=True, exist_ok=True)
                     with dest.open("x", encoding="utf-8", newline="\n") as output:
                         output.write(content)
                     created.append(dest)
@@ -453,7 +469,7 @@ class StudioStore:
                 raise
             with self.conn:
                 self._event(project["id"], None, "starter-created",
-                            "Added inspectable UI, backend, manifest and manual launcher; nothing executed")
+                            "Added trusted sample UI, backend, click-through test and launcher; nothing executed")
             return {"project_id": project["id"], "files": list(sample), "executed": False,
                     "note": "Starter source created locally. Run static checks, then test real GUI manually."}
 
