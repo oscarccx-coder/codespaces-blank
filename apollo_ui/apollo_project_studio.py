@@ -145,7 +145,7 @@ class StudioStore:
                     self._new_task(pid, title=name, brief=text, role=role)
                 self._event(pid, None, "created", "Project created with five default review stages")
             if self.db_path != ":memory:":
-                project_folder = self.root / "workspace" / "app_development" / folder
+                project_folder = self.project_folder(pid)
                 project_folder.mkdir(parents=True, exist_ok=True)
                 info = project_folder / "PROJECT.md"
                 if not info.exists():
@@ -169,8 +169,8 @@ class StudioStore:
             parent = self._task(parent_id)
             if parent["parent_id"] is not None:
                 raise ValueError("Maximum one level of subtasks in beta.")
-            if parent["state"] == "accepted":
-                raise ValueError("Reopen the parent before adding subtasks.")
+            if parent["state"] != "todo":
+                raise ValueError("Subtasks may only be added to a not-started parent.")
             if self.conn.execute("SELECT count(*) FROM tasks WHERE project_id=?", (parent["project_id"],)).fetchone()[0] >= MAX_TASKS:
                 raise ValueError("Project task limit reached.")
             with self.conn:
@@ -316,6 +316,12 @@ class StudioStore:
             item = self.issue(issue_id)
             if item["state"] != "open":
                 raise ValueError("Only open issues can be assigned to a fix.")
+            if self._project(item["project_id"])["state"] == "approved":
+                raise ValueError("Reopen the approved project before assigning fixes.")
+            if self.conn.execute(
+                "SELECT COUNT(*) FROM tasks WHERE project_id=?", (item["project_id"],)
+            ).fetchone()[0] >= MAX_TASKS:
+                raise ValueError("Project task limit reached; cannot assign another fix.")
             with self.conn:
                 tid = self._new_task(item["project_id"], title="Fix: " + item["title"],
                                       brief=item["details"], role="implementer")
@@ -327,6 +333,10 @@ class StudioStore:
     def close_issue(self, issue_id):
         with self.lock:
             issue = self.issue(issue_id)
+            if issue["state"] != "in_progress":
+                raise ValueError("Only assigned, open issues can be closed.")
+            if self._project(issue["project_id"])["state"] == "approved":
+                raise ValueError("Reopen the approved project before resolving an issue.")
             if issue["assigned_task"] is None or self._task(issue["assigned_task"])["state"] != "accepted":
                 raise ValueError("A reviewer must accept the assigned fix before issue closure.")
             with self.conn:
