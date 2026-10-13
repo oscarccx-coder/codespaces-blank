@@ -83,6 +83,12 @@ class StudioStore:
             task_id INTEGER, kind TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL,
             FOREIGN KEY(project_id) REFERENCES projects(id)
         );
+        CREATE TABLE IF NOT EXISTS test_runs(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL,
+            status TEXT NOT NULL, kind TEXT NOT NULL, report TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
         """)
         self.conn.commit()
 
@@ -317,6 +323,100 @@ class StudioStore:
                     self._event(int(project_id), item["id"], "interrupted",
                                 "Running worker marked blocked for explicit user review and retry")
             return len(running)
+
+    def project_folder(self, project_id):
+        """Resolve only an ID-derived local app folder, never arbitrary DB paths."""
+        project = self._project(project_id)
+        folder = project["folder"]
+        if not re.fullmatch(r"app-\d{4,}-[a-z0-9-]{1,42}", folder):
+            raise ValueError("Invalid saved project path; refusing filesystem access.")
+        base = self.root / "workspace" / "app_development"
+        if base.is_symlink() or (base / folder).is_symlink():
+            raise ValueError("Symlinked project folder is not allowed.")
+        target = (base / folder).resolve()
+        if not target.is_relative_to(base.resolve()):
+            raise ValueError("Project path escapes workspace.")
+        return target
+
+    def run_checks(self, project_id):
+        """User-triggered, static only; no generated project code executes."""
+        from apollo_foundry_checks import scan_project
+        with self.lock:
+            project = self._project(project_id)
+            report = scan_project(self.project_folder(project_id))
+            with self.conn:
+                self.conn.execute(
+                    "INSERT INTO test_runs(project_id,status,kind,report,created_at) VALUES(?,?,?,?,?)",
+                    (project["id"], report["status"], report["kind"],
+                     json.dumps(report, ensure_ascii=False), utcnow())
+                )
+                self._event(project["id"], None, "test",
+                            f"Static UI check: {report['status']} (not a runtime GUI test)")
+                self.conn.execute(
+                    "DELETE FROM test_runs WHERE project_id=? AND id NOT IN "
+                    "(SELECT id FROM test_runs WHERE project_id=? ORDER BY id DESC LIMIT 30)",
+                    (project["id"], project["id"]),
+                )
+            return report
+
+    def check_history(self, project_id, limit=10):
+        with self.lock:
+            self._project(project_id)
+            rows = self.conn.execute(
+                "SELECT id,status,kind,created_at,report FROM test_runs "
+                "WHERE project_id=? ORDER BY id DESC LIMIT ?",
+                (int(project_id), min(30, max(1, int(limit)))),
+            ).fetchall()
+            return [
+                {**{k: row[k] for k in ("id", "status", "kind", "created_at")},
+                 "report": json.loads(row["report"])}
+                for row in rows
+            ]
+
+    def request_change(self, project_id, instructions, task_id=None):
+        """Queue 'change this' as a reviewable issue and worker task only."""
+        instructions = clean_text(instructions, 5000, name="Requested change")
+        with self.lock:
+            project = self._project(project_id)
+            if project["state"] == "approved":
+                raise ValueError("Reopen the approved project in the UI before requesting changes.")
+            if self.conn.execute(
+                "SELECT count(*) FROM tasks WHERE project_id=?", (project["id"],)
+            ).fetchone()[0] >= MAX_TASKS:
+                raise ValueError("Task limit reached; cannot queue the change.")
+            target = None
+            if task_id is not None:
+                target = self._task(task_id)
+                if target["project_id"] != project["id"]:
+                    raise ValueError("Selected task does not belong to this project.")
+            focus = f" to {target['title']}" if target else ""
+            title = ("Change" + focus)[:120]
+            brief = (f"Owner requested a revision{focus}.\n"
+                     f"Original task ID: {target['id'] if target else 'project-wide'}\n"
+                     f"Change requested:\n{instructions}\n"
+                     "Prepare a proposed fix and explain what to test. "
+                     "Do not claim code was executed or any test passed.")
+            now = utcnow()
+            with self.conn:
+                issue_cur = self.conn.execute(
+                    "INSERT INTO issues(project_id,title,details,state,created_at,updated_at) "
+                    "VALUES(?,?,?,'open',?,?)",
+                    (project["id"], title, instructions, now, now),
+                )
+                iid = issue_cur.lastrowid
+                tid = self._new_task(
+                    project["id"], title=("Revise" + focus)[:120],
+                    brief=brief, role="implementer",
+                )
+                self.conn.execute(
+                    "UPDATE issues SET state='in_progress',assigned_task=?,updated_at=? WHERE id=?",
+                    (tid, now, iid),
+                )
+                self._event(project["id"], tid, "change-request",
+                            f"Review requested for task #{target['id']}" if target else "Project-wide revision requested")
+            return {"project_id": project["id"], "issue_id": iid, "task_id": tid,
+                    "state": "queued_for_human_review", "code_changed": False,
+                    "tests_passed": False}
 
     def approve_project(self, project_id):
         """Must be called only after user clicks explicit UI approval."""
