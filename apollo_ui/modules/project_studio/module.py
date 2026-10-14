@@ -209,7 +209,7 @@ class Module:
         right_layout.addWidget(research_toggle)
         worker_feed = QPlainTextEdit()
         worker_feed.setReadOnly(True)
-        worker_feed.setMaximumHeight(140)
+        worker_feed.setMaximumHeight(230)
         worker_feed.setPlaceholderText("Worker activity and decisions will appear here.")
         right_layout.addWidget(QLabel("Worker activity"))
         right_layout.addWidget(worker_feed)
@@ -713,7 +713,7 @@ class Module:
                 # Start with the newest owner change, not stale template tasks.
                 candidates = [t for t in state["tasks"]
                               if t["state"] == "todo" and t["id"] not in auto["started"]
-                              and t["role"] not in ("reviewer", "integrator")]
+                              and (t["role"] not in ("reviewer", "integrator", "tester") or any(x["role"] == "implementer" and x["state"] in ("review", "accepted") and "static checks passed" in x["evidence"].lower() for x in state["tasks"]))]
                 candidates.sort(key=lambda t: (0 if t["title"].startswith("Revise") else 1, t["id"]))
                 if not candidates:
                     auto["project"] = None
