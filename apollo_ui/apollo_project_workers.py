@@ -78,6 +78,7 @@ def draft_for_task(state, task_id, model, *, timeout=85):
             raise ValueError("Task is not part of the selected project.")
         if task["state"] != "running":
             raise ValueError("A task must be explicitly started before drafting.")
+        latest_request = next((issue["details"] for issue in state.get("issues", []) if issue.get("details")), state["project"]["brief"])
         history = "\n\n".join(
             (f"Accepted {t['role']}: {t['title']}\n{t['result'][:1400]}")
             for t in tasks if t["state"] == "accepted" and t["id"] != task["id"]
@@ -90,6 +91,7 @@ def draft_for_task(state, task_id, model, *, timeout=85):
             f"Role goal: {ROLE_GUIDES[task['role']]}\n"
             f"Project title: {state['project']['title'][:120]}\n"
             f"Project requirements:\n{state['project']['brief'][:5000]}\n"
+            f"Latest owner request (OVERRIDES older project designs):\n{latest_request[:5000]}\n"
             f"Current task:\n{task['title']}\n{task['brief']}\n"
             f"Previous review feedback:\n{task['feedback'][:1800]}\n"
             f"Accepted context:\n{history}\n"
