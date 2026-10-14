@@ -4,7 +4,7 @@ import json
 import threading
 from datetime import datetime, timezone
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Signal, QProcess
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTabWidget, QWidget,
     QPushButton, QComboBox, QPlainTextEdit, QFileDialog, QMessageBox
@@ -76,6 +76,9 @@ def show_setup(parent, base, first_run=False):
     buttons.addWidget(scan)
     buttons.addWidget(deep)
     hv.addLayout(buttons)
+    sandbox_setup = QPushButton("Set Up Foundry Sandbox (Docker)")
+    sandbox_setup.setToolTip("Launch the optional Docker sandbox installer in a command window.")
+    hv.addWidget(sandbox_setup)
     checks_text = QPlainTextEdit()
     checks_text.setReadOnly(True)
     checks_text.setPlainText("Select Check Apollo for Ollama, Python, models and XTTS status.")
@@ -138,6 +141,16 @@ def show_setup(parent, base, first_run=False):
     signals.failure.connect(lambda kind, message: complete(kind, {"error": message}))
     scan.clicked.connect(lambda: (tabs.setCurrentWidget(health_page), begin("diagnostics", lambda: system_checks(base))))
     deep.clicked.connect(lambda: begin("diagnostics", lambda: system_checks(base, deep_voice=True)))
+
+    def launch_sandbox_setup():
+        script = base / "Setup" / "09_SETUP_FOUNDRY_SANDBOX.bat"
+        if not script.is_file():
+            QMessageBox.warning(dialog, "Sandbox setup", "Sandbox setup script was not found: " + str(script))
+            return
+        ok = QProcess.startDetached("cmd.exe", ["/k", 'call "' + str(script) + '"'], str(base))
+        if not ok:
+            QMessageBox.warning(dialog, "Sandbox setup", "Could not open the sandbox setup console.")
+    sandbox_setup.clicked.connect(launch_sandbox_setup)
 
     def backup_now():
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
