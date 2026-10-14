@@ -693,11 +693,14 @@ class Module:
                 return
             try:
                 state = self.store.details(pid)
+                # Start with the newest owner change, not stale template tasks.
                 candidates = [t for t in state["tasks"]
-                              if t["state"] == "todo" and t["id"] not in auto["started"]]
+                              if t["state"] == "todo" and t["id"] not in auto["started"]
+                              and t["role"] not in ("reviewer", "integrator")]
+                candidates.sort(key=lambda t: (0 if t["title"].startswith("Revise") else 1, t["id"]))
                 if not candidates:
                     auto["project"] = None
-                    feed("Manager: No more ready tasks; review the drafts and test results.")
+                    feed("Manager: Drafts ready for review. Reviewer and integrator are held until implementation is verified.")
                     return
                 task = candidates[0]
                 model = model_from_config(self.base)
