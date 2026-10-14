@@ -60,7 +60,7 @@ class Module:
         self.store.close()
 
     def build_ui(self, parent=None, ui_context=None):
-        from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal
+        from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal, QTimer
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGridLayout,
             QLineEdit, QProgressBar, QGroupBox,
@@ -339,6 +339,7 @@ class Module:
         right_layout.addWidget(advanced_project)
 
         active_jobs = []
+        auto = {"project": None, "remaining": 0, "started": set()}
         for button, tip in (
             (change_request, "Request a change for this task, or the whole project if no task is selected."),
             (plan_subtasks, "Ask the local AI manager to propose editable subtasks. Nothing is queued until you approve."),
@@ -680,10 +681,53 @@ class Module:
             except (ValueError, KeyError, OSError) as exc:
                 alert(exc)
 
+
+        def advance_auto():
+            """Draft at most five todo tasks, sequentially. No auto-approval or execution."""
+            pid = auto["project"]
+            if pid is None or active_jobs:
+                return
+            if auto["remaining"] <= 0 or pid != project_id():
+                auto["project"] = None
+                feed("Manager: Draft cycle paused. Review worker results before continuing.")
+                return
+            try:
+                state = self.store.details(pid)
+                candidates = [t for t in state["tasks"]
+                              if t["state"] == "todo" and t["id"] not in auto["started"]]
+                if not candidates:
+                    auto["project"] = None
+                    feed("Manager: No more ready tasks; review the drafts and test results.")
+                    return
+                task = candidates[0]
+                model = model_from_config(self.base)
+                auto["started"].add(task["id"])
+                auto["remaining"] -= 1
+                feed("Manager: Assigning " + task["title"] + " to " + task["role"] + ".")
+                self.store.start_task(task["id"])
+                signal = WorkerSignal()
+                signal.finished.connect(finished_job)
+                active_jobs.append((task["id"], signal))
+                QThreadPool.globalInstance().start(
+                    DraftJob(task["id"], self.store.details(pid), model, signal))
+                refresh_details()
+            except (OSError, ValueError, KeyError) as exc:
+                auto["project"] = None
+                feed("Manager: Automatic work paused: " + str(exc))
+                alert("Automatic worker failed: " + str(exc))
+
+        def start_auto(pid):
+            if active_jobs:
+                return alert("A worker is already busy.")
+            auto.update({"project": pid, "remaining": 5, "started": set()})
+            feed("Manager: Starting up to five sequential worker drafts. Human review remains required.")
+            QTimer.singleShot(0, advance_auto)
+
         def finished_job(tid, draft, error):
             try:
                 if error:
                     feed("Worker: Task " + str(tid) + " failed: " + error[:300])
+                    auto["project"] = None
                     self.store.fail_task(tid, error[:2300])
                     alert("Worker could not finish. Your project is safe.\n\n" + error[:900])
                 else:
@@ -696,6 +740,8 @@ class Module:
                 # is derived, otherwise subsequent worker buttons stay disabled.
                 active_jobs[:] = [x for x in active_jobs if x[0] != tid]
                 refresh_details()
+                if auto["project"] is not None:
+                    QTimer.singleShot(0, advance_auto)
 
         def draft_action():
             tid, pid = task_id(), project_id()
@@ -1016,7 +1062,7 @@ class Module:
                     feed("Manager: Change request added to the selected project for review.")
                 quick_request.clear()
                 tabs.setCurrentWidget(tasks_tab)
-                feed("Next: Select a task and choose Plan with AI or Run Selected Worker.")
+                start_auto(pid)
             except (OSError, ValueError, KeyError) as exc:
                 alert(exc)
 
