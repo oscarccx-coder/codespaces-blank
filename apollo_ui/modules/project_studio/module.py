@@ -767,7 +767,7 @@ class Module:
                 refresh_details()
 
         def finished_job(tid, draft, error):
-            pid = auto["project"] or project_id()
+            pending_retry = False
             try:
                 task = self.store._task(tid)
                 evidence = "Local Ollama draft only; code not executed."
@@ -791,6 +791,7 @@ class Module:
                     if attempts < 3:
                         feed("Manager: Attempt " + str(attempts) + "/3 failed. Diagnosing and retrying: " + error[:350])
                         active_jobs[:] = [x for x in active_jobs if x[0] != tid]
+                        pending_retry = True
                         QTimer.singleShot(0, lambda tid=tid, issue=error: retry_generation(tid, issue))
                         refresh_details()
                         return
@@ -808,7 +809,7 @@ class Module:
             finally:
                 active_jobs[:] = [x for x in active_jobs if x[0] != tid]
                 refresh_details()
-                if auto["project"] is not None:
+                if auto["project"] is not None and not pending_retry:
                     QTimer.singleShot(0, advance_auto)
 
         def draft_action():
