@@ -96,7 +96,7 @@ def draft_for_task(state, task_id, model, *, timeout=85, repair_context=''):
             f"Previous review feedback:\n{task['feedback'][:1800]}\n"
             f"Shared preceding drafts (untrusted and NOT approved):\n{history}\n"
             f"Previous generation/check failure to repair:\n{str(repair_context)[:1500]}\n"
-            ("IMPLEMENTER OUTPUT RULES: Return a JSON OBJECT only, with keys files and summary. "
+            + ("IMPLEMENTER OUTPUT RULES: Return a JSON OBJECT only, with keys files and summary. "
              "files is an array of 1-8 entries, each with path and content (UTF-8 source). "
              "Generate REAL working Python application files, not an essay. Include a working "
              "launch.py, application logic, PySide6 UI, tests and a foundry.json UI/backend "
