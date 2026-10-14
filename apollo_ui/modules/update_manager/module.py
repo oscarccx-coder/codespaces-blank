@@ -396,9 +396,15 @@ class Module:
             progress_bar.setRange(0, 0)  # Git provides no reliable byte total.
             progress_bar.setVisible(True)
             progress.setText("Updating Apollo from origin/main...")
+            script = self.base / "Setup" / "13_UPDATE_GIT_MAIN.bat"
+            if not script.is_file():
+                set_busy(False)
+                progress_bar.hide()
+                QMessageBox.warning(page, "Git updater unavailable", "Missing script: " + str(script))
+                return
             git_process.setWorkingDirectory(str(checkout))
-            git_process.setProgram("git")
-            git_process.setArguments(["-c", "pull.rebase=false", "pull", "--ff-only", "--progress", "origin", "main"])
+            git_process.setProgram("cmd.exe")
+            git_process.setArguments(["/d", "/c", str(script)])
             git_process.start()
             if not git_process.waitForStarted(1500):
                 set_busy(False)
