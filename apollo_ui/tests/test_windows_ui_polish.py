@@ -39,20 +39,20 @@ class FriendlyWindowsUITests(unittest.TestCase):
         task_tree.setCurrentItem(task_tree.topLevelItem(0))
         chosen_id = task_tree.currentItem().data(0, 0x0100)  # Qt.UserRole
         buttons = {b.text(): b for b in panel.findChildren(QPushButton)}
-        self.assertTrue(buttons["Draft with Local AI"].isEnabled())
+        self.assertTrue(buttons["Run Selected Worker"].isEnabled())
         self.assertFalse(buttons["Accept Draft"].isEnabled())
         with patch.object(module.store, "details", wraps=module.store.details) as fetch:
             buttons["Refresh"].click()
             # One project snapshot, not duplicate full-table fetches.
             self.assertEqual(fetch.call_count, 1)
         self.assertEqual(task_tree.currentItem().data(0, 0x0100), chosen_id)
-        self.assertTrue(buttons["Draft with Local AI"].isEnabled())
+        self.assertTrue(buttons["Run Selected Worker"].isEnabled())
 
         search = next(edit for edit in panel.findChildren(QLineEdit)
                       if edit.placeholderText() == "Find a project...")
         search.setText("missing")
         self.assertEqual(project_list.count(), 0)
-        self.assertFalse(buttons["Draft with Local AI"].isEnabled())
+        self.assertFalse(buttons["Run Selected Worker"].isEnabled())
         search.clear()
         self.assertEqual(project_list.count(), 1)
 
