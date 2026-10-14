@@ -175,6 +175,29 @@ class Module:
         completion.setFormat("%p% tasks reviewed")
         completion.setAccessibleName("Project task completion")
         right_layout.addWidget(completion)
+        # Simple entry point: describe a project and let the manager plan it.
+        quick_intro = QLabel("What should Apollo build or change?")
+        quick_intro.setStyleSheet("font-size:15px;font-weight:600;")
+        right_layout.addWidget(quick_intro)
+        quick_request = QPlainTextEdit()
+        quick_request.setPlaceholderText(
+            "Example: Build a calculus calculator with a simple UI, tests and error handling.")
+        quick_request.setMaximumHeight(92)
+        right_layout.addWidget(quick_request)
+        quick_actions = QHBoxLayout()
+        quick_start = QPushButton("Plan My Project")
+        quick_start.setObjectName("primaryAction")
+        quick_actions.addWidget(quick_start)
+        quick_actions.addWidget(QLabel("Select a project to add a change, or create a new one."))
+        right_layout.addLayout(quick_actions)
+        worker_feed = QPlainTextEdit()
+        worker_feed.setReadOnly(True)
+        worker_feed.setMaximumHeight(140)
+        worker_feed.setPlaceholderText("Worker activity and decisions will appear here.")
+        right_layout.addWidget(QLabel("Worker activity"))
+        right_layout.addWidget(worker_feed)
+        def feed(message):
+            worker_feed.appendPlainText(str(message))
         tabs = QTabWidget()
         right_layout.addWidget(tabs, 1)
         split.addWidget(right)
@@ -209,7 +232,8 @@ class Module:
         task_tree.setHeaderLabels(["Task", "Worker", "Status", "Iteration"])
         task_tree.setColumnWidth(0, 270)
         task_tree.setAccessibleName("Project worker tasks and subtasks")
-        task_tree.setAlternatingRowColors(True)
+        task_tree.setAlternatingRowColors(False)
+        task_tree.setStyleSheet("QTreeWidget { background:#142229; color:#e7eef3; alternate-background-color:#142229; } QTreeWidget::item:selected { background:#23655c; color:#ffffff; }")
         tasks_layout.addWidget(task_tree, 2)
         result_text = QPlainTextEdit()
         result_text.setReadOnly(True)
@@ -230,6 +254,8 @@ class Module:
         issue_table = QTableWidget(0, 4)
         issue_table.setHorizontalHeaderLabels(["ID", "Issue", "Status", "Fix task"])
         issue_table.setSelectionBehavior(QTableWidget.SelectRows)
+        issue_table.setAlternatingRowColors(False)
+        issue_table.setStyleSheet("QTableWidget { background:#142229; color:#e7eef3; gridline-color:#34434a; } QTableWidget::item:selected { background:#23655c; color:#ffffff; }")
         issue_table.setAccessibleName("Reported project bugs and fix tasks")
         issue_table.setEditTriggers(QTableWidget.NoEditTriggers)
         issue_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
@@ -610,9 +636,11 @@ class Module:
         def finished_manager_plan(tid, proposal, error):
             active_jobs[:] = [item for item in active_jobs if item[0] != f"plan:{tid}"]
             if error:
+                feed("Manager: Planning failed: " + error[:300])
                 alert("Manager proposal could not be produced: " + error[:500])
                 update_actions()
                 return
+            feed("Manager: Proposed subtasks (review required): " + proposal[:900])
             edited, ok = QInputDialog.getMultiLineText(
                 page, "Review AI Manager Plan",
                 "Review and edit this JSON proposal. Nothing is added until you accept.",
@@ -625,6 +653,7 @@ class Module:
                 data = json.loads(edited)
                 tasks = validate_subtask_plan(data)
                 self.store.add_subtasks(tid, tasks)
+                feed("Manager: You approved " + str(len(tasks)) + " subtasks. Workers are ready.")
                 refresh_details()
             except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
                 alert("Subtask plan was NOT added: " + str(exc))
@@ -654,9 +683,11 @@ class Module:
         def finished_job(tid, draft, error):
             try:
                 if error:
+                    feed("Worker: Task " + str(tid) + " failed: " + error[:300])
                     self.store.fail_task(tid, error[:2300])
                     alert("Worker could not finish. Your project is safe.\n\n" + error[:900])
                 else:
+                    feed("Worker: Task " + str(tid) + " returned a draft for your review: " + draft[:900])
                     self.store.submit_task(tid, draft, "Local Ollama draft only. User must review and run real tests.")
             except (ValueError, KeyError) as exc:
                 alert(exc)
@@ -674,6 +705,7 @@ class Module:
                 state = self.store.details(pid)
                 model = model_from_config(self.base)
                 self.store.start_task(tid)
+                feed("Worker: Starting task " + str(tid) + " with " + model + "...")
                 state = self.store.details(pid)
                 signal = WorkerSignal()
                 signal.finished.connect(finished_job)
@@ -694,6 +726,7 @@ class Module:
                 return
             try:
                 self.store.review_task(tid, approved, feedback)
+                feed("Review: " + ("Accepted " if approved else "Changes requested for ") + "task " + str(tid) + ".")
                 refresh_details()
             except (ValueError, KeyError) as exc:
                 alert(exc)
@@ -961,6 +994,33 @@ class Module:
                     return alert(exc)
             refresh_projects(pid)
 
+        def quick_start_action():
+            request = quick_request.toPlainText().strip()
+            if not request:
+                return alert("Describe what Apollo should build first.")
+            if len(request) > 5000:
+                return alert("Keep the request under 5000 characters.")
+            pid = project_id()
+            try:
+                if pid is None:
+                    title = request.splitlines()[0][:78].strip(". :") or "New Apollo Project"
+                    new_data = self.store.add_project(title, request)
+                    pid = new_data["project"]["id"]
+                    refresh_projects(pid)
+                    feed("You: " + request[:500])
+                    feed("Manager: Project created with architecture, coding, testing and review stages.")
+                else:
+                    self.store.request_change(pid, request)
+                    refresh_details()
+                    feed("You: " + request[:500])
+                    feed("Manager: Change request added to the selected project for review.")
+                quick_request.clear()
+                tabs.setCurrentWidget(tasks_tab)
+                feed("Next: Select a task and choose Plan with AI or Run Selected Worker.")
+            except (OSError, ValueError, KeyError) as exc:
+                alert(exc)
+
+        quick_start.clicked.connect(quick_start_action)
         new_project.clicked.connect(add_project_action)
         refresh_btn.clicked.connect(lambda: refresh_projects())
         project_search.textChanged.connect(lambda _: refresh_projects())
