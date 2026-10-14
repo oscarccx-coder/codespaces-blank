@@ -41,7 +41,7 @@ class FoundryWindowTests(unittest.TestCase):
         self.assertIn("GUI Launch Smoke Test", buttons)
         self.assertIn("Send Failures to Worker", buttons)
         tabs = panel.findChild(QTabWidget)
-        self.assertIn("Sandbox Testing", [tabs.tabText(i) for i in range(tabs.count())])
+        self.assertIn("4. Sandbox", [tabs.tabText(i) for i in range(tabs.count())])
         with patch.object(QMessageBox, "question", return_value=QMessageBox.No):
             with patch("apollo_foundry_sandbox.subprocess.run") as runner:
                 buttons["Run Tests in Sandbox"].click()
@@ -90,7 +90,7 @@ class FoundryWindowTests(unittest.TestCase):
         self.addCleanup(panel.close)
         buttons = {b.text(): b for b in panel.findChildren(QPushButton)}
         self.assertIn("Run UI & Code Checks", buttons)
-        self.assertIn("Change this…", buttons)
+        self.assertIn("Request a Change", buttons)
         self.assertIn("Request Fix for Failures", buttons)
         buttons["Run UI & Code Checks"].click()
 
@@ -100,7 +100,7 @@ class FoundryWindowTests(unittest.TestCase):
         self.assertFalse(history[0]["report"]["verified_runtime_ui"])
         self.assertTrue(any("Latest static check: PASSED" in x.text()
                             for x in panel.findChildren(QLabel)))
-        self.assertIn("UI & Code Tests", [
+        self.assertIn("2. Check Code", [
             t.tabText(i) for t in panel.findChildren(QTabWidget)
             for i in range(t.count())
         ])
@@ -118,7 +118,7 @@ class FoundryWindowTests(unittest.TestCase):
         tree.setCurrentItem(tree.topLevelItem(1))
         buttons = {b.text(): b for b in panel.findChildren(QPushButton)}
         with patch.object(QInputDialog, "getMultiLineText", return_value=("Make the save button wider", True)):
-            buttons["Change this…"].click()
+            buttons["Request a Change"].click()
         result = module.store.details(state["project"]["id"])
         self.assertEqual(len(result["issues"]), 1)
         self.assertEqual(result["issues"][0]["state"], "in_progress")
