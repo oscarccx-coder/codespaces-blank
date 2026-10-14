@@ -40,7 +40,7 @@ class FriendlyWindowsUITests(unittest.TestCase):
         chosen_id = task_tree.currentItem().data(0, 0x0100)  # Qt.UserRole
         buttons = {b.text(): b for b in panel.findChildren(QPushButton)}
         self.assertTrue(buttons["Run Selected Worker"].isEnabled())
-        self.assertFalse(buttons["Accept Draft"].isEnabled())
+        self.assertFalse(buttons["Approve Draft"].isEnabled())
         with patch.object(module.store, "details", wraps=module.store.details) as fetch:
             buttons["Refresh"].click()
             # One project snapshot, not duplicate full-table fetches.
