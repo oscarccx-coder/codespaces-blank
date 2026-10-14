@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from apollo_project_studio import StudioStore
+from apollo_foundry_artifacts import save_bundle
 from apollo_project_workers import (
     draft_for_task, model_from_config, propose_subtasks, validate_subtask_plan
 )
@@ -66,23 +67,35 @@ class Module:
             QLineEdit, QProgressBar, QGroupBox,
             QListWidget, QListWidgetItem, QSplitter, QTabWidget,
             QTreeWidget, QTreeWidgetItem, QPlainTextEdit, QMessageBox,
-            QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView,
+            QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox,
         )
 
         class WorkerSignal(QObject):
             finished = Signal(int, str, str)
+            update = Signal(str)
 
         class DraftJob(QRunnable):
-            def __init__(self, item, state, model, signals):
+            def __init__(self, item, state, model, signals, repair="", research=False):
                 super().__init__()
-                self.item = item
-                self.state = state
-                self.model = model
-                self.signals = signals
+                self.item, self.state, self.model, self.signals = item, state, model, signals
+                self.repair, self.research = repair, research
 
             def run(self):
                 try:
-                    text = draft_for_task(self.state, self.item, self.model)
+                    context = self.repair
+                    if self.research:
+                        from apollo_foundry_research import collect_research
+                        self.signals.update.emit("Research: Looking up public documentation after repeated failures...")
+                        try:
+                            sources = collect_research(self.repair)
+                            self.signals.update.emit(
+                                "Research: " + str(sources["query"]) + "\n" +
+                                "\n".join(source["url"] for source in sources["sources"]))
+                            context += "\nUntrusted public documentation search snippets (check accuracy):\n"
+                            context += json.dumps(sources["sources"])[:1700]
+                        except Exception as search_error:
+                            self.signals.update.emit("Research unavailable: " + str(search_error)[:180])
+                    text = draft_for_task(self.state, self.item, self.model, repair_context=context)
                     self.signals.finished.emit(self.item, text, "")
                 except Exception as error:
                     self.signals.finished.emit(self.item, "", f"{type(error).__name__}: {error}")
@@ -188,8 +201,12 @@ class Module:
         quick_start = QPushButton("Plan My Project")
         quick_start.setObjectName("primaryAction")
         quick_actions.addWidget(quick_start)
+        research_toggle = QCheckBox("Research public docs after 2 failed attempts")
+        research_toggle.setChecked(True)
+        research_toggle.setToolTip("Sends only a generic technical query to public search, never your project text.")
         quick_actions.addWidget(QLabel("Select a project to add a change, or create a new one."))
         right_layout.addLayout(quick_actions)
+        right_layout.addWidget(research_toggle)
         worker_feed = QPlainTextEdit()
         worker_feed.setReadOnly(True)
         worker_feed.setMaximumHeight(140)
@@ -339,7 +356,7 @@ class Module:
         right_layout.addWidget(advanced_project)
 
         active_jobs = []
-        auto = {"project": None, "remaining": 0, "started": set()}
+        auto = {"project": None, "remaining": 0, "started": set(), "attempts": {}}
         for button, tip in (
             (change_request, "Request a change for this task, or the whole project if no task is selected."),
             (plan_subtasks, "Ask the local AI manager to propose editable subtasks. Nothing is queued until you approve."),
@@ -710,6 +727,7 @@ class Module:
                 self.store.start_task(task["id"])
                 signal = WorkerSignal()
                 signal.finished.connect(finished_job)
+                signal.update.connect(feed)
                 active_jobs.append((task["id"], signal))
                 QThreadPool.globalInstance().start(
                     DraftJob(task["id"], self.store.details(pid), model, signal))
@@ -722,25 +740,72 @@ class Module:
         def start_auto(pid):
             if active_jobs:
                 return alert("A worker is already busy.")
-            auto.update({"project": pid, "remaining": 5, "started": set()})
+            auto.update({"project": pid, "remaining": 5, "started": set(), "attempts": {}})
             feed("Manager: Starting up to five sequential worker drafts. Human review remains required.")
             QTimer.singleShot(0, advance_auto)
 
-        def finished_job(tid, draft, error):
+        def retry_generation(tid, problem):
+            pid = auto["project"]
+            if pid is None:
+                return
             try:
+                state = self.store.details(pid)
+                signal = WorkerSignal()
+                signal.finished.connect(finished_job)
+                signal.update.connect(feed)
+                active_jobs.append((tid, signal))
+                attempt = auto["attempts"].get(tid, 0)
+                with_research = research_toggle.isChecked() and attempt >= 2
+                feed("Manager: Repair attempt " + str(attempt + 1) + "/3 for task " + str(tid) + ".")
+                QThreadPool.globalInstance().start(DraftJob(
+                    tid, state, model_from_config(self.base), signal,
+                    repair=problem, research=with_research))
+            except (ValueError, KeyError, OSError) as exc:
+                auto["project"] = None
+                self.store.fail_task(tid, str(exc)[:2200])
+                feed("Manager: Repair halted: " + str(exc))
+                refresh_details()
+
+        def finished_job(tid, draft, error):
+            pid = auto["project"] or project_id()
+            try:
+                task = self.store._task(tid)
+                evidence = "Local Ollama draft only; code not executed."
+                if not error and task["role"] == "implementer":
+                    try:
+                        saved = save_bundle(self.store.project_folder(task["project_id"]), draft)
+                        feed("Implementer: Created/revised " + ", ".join(saved["files"]))
+                        report = self.store.run_checks(task["project_id"])
+                        findings = [item["detail"] for item in report.get("checks", [])
+                                    if item["status"] != "pass"]
+                        if report["status"] != "passed":
+                            raise ValueError("Static checks " + report["status"] + ": " + "; ".join(findings)[:800])
+                        evidence = "Project source files staged; static checks passed. Runtime NOT tested."
+                        draft = "Source files: " + ", ".join(saved["files"]) + "\n" + saved["summary"] + "\n" + evidence
+                        feed("Tester: Static checks passed. Isolated runtime/GUI tests still require approval.")
+                    except (ValueError, OSError, TypeError, KeyError) as exc:
+                        error = "File generation or verification failed: " + str(exc)
+                if error and auto["project"] == task["project_id"]:
+                    attempts = auto["attempts"].get(tid, 0) + 1
+                    auto["attempts"][tid] = attempts
+                    if attempts < 3:
+                        feed("Manager: Attempt " + str(attempts) + "/3 failed. Diagnosing and retrying: " + error[:350])
+                        active_jobs[:] = [x for x in active_jobs if x[0] != tid]
+                        QTimer.singleShot(0, lambda tid=tid, issue=error: retry_generation(tid, issue))
+                        refresh_details()
+                        return
                 if error:
-                    feed("Worker: Task " + str(tid) + " failed: " + error[:300])
+                    feed("Worker: Task " + str(tid) + " blocked after retries: " + error[:380])
                     auto["project"] = None
                     self.store.fail_task(tid, error[:2300])
-                    alert("Worker could not finish. Your project is safe.\n\n" + error[:900])
+                    alert("Worker stopped safely. Review the failure and generated files.\n\n" + error[:850])
                 else:
-                    feed("Worker: Task " + str(tid) + " returned a draft for your review: " + draft[:900])
-                    self.store.submit_task(tid, draft, "Local Ollama draft only. User must review and run real tests.")
-            except (ValueError, KeyError) as exc:
-                alert(exc)
+                    feed("Worker: Task " + str(tid) + " ready for review: " + draft[:500])
+                    self.store.submit_task(tid, draft[:14000], evidence)
+            except (ValueError, KeyError, OSError) as exc:
+                auto["project"] = None
+                alert("Worker result could not be saved: " + str(exc))
             finally:
-                # The finished job must leave the active queue before UI state
-                # is derived, otherwise subsequent worker buttons stay disabled.
                 active_jobs[:] = [x for x in active_jobs if x[0] != tid]
                 refresh_details()
                 if auto["project"] is not None:
@@ -758,6 +823,7 @@ class Module:
                 state = self.store.details(pid)
                 signal = WorkerSignal()
                 signal.finished.connect(finished_job)
+                signal.update.connect(feed)
                 active_jobs.append((tid, signal))
                 QThreadPool.globalInstance().start(DraftJob(tid, state, model, signal))
                 refresh_details()
