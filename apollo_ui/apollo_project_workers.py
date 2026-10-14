@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import threading
 import urllib.request
+import urllib.error
 
 MODEL_LOCK = threading.BoundedSemaphore(value=1)
 LOCAL_ENDPOINT = "http://127.0.0.1:11434/api/generate"
@@ -34,6 +35,38 @@ def model_from_config(root):
         raise ValueError("Invalid local model configured.")
     return name
 
+
+
+def _read_model_response(request, timeout):
+    """Talk only to the configured loopback Ollama endpoint with useful errors."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(request, timeout=max(5, min(int(timeout), 120))) as response:
+            raw = response.read(MAX_REPLY_BYTES + 1)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read(2048).decode("utf-8", errors="replace")
+        try:
+            detail = str(json.loads(detail).get("error", detail))
+        except ValueError:
+            pass
+        if exc.code == 404:
+            raise RuntimeError(
+                "Ollama returned 404. The selected model may not be installed, or "
+                "port 11434 is not serving Ollama. Run 'ollama list' and check "
+                "the model in Apollo config.json. Server detail: " + detail[:350]
+            ) from exc
+        raise RuntimeError(f"Ollama HTTP {exc.code}: {detail[:350]}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(
+            "Cannot reach Ollama at 127.0.0.1:11434. Start Ollama, then retry. "
+            f"Network detail: {exc.reason}"
+        ) from exc
+    if len(raw) > MAX_REPLY_BYTES:
+        raise RuntimeError("Local model response exceeded safe size limit.")
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except (UnicodeError, ValueError) as exc:
+        raise RuntimeError("Ollama returned an unreadable response.") from exc
 
 def draft_for_task(state, task_id, model, *, timeout=85):
     if not MODEL_LOCK.acquire(blocking=False):
@@ -73,12 +106,7 @@ def draft_for_task(state, task_id, model, *, timeout=85):
             method="POST",
         )
         # Forbid OS-configured HTTP proxies; request only a fixed loopback URL.
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(req, timeout=max(5, min(int(timeout), 120))) as response:
-            raw = response.read(MAX_REPLY_BYTES + 1)
-        if len(raw) > MAX_REPLY_BYTES:
-            raise RuntimeError("Local model response exceeded safe size limit.")
-        message = json.loads(raw.decode("utf-8"))
+        message = _read_model_response(req, timeout)
         result = message.get("response")
         if not isinstance(result, str) or not result.strip():
             raise RuntimeError("Local model returned no draft.")
@@ -122,12 +150,7 @@ def propose_subtasks(state, parent_id, model, *, timeout=85):
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(req, timeout=max(5, min(int(timeout), 120))) as response:
-            raw = response.read(MAX_REPLY_BYTES + 1)
-        if len(raw) > MAX_REPLY_BYTES:
-            raise RuntimeError("Local model plan exceeds size limit.")
-        envelope = json.loads(raw.decode("utf-8"))
+        envelope = _read_model_response(req, timeout)
         response_text = envelope.get("response")
         if not isinstance(response_text, str) or len(response_text) > 12000:
             raise ValueError("Local model did not produce a bounded JSON plan.")
