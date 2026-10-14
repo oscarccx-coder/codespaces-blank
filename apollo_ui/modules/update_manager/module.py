@@ -58,7 +58,7 @@ class Module:
         import hashlib
         import json
         import threading
-        from PySide6.QtCore import QObject, Signal, QTimer
+        from PySide6.QtCore import QObject, Signal, QTimer, QProcess
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox,
             QPushButton, QCheckBox, QPlainTextEdit, QFileDialog, QMessageBox,
@@ -126,6 +126,9 @@ class Module:
         combined_btn.setObjectName("primaryAction")
         combined_btn.setToolTip("Check, download, verify and install a newer signed release.")
         actions.addWidget(combined_btn)
+        git_btn = QPushButton("Update from Git (main)")
+        git_btn.setMinimumHeight(44)
+        actions.addWidget(git_btn)
         actions.addStretch()
         layout.addLayout(actions)
 
@@ -184,7 +187,7 @@ class Module:
 
         signals = UpdateSignals(page)
         state = {"busy": False}
-        controls = (save_btn, check_btn, stage_btn, install_btn,
+        controls = (git_btn, save_btn, check_btn, stage_btn, install_btn,
                     combined_btn, trust_github_btn, trust_local_btn)
         window = (ui_context or {}).get("apollo_window") if isinstance(ui_context, dict) else None
 
@@ -364,6 +367,92 @@ class Module:
                 progress_bar.setRange(0, 0)
 
         signals.transferred.connect(update_download_progress)
+
+        # Git mode is for existing source checkouts, not signed distribution packages.
+        # Run the trusted local Git client without a shell; never execute remote scripts.
+        git_process = QProcess(page)
+        git_process.setProcessChannelMode(QProcess.MergedChannels)
+        git_state = {"output": "", "changed": False}
+
+        def git_update():
+            if state["busy"]:
+                return
+            checkout = self.base
+            if not (checkout.parent / ".git").exists() and not (checkout / ".git").exists():
+                QMessageBox.warning(page, "Git update unavailable",
+                                    "Apollo is not running from a Git checkout. Use signed releases instead.")
+                return
+            if QMessageBox.question(
+                page, "Update Apollo source",
+                "Pull verified Git objects from origin/main into this local checkout?\\n"
+                "This is a source-development update, not a signed Apollo release. "
+                "Uncommitted local changes will not be overwritten.",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            ) != QMessageBox.Yes:
+                return
+            set_busy(True)
+            git_state["output"] = ""
+            git_state["changed"] = False
+            progress_bar.setRange(0, 0)  # Git provides no reliable byte total.
+            progress_bar.setVisible(True)
+            progress.setText("Updating Apollo from origin/main...")
+            git_process.setWorkingDirectory(str(checkout))
+            git_process.setProgram("git")
+            git_process.setArguments(["-c", "pull.rebase=false", "pull", "--ff-only", "--progress", "origin", "main"])
+            git_process.start()
+            if not git_process.waitForStarted(1500):
+                set_busy(False)
+                progress_bar.hide()
+                progress.setText("Git could not start. Check that Git for Windows is installed.")
+
+        def git_output():
+            chunk = bytes(git_process.readAllStandardOutput()).decode("utf-8", errors="replace")
+            git_state["output"] = (git_state["output"] + chunk)[-24000:]
+            lines = git_state["output"].replace("\\r", "\\n").splitlines()
+            if lines:
+                progress.setText(lines[-1][:220])
+                output.setPlainText("\\n".join(lines[-120:]))
+            if "Updating " in git_state["output"] or "Fast-forward" in git_state["output"]:
+                git_state["changed"] = True
+
+        def git_finished(exit_code, _status):
+            git_output()
+            set_busy(False)
+            progress_bar.setRange(0, 100)
+            progress_bar.setValue(100 if exit_code == 0 else 0)
+            if exit_code != 0:
+                progress.setText("Git update failed. See the details below.")
+                QMessageBox.warning(page, "Apollo update failed",
+                                    "Git did not update Apollo. Check the output under Advanced options. "
+                                    "Local files were not intentionally discarded.")
+                advanced_panel.show()
+                return
+            if "Already up to date." in git_state["output"] and not git_state["changed"]:
+                progress.setText("Apollo source is already up to date.")
+                return
+            progress.setText("New Apollo source received. Restart required to load changes.")
+            answer = QMessageBox.question(page, "Restart Apollo?",
+                "Apollo source updated. Restart Apollo now to load the new code?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            if answer == QMessageBox.Yes:
+                import subprocess
+                import sys
+                launcher = self.base / "Setup" / "02_START_APOLLO.bat"
+                try:
+                    if not launcher.is_file():
+                        raise FileNotFoundError(str(launcher))
+                    if window is None:
+                        raise RuntimeError("Apollo main window is unavailable.")
+                    subprocess.Popen(["cmd.exe", "/c", str(launcher)], cwd=str(self.base),
+                                     creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+                    QTimer.singleShot(200, window.close)
+                except (OSError, RuntimeError) as exc:
+                    QMessageBox.warning(page, "Restart manually",
+                                        "Source updated; please close Apollo and start it again.\\n" + str(exc))
+
+        git_process.readyReadStandardOutput.connect(git_output)
+        git_process.finished.connect(git_finished)
+        git_btn.clicked.connect(git_update)
 
         def do_install():
             confirmation = QMessageBox.question(
