@@ -63,7 +63,7 @@ class Module:
         from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGridLayout,
-            QLineEdit, QProgressBar,
+            QLineEdit, QProgressBar, QGroupBox,
             QListWidget, QListWidgetItem, QSplitter, QTabWidget,
             QTreeWidget, QTreeWidgetItem, QPlainTextEdit, QMessageBox,
             QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView,
@@ -124,7 +124,7 @@ class Module:
         outer = QVBoxLayout(page)
         outer.setContentsMargins(16, 14, 16, 14)
         outer.setSpacing(10)
-        heading = QLabel("Apollo Foundry  •  Sandbox Alpha")
+        heading = QLabel("Apollo Foundry  |  Project Studio")
         heading.setStyleSheet("font-size:24px;font-weight:700;")
         page.setObjectName("projectStudioPage")
         outer.addWidget(heading)
@@ -183,20 +183,26 @@ class Module:
 
         tasks_tab = QWidget()
         tasks_layout = QVBoxLayout(tasks_tab)
-        task_buttons = QGridLayout()
+        task_buttons = QHBoxLayout()
         task_buttons.setHorizontalSpacing(8)
         task_buttons.setVerticalSpacing(6)
         add_subtask = QPushButton("+ Subtask")
-        change_request = QPushButton("Change this…")
-        plan_subtasks = QPushButton("Manager: Plan Subtasks")
-        start_worker = QPushButton("Draft with Local AI")
-        accept_task = QPushButton("Accept Draft")
+        change_request = QPushButton("Request a Change")
+        plan_subtasks = QPushButton("Plan with AI")
+        start_worker = QPushButton("Run Selected Worker")
+        accept_task = QPushButton("Approve Draft")
         rework_task = QPushButton("Request Changes")
         retry_task = QPushButton("Retry / Reopen")
-        for index, button in enumerate((add_subtask, plan_subtasks, change_request,
-                                         start_worker, accept_task, rework_task, retry_task)):
-            task_buttons.addWidget(button, index // 3, index % 3)
+        for button in (plan_subtasks, start_worker, accept_task, change_request):
+            task_buttons.addWidget(button)
         tasks_layout.addLayout(task_buttons)
+        advanced_tasks = QGroupBox("Advanced task controls")
+        advanced_tasks.setCheckable(True)
+        advanced_tasks.setChecked(False)
+        advanced_layout = QHBoxLayout(advanced_tasks)
+        for button in (add_subtask, rework_task, retry_task):
+            advanced_layout.addWidget(button)
+        tasks_layout.addWidget(advanced_tasks)
         task_tree = QTreeWidget()
         task_tree.setHeaderLabels(["Task", "Worker", "Status", "Iteration"])
         task_tree.setColumnWidth(0, 270)
@@ -208,7 +214,7 @@ class Module:
         result_text.setAccessibleName("Selected task instructions and draft")
         result_text.setPlaceholderText("Select a task to see its instructions, draft and review feedback.")
         tasks_layout.addWidget(result_text, 1)
-        tabs.addTab(tasks_tab, "Tasks & Workers")
+        tabs.addTab(tasks_tab, "1. Build")
 
         bugs_tab = QWidget()
         bugs_layout = QVBoxLayout(bugs_tab)
@@ -226,7 +232,7 @@ class Module:
         issue_table.setEditTriggers(QTableWidget.NoEditTriggers)
         issue_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         bugs_layout.addWidget(issue_table)
-        tabs.addTab(bugs_tab, "Issues & Rework")
+        tabs.addTab(bugs_tab, "3. Fix Issues")
 
         checks_tab = QWidget()
         checks_layout = QVBoxLayout(checks_tab)
@@ -250,7 +256,7 @@ class Module:
         checks_report.setReadOnly(True)
         checks_report.setAccessibleName("Stored static project check report")
         checks_layout.addWidget(checks_report, 1)
-        tabs.addTab(checks_tab, "UI & Code Tests")
+        tabs.addTab(checks_tab, "2. Check Code")
 
         sandbox_tab = QWidget()
         sandbox_layout = QVBoxLayout(sandbox_tab)
@@ -275,14 +281,16 @@ class Module:
         sandbox_report.setReadOnly(True)
         sandbox_report.setAccessibleName("Isolated Foundry runtime test report")
         sandbox_layout.addWidget(sandbox_report, 1)
-        tabs.addTab(sandbox_tab, "Sandbox Testing")
+        tabs.addTab(sandbox_tab, "4. Sandbox")
 
         history_tab = QWidget()
         history_layout = QVBoxLayout(history_tab)
         timeline = QPlainTextEdit()
         timeline.setReadOnly(True)
         history_layout.addWidget(timeline)
-        tabs.addTab(history_tab, "Activity")
+        tabs.addTab(history_tab, "History")
+        tabs.tabBar().moveTab(tabs.indexOf(checks_tab), 1)
+        tabs.tabBar().moveTab(tabs.indexOf(bugs_tab), 2)
 
         footer = QGridLayout()
         approve_project = QPushButton("Approve Reviewed Project")
@@ -293,7 +301,11 @@ class Module:
         footer.addWidget(recover_workers, 1, 0, 1, 2)
         approve_project.setToolTip("Only after every task is reviewed and every issue is closed; no app is executed.")
         recover_workers.setToolTip("Safely mark interrupted worker drafts as blocked, ready for manual retry.")
-        right_layout.addLayout(footer)
+        advanced_project = QGroupBox("Project approval and recovery")
+        advanced_project.setCheckable(True)
+        advanced_project.setChecked(False)
+        advanced_project.setLayout(footer)
+        right_layout.addWidget(advanced_project)
 
         active_jobs = []
         for button, tip in (
@@ -638,7 +650,7 @@ class Module:
             try:
                 if error:
                     self.store.fail_task(tid, error[:2300])
-                    alert("Worker failed safely: " + error[:350])
+                    alert("Worker could not finish. Your project is safe.\n\n" + error[:900])
                 else:
                     self.store.submit_task(tid, draft, "Local Ollama draft only. User must review and run real tests.")
             except (ValueError, KeyError) as exc:
