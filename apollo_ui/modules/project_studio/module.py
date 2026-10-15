@@ -595,8 +595,11 @@ class Module:
                     transcript.extend(
                         f"{turn.get('at', meeting['created_at'])[:19]}  "
                         f"{turn['role'].upper()} → TEAM: {turn['message']}"
-                        for turn in meeting["turns"])
-                    transcript.append("MANAGER DECISIONS:\n" + meeting["decisions"])
+                        for turn in meeting["turns"] if turn["role"] != "manager")
+                    manager_turn = meeting["turns"][-1]
+                    transcript.append(
+                        f"{manager_turn.get('at', meeting['created_at'])[:19]}  "
+                        "MANAGER DECISION RECORD:\n" + meeting["decisions"])
                     transcript.append("──────────────────")
                 team_transcript.setPlainText("\n\n".join(transcript))
             else:
