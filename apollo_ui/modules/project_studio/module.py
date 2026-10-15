@@ -386,8 +386,10 @@ class Module:
         timeline.setReadOnly(True)
         history_layout.addWidget(timeline)
         tabs.addTab(history_tab, "History")
-        tabs.tabBar().moveTab(tabs.indexOf(checks_tab), 1)
-        tabs.tabBar().moveTab(tabs.indexOf(bugs_tab), 2)
+        tabs.tabBar().moveTab(tabs.indexOf(flow_tab), 0)
+        tabs.tabBar().moveTab(tabs.indexOf(tasks_tab), 1)
+        tabs.tabBar().moveTab(tabs.indexOf(checks_tab), 2)
+        tabs.tabBar().moveTab(tabs.indexOf(bugs_tab), 3)
 
         footer = QGridLayout()
         approve_project = QPushButton("Approve Reviewed Project")
@@ -785,12 +787,15 @@ class Module:
 
         def meeting_spoke(pid, role, message):
             # A live response from the actual running local model, not simulated text.
+            if pid == project_id():
+                team_flow.note_speaker(role)
             feed(f"Team meeting · {role.title()}: {message[:350]}")
             if pid == project_id():
                 team_transcript.appendPlainText(role.upper() + ": " + message + "\n")
                 meeting_status.setText("Team meeting in progress: " + role.title())
 
         def meeting_finished(pid, report, error):
+            team_flow.finish_meeting()
             active_jobs[:] = [item for item in active_jobs if item[0] != f"meeting:{pid}"]
             should_continue = (meeting_queue["pid"] == pid
                                and meeting_queue["auto_continue"])
@@ -829,6 +834,7 @@ class Module:
                 active_jobs.append((f"meeting:{pid}", signals))
                 meeting_queue.update({"pid": pid, "auto_continue": auto_continue})
                 meeting_status.setText("Meeting in progress: checking shared requirements...")
+                team_flow.begin_meeting()
                 team_transcript.setPlainText("Live meeting responses (saved after full completion):\n")
                 feed("Manager: Starting a real six-turn team meeting about " + topic[:150])
                 tabs.setCurrentWidget(flow_tab)
