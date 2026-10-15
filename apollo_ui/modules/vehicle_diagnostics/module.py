@@ -5,6 +5,7 @@ from pathlib import Path
 from apollo_obd import OBDService, BAUD_RATES, demo_snapshot, demo_fault_codes
 from apollo_vehicle_starting_test import (
     StartTestControl, capture_starting_test, save_starting_test,
+    starting_test_history, latest_starting_test,
 )
 
 # Reference labels, not diagnoses; vehicles may require make-specific testing.
@@ -47,6 +48,16 @@ class Module:
                 }, "required": ["port"]},
             },
             {
+                "name": "obd_starting_history",
+                "description": "Review saved local starting-system test summaries; no car commands are sent.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+            {
+                "name": "obd_latest_starting_test",
+                "description": "Read the latest saved local starting-system sensor timeline and cautious analysis.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+            {
                 "name": "obd_demo",
                 "description": "Return explicitly simulated live data and trouble codes; no car is accessed.",
                 "parameters": {"type": "object", "properties": {}},
@@ -61,13 +72,18 @@ class Module:
             return self.service.snapshot(args.get("port"), args.get("baud", 38400))
         if action == "obd_fault_codes":
             return self.service.read_codes(args.get("port"), args.get("baud", 38400))
+        if action == "obd_starting_history":
+            return {"tests": starting_test_history(self.base)}
+        if action == "obd_latest_starting_test":
+            return latest_starting_test(self.base)
         if action == "obd_demo":
             return {"snapshot": demo_snapshot(), "fault_codes": demo_fault_codes()}
         raise KeyError(action)
 
     def self_test(self):
         names = {item["name"] for item in self.tools()}
-        assert names == {"obd_list_ports", "obd_live_snapshot", "obd_fault_codes", "obd_demo"}
+        assert names == {"obd_list_ports", "obd_live_snapshot", "obd_fault_codes", "obd_demo",
+                         "obd_starting_history", "obd_latest_starting_test"}
         assert demo_snapshot()["simulated"] and demo_fault_codes()["simulated"]
         return "Read-only OBD-II module and explicit demo mode ready."
 
@@ -121,6 +137,13 @@ class Module:
         root.addLayout(controls)
         root.addWidget(auto_refresh)
 
+        profile_row = QHBoxLayout()
+        profile_row.addWidget(QLabel("Vehicle profile"))
+        profile_combo = QComboBox()
+        profile_combo.addItems(["Ford Fiesta (2008)", "Other OBD-II vehicle"])
+        profile_row.addWidget(profile_combo, 1)
+        root.addLayout(profile_row)
+
         starting_row = QHBoxLayout()
         start_btn = QPushButton("Start Starting-System Test")
         test_length = QComboBox()
@@ -129,9 +152,10 @@ class Module:
         test_length.setCurrentIndex(test_length.findData(30))
         key_btn = QPushButton("Mark Key Turn")
         stop_btn = QPushButton("Stop & Analyse")
+        latest_btn = QPushButton("Load Latest Test")
         key_btn.setEnabled(False)
         stop_btn.setEnabled(False)
-        for widget in (start_btn, test_length, key_btn, stop_btn):
+        for widget in (start_btn, test_length, key_btn, stop_btn, latest_btn):
             starting_row.addWidget(widget)
         root.addLayout(starting_row)
         start_hint = QLabel(
@@ -275,7 +299,7 @@ class Module:
         def busy(value):
             state["busy"] = bool(value)
             for control in (refresh_btn, live_btn, codes_btn, demo_btn, port_combo, baud_combo,
-                            start_btn, test_length, auto_refresh):
+                            start_btn, test_length, profile_combo, latest_btn, auto_refresh):
                 control.setEnabled(not value)
             save_btn.setEnabled(not value and state["result"] is not None)
             key_btn.setEnabled(value and state["start_control"] is not None)
@@ -310,6 +334,7 @@ class Module:
             port, baud, duration = (
                 port_combo.currentData(), baud_combo.currentData(), test_length.currentData()
             )
+            selected_profile = profile_combo.currentText()
             busy(True)
             connection_status.setText("Starting read-only test; preparing adapter...")
             live_readout.setText("Recording | Waiting for first voltage reading...")
@@ -320,6 +345,7 @@ class Module:
                     report = capture_starting_test(
                         port, baud, duration, service=self.service, control=control,
                         on_sample=lambda value: signals.sample.emit(value),
+                        vehicle_profile=selected_profile,
                     )
                     try:
                         report["saved_to"] = str(save_starting_test(report, self.base))
@@ -413,6 +439,18 @@ class Module:
         signals.done.connect(done)
         signals.failed.connect(failed)
         signals.sample.connect(on_sample)
+
+        def load_latest():
+            if state["busy"]:
+                return
+            result = latest_starting_test(self.base)
+            if result.get("available"):
+                show_data(result["report"])
+                live_readout.setText("Loaded saved test. No live vehicle access.")
+            else:
+                connection_status.setText(result["message"])
+
+        latest_btn.clicked.connect(load_latest)
         start_btn.clicked.connect(begin_starting_test)
         key_btn.clicked.connect(
             lambda: state["start_control"].mark_key_turn()
