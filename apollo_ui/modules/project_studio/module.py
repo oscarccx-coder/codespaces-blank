@@ -9,7 +9,6 @@ from pathlib import Path
 from apollo_project_studio import StudioStore
 from apollo_foundry_artifacts import save_bundle
 from apollo_foundry_meetings import hold_meeting
-from apollo_foundry_diagram import ApolloTeamFlow, flow_snapshot
 from apollo_project_workers import (
     draft_for_task, model_from_config, propose_subtasks, validate_subtask_plan
 )
@@ -64,6 +63,7 @@ class Module:
 
     def build_ui(self, parent=None, ui_context=None):
         from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal, QTimer
+        from apollo_foundry_diagram import ApolloTeamFlow, flow_snapshot
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGridLayout,
             QLineEdit, QProgressBar, QGroupBox,
