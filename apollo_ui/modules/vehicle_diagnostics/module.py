@@ -3,6 +3,9 @@ import json
 from pathlib import Path
 
 from apollo_obd import OBDService, BAUD_RATES, demo_snapshot, demo_fault_codes
+from apollo_vehicle_starting_test import (
+    StartTestControl, capture_starting_test, save_starting_test,
+)
 
 # Reference labels, not diagnoses; vehicles may require make-specific testing.
 COMMON_DTC_HINTS = {
@@ -118,6 +121,30 @@ class Module:
         root.addLayout(controls)
         root.addWidget(auto_refresh)
 
+        starting_row = QHBoxLayout()
+        start_btn = QPushButton("Start Starting-System Test")
+        test_length = QComboBox()
+        for seconds in (15, 30, 60):
+            test_length.addItem(f"{seconds} seconds", seconds)
+        test_length.setCurrentIndex(test_length.findData(30))
+        key_btn = QPushButton("Mark Key Turn")
+        stop_btn = QPushButton("Stop & Analyse")
+        key_btn.setEnabled(False)
+        stop_btn.setEnabled(False)
+        for widget in (start_btn, test_length, key_btn, stop_btn):
+            starting_row.addWidget(widget)
+        root.addLayout(starting_row)
+        start_hint = QLabel(
+            "Timed read-only test: record baseline with ignition on, then mark the key "
+            "turn immediately before attempting to start. Keep the vehicle parked. "
+            "Do not repeatedly crank a failing starter or leave the ignition on indefinitely."
+        )
+        start_hint.setWordWrap(True)
+        root.addWidget(start_hint)
+        live_readout = QLabel("Starting-system recorder idle.")
+        live_readout.setWordWrap(True)
+        root.addWidget(live_readout)
+
         connection_status = QLabel("No adapter selected.")
         connection_status.setWordWrap(True)
         root.addWidget(connection_status)
@@ -140,11 +167,27 @@ class Module:
         class Signals(QObject):
             done = Signal(str, object)
             failed = Signal(str, str)
+            sample = Signal(object)
 
         signals = Signals(page)
-        state = {"busy": False, "result": None, "destroyed": False}
+        state = {"busy": False, "result": None, "destroyed": False,
+                 "start_control": None, "sample_count": 0}
         timer = QTimer(page)
         timer.setInterval(12000)
+        elapsed_timer = QTimer(page)
+        elapsed_timer.setInterval(250)
+
+        def tick_starting_test():
+            control = state["start_control"]
+            if control is not None:
+                import time
+                elapsed = time.monotonic() - control.started_at
+                current = live_readout.text().split(" | ", 1)[-1]
+                live_readout.setText(
+                    f"Recording {elapsed:.1f}s, {state['sample_count']} readings | {current}"
+                )
+
+        elapsed_timer.timeout.connect(tick_starting_test)
 
         def add_row(parameter, reading, notes):
             row = readings.rowCount()
@@ -158,6 +201,23 @@ class Module:
             state["result"] = result
             readings.setRowCount(0)
             details.setPlainText(json.dumps(result, indent=2, default=str))
+            if result.get("type") == "starting_system_test":
+                analysis = result["analysis"]
+                connection_status.setText(
+                    "Starting test complete. " + (
+                        f"Report saved: {result['saved_to']}" if result.get("saved_to")
+                        else "Report could not be saved: " + result.get("save_error", "unknown error")
+                    )
+                )
+                add_row("Lowest sampled voltage", analysis["minimum_sampled_voltage_v"],
+                        analysis["voltage_source"] + "; V")
+                add_row("Pre-test voltage", analysis["baseline_sampled_voltage_v"], "V")
+                add_row("Max sampled RPM", analysis["max_sampled_rpm"], "rpm")
+                add_row("Samples", analysis["samples"], "Communication gaps are preserved")
+                add_row("Finding", analysis["status"], analysis["summary"])
+                for warning in analysis["cautions"]:
+                    add_row("Caution", "", warning)
+                return
             if result.get("simulated"):
                 connection_status.setText("SIMULATED DEMO DATA - nothing read from a car.")
             else:
@@ -205,16 +265,71 @@ class Module:
                     )
                 live_btn.setEnabled(bool(ports))
                 codes_btn.setEnabled(bool(ports))
+                start_btn.setEnabled(bool(ports))
             except Exception as exc:
                 connection_status.setText(f"Serial port discovery failed: {exc}")
                 live_btn.setEnabled(False)
                 codes_btn.setEnabled(False)
+                start_btn.setEnabled(False)
 
         def busy(value):
             state["busy"] = bool(value)
-            for control in (refresh_btn, live_btn, codes_btn, demo_btn, port_combo, baud_combo):
+            for control in (refresh_btn, live_btn, codes_btn, demo_btn, port_combo, baud_combo,
+                            start_btn, test_length, auto_refresh):
                 control.setEnabled(not value)
             save_btn.setEnabled(not value and state["result"] is not None)
+            key_btn.setEnabled(value and state["start_control"] is not None)
+            stop_btn.setEnabled(value and state["start_control"] is not None)
+
+        def on_sample(sample):
+            if state["destroyed"]:
+                return
+            state["sample_count"] += 1
+            voltage = (sample["adapter_voltage_v"] if sample["adapter_voltage_v"] is not None
+                       else sample["ecu_voltage_v"])
+            live_readout.setText(
+                f"Recording | Voltage: {str(voltage) + ' V' if voltage is not None else 'unavailable'}; "
+                f"ECU RPM: {sample['engine_rpm'] if sample['engine_rpm'] is not None else 'unavailable'}; "
+                f"Communication warnings: {len(sample['errors'])}"
+            )
+            if state["sample_count"] == 1:
+                readings.setRowCount(0)
+            add_row(f"+{sample['elapsed_s']:.2f}s",
+                    str(voltage) + " V" if voltage is not None else "No voltage",
+                    f"RPM: {sample['engine_rpm']}; errors: {len(sample['errors'])}")
+            readings.scrollToBottom()
+
+        def begin_starting_test():
+            if state["busy"] or not port_combo.currentData():
+                return
+            auto_refresh.setChecked(False)
+            control = StartTestControl()
+            state["start_control"] = control
+            state["sample_count"] = 0
+            state["result"] = None
+            port, baud, duration = (
+                port_combo.currentData(), baud_combo.currentData(), test_length.currentData()
+            )
+            busy(True)
+            connection_status.setText("Starting read-only test; preparing adapter...")
+            live_readout.setText("Recording | Waiting for first voltage reading...")
+            elapsed_timer.start()
+
+            def work():
+                try:
+                    report = capture_starting_test(
+                        port, baud, duration, service=self.service, control=control,
+                        on_sample=lambda value: signals.sample.emit(value),
+                    )
+                    try:
+                        report["saved_to"] = str(save_starting_test(report, self.base))
+                    except OSError as exc:
+                        report["save_error"] = str(exc)
+                    signals.done.emit("start_test", report)
+                except Exception as exc:
+                    signals.failed.emit("start_test", f"{type(exc).__name__}: {exc}")
+
+            threading.Thread(target=work, name="ApolloOBDStartingTest", daemon=True).start()
 
         def launch(mode):
             if state["busy"]:
@@ -245,7 +360,13 @@ class Module:
         def done(mode, result):
             if state["destroyed"]:
                 return
+            elapsed_timer.stop()
+            state["start_control"] = None
             busy(False)
+            if mode == "start_test":
+                show_data(result)
+                refresh_ports()
+                return
             if mode == "demo":
                 demo = dict(result["snapshot"])
                 # Explicitly show both kinds of fictional data without a car connection.
@@ -258,6 +379,8 @@ class Module:
         def failed(mode, error):
             if state["destroyed"]:
                 return
+            elapsed_timer.stop()
+            state["start_control"] = None
             busy(False)
             connection_status.setText(f"{mode.title()} scan FAILED: {error}\nNo simulated data substituted.")
             details.setPlainText(json.dumps({"ok": False, "error": error}, indent=2))
@@ -289,6 +412,16 @@ class Module:
 
         signals.done.connect(done)
         signals.failed.connect(failed)
+        signals.sample.connect(on_sample)
+        start_btn.clicked.connect(begin_starting_test)
+        key_btn.clicked.connect(
+            lambda: state["start_control"].mark_key_turn()
+            if state["start_control"] is not None else None
+        )
+        stop_btn.clicked.connect(
+            lambda: state["start_control"].stop()
+            if state["start_control"] is not None else None
+        )
         refresh_btn.clicked.connect(refresh_ports)
         live_btn.clicked.connect(lambda: launch("live"))
         codes_btn.clicked.connect(lambda: launch("codes"))
@@ -296,7 +429,12 @@ class Module:
         save_btn.clicked.connect(save_report)
         auto_refresh.toggled.connect(auto_refresh_changed)
         timer.timeout.connect(lambda: launch("live") if not state["busy"] and port_combo.currentData() else None)
-        page.destroyed.connect(lambda: state.update({"destroyed": True}))
+        def close_page():
+            state["destroyed"] = True
+            if state["start_control"] is not None:
+                state["start_control"].stop()
+
+        page.destroyed.connect(close_page)
         save_btn.setEnabled(False)
         refresh_ports()
         return page
