@@ -8,6 +8,8 @@ from pathlib import Path
 
 from apollo_project_studio import StudioStore
 from apollo_foundry_artifacts import save_bundle
+from apollo_foundry_meetings import hold_meeting
+from apollo_foundry_diagram import ApolloTeamFlow, flow_snapshot
 from apollo_project_workers import (
     draft_for_task, model_from_config, propose_subtasks, validate_subtask_plan
 )
@@ -67,7 +69,7 @@ class Module:
             QLineEdit, QProgressBar, QGroupBox,
             QListWidget, QListWidgetItem, QSplitter, QTabWidget,
             QTreeWidget, QTreeWidgetItem, QPlainTextEdit, QMessageBox,
-            QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox,
+            QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox, QScrollArea,
         )
 
         class WorkerSignal(QObject):
@@ -132,6 +134,27 @@ class Module:
                     self.signals.finished.emit(self.item, proposal, "")
                 except Exception as error:
                     self.signals.finished.emit(self.item, "", f"{type(error).__name__}: {error}")
+
+        class MeetingSignals(QObject):
+            finished = Signal(int, object, str)
+            spoke = Signal(int, str, str)
+
+        class MeetingJob(QRunnable):
+            def __init__(self, pid, state, model, topic, signals):
+                super().__init__()
+                self.pid, self.state, self.model, self.topic, self.signals = (
+                    pid, state, model, topic, signals)
+
+            def run(self):
+                try:
+                    report = hold_meeting(
+                        self.state, self.model, topic=self.topic,
+                        on_message=lambda role, message:
+                            self.signals.spoke.emit(self.pid, role, message))
+                    self.signals.finished.emit(self.pid, report, "")
+                except Exception as exc:
+                    self.signals.finished.emit(
+                        self.pid, None, f"{type(exc).__name__}: {exc}")
 
         page = QWidget(parent)
         outer = QVBoxLayout(page)
@@ -220,6 +243,35 @@ class Module:
         split.addWidget(right)
         split.setStretchFactor(0, 1)
         split.setStretchFactor(1, 4)
+
+        # This is a real project snapshot, not a decorative worker conversation.
+        flow_tab = QWidget()
+        flow_layout = QVBoxLayout(flow_tab)
+        flow_header = QHBoxLayout()
+        team_meeting_btn = QPushButton("Hold Team Meeting")
+        team_meeting_btn.setObjectName("foundryTeamMeeting")
+        team_meeting_btn.setToolTip(
+            "Ask each specialist to discuss this project, then save the manager's decisions.")
+        flow_header.addWidget(team_meeting_btn)
+        flow_header.addStretch()
+        flow_layout.addLayout(flow_header)
+        meeting_status = QLabel("No team meeting recorded for this project.")
+        meeting_status.setWordWrap(True)
+        flow_layout.addWidget(meeting_status)
+        diagram_scroll = QScrollArea()
+        diagram_scroll.setWidgetResizable(False)
+        diagram_scroll.setFrameShape(QScrollArea.NoFrame)
+        diagram_scroll.setMinimumHeight(305)
+        team_flow = ApolloTeamFlow()
+        diagram_scroll.setWidget(team_flow)
+        flow_layout.addWidget(diagram_scroll)
+        flow_layout.addWidget(QLabel("Meeting transcript and manager decisions"))
+        team_transcript = QPlainTextEdit()
+        team_transcript.setReadOnly(True)
+        team_transcript.setAccessibleName("Saved worker meeting transcripts and decisions")
+        team_transcript.setPlaceholderText("Choose a project, then hold a team meeting.")
+        flow_layout.addWidget(team_transcript, 1)
+        tabs.addTab(flow_tab, "Workflow & Meetings")
 
         tasks_tab = QWidget()
         tasks_layout = QVBoxLayout(tasks_tab)
@@ -356,6 +408,7 @@ class Module:
         right_layout.addWidget(advanced_project)
 
         active_jobs = []
+        meeting_queue = {"pid": None, "auto_continue": False}
         auto = {"project": None, "remaining": 0, "started": set(), "attempts": {}}
         for button, tip in (
             (change_request, "Request a change for this task, or the whole project if no task is selected."),
@@ -502,6 +555,10 @@ class Module:
                 sandbox_status.setText("Select a project to see sandbox test results.")
                 sandbox_report.clear()
                 result_text.clear()
+                team_transcript.clear()
+                meeting_status.setText("No project selected.")
+                team_flow.update_flow(flow_snapshot({"tasks": []}))
+                team_meeting_btn.setEnabled(False)
                 task_tree.blockSignals(False)
                 issue_table.blockSignals(False)
                 update_actions()
@@ -519,6 +576,32 @@ class Module:
                 f"   •   {metrics['open_issues']} open issues"
             )
             completion.setValue(metrics["percent"])
+            meetings = self.store.meetings(pid, 5)
+            events = self.store.audit(pid, 100)
+            team_flow.update_flow(flow_snapshot(state, meetings, events))
+            team_meeting_btn.setEnabled(
+                not active_jobs and state["project"]["state"] != "approved")
+            if meetings:
+                recent_meeting = meetings[0]
+                meeting_status.setText(
+                    f"Last meeting: {recent_meeting['created_at']}  ·  "
+                    f"{recent_meeting['topic']}  ·  {len(recent_meeting['turns'])} participants")
+                transcript = []
+                for meeting in meetings:
+                    transcript.append(f"TEAM MEETING #{meeting['id']}  ·  {meeting['created_at']}\n"
+                                      f"Topic: {meeting['topic']}")
+                    transcript.extend(
+                        f"{turn['role'].upper()}: {turn['message']}"
+                        for turn in meeting["turns"])
+                    transcript.append("MANAGER DECISIONS:\n" + meeting["decisions"])
+                    transcript.append("──────────────────")
+                team_transcript.setPlainText("\n\n".join(transcript))
+            else:
+                meeting_status.setText("No team meeting recorded yet.")
+                team_transcript.setPlainText(
+                    "Hold a team meeting to exchange actual Ollama responses. "
+                    "Only completed meetings are saved as decisions.")
+
             recent_checks = self.store.check_history(pid, 1)
             if recent_checks:
                 latest = recent_checks[0]["report"]
@@ -588,7 +671,7 @@ class Module:
                     issue_table.selectRow(i)
             timeline.setPlainText("\n".join(
                 f"{e['created_at']}  {e['kind']}  {e['detail']}"
-                for e in self.store.audit(pid)
+                for e in events[:60]
             ) or "No activity yet. Start by assigning a worker.")
             task_tree.blockSignals(False)
             issue_table.blockSignals(False)
@@ -699,6 +782,73 @@ class Module:
                 alert(exc)
 
 
+        def meeting_spoke(pid, role, message):
+            # A live response from the actual running local model, not simulated text.
+            feed(f"Team meeting · {role.title()}: {message[:350]}")
+            if pid == project_id():
+                team_transcript.appendPlainText(role.upper() + ": " + message + "\n")
+                meeting_status.setText("Team meeting in progress: " + role.title())
+
+        def meeting_finished(pid, report, error):
+            active_jobs[:] = [item for item in active_jobs if item[0] != f"meeting:{pid}"]
+            should_continue = (meeting_queue["pid"] == pid
+                               and meeting_queue["auto_continue"])
+            meeting_queue.update({"pid": None, "auto_continue": False})
+            if error:
+                feed("Manager: Team meeting failed: " + error[:340])
+                meeting_status.setText("Meeting failed. No group decisions saved.")
+                auto["project"] = None
+            else:
+                try:
+                    self.store.save_meeting(pid, report)
+                    feed("Manager: Team decisions saved and distributed to future workers.")
+                    if pid == project_id():
+                        refresh_details()
+                        tabs.setCurrentWidget(flow_tab)
+                except (ValueError, KeyError, OSError) as exc:
+                    feed("Manager: Meeting could not be saved: " + str(exc))
+                    should_continue = False
+            if should_continue and not error and pid == project_id():
+                QTimer.singleShot(0, lambda: start_auto(pid))
+            else:
+                update_actions()
+
+        def start_team_meeting(pid, topic, *, auto_continue=False):
+            if pid is None:
+                return alert("Select a project before starting a team meeting.")
+            if active_jobs:
+                return alert("Wait until the current worker or meeting finishes.")
+            try:
+                state = self.store.details(pid)
+                if state["project"]["state"] == "approved":
+                    raise ValueError("Reopen this approved project before further planning.")
+                signals = MeetingSignals()
+                signals.spoke.connect(meeting_spoke)
+                signals.finished.connect(meeting_finished)
+                active_jobs.append((f"meeting:{pid}", signals))
+                meeting_queue.update({"pid": pid, "auto_continue": auto_continue})
+                meeting_status.setText("Meeting in progress: checking shared requirements...")
+                team_transcript.setPlainText("Live meeting responses (saved after full completion):\n")
+                feed("Manager: Starting a real six-turn team meeting about " + topic[:150])
+                tabs.setCurrentWidget(flow_tab)
+                QThreadPool.globalInstance().start(
+                    MeetingJob(pid, state, model_from_config(self.base), topic, signals))
+                update_actions()
+            except (OSError, ValueError, KeyError) as exc:
+                meeting_queue.update({"pid": None, "auto_continue": False})
+                active_jobs[:] = [a for a in active_jobs if a[0] != f"meeting:{pid}"]
+                alert("Could not start team meeting: " + str(exc))
+
+        def manual_team_meeting():
+            pid = project_id()
+            if pid is None:
+                return alert("Select a project first.")
+            topic, ok = QInputDialog.getText(
+                page, "Foundry Team Meeting", "What should the team discuss?",
+                text="Architecture, blockers, test findings and next steps")
+            if ok and topic.strip():
+                start_team_meeting(pid, topic.strip())
+
         def advance_auto():
             """Draft at most five todo tasks, sequentially. No auto-approval or execution."""
             pid = auto["project"]
@@ -724,6 +874,8 @@ class Module:
                 auto["started"].add(task["id"])
                 auto["remaining"] -= 1
                 feed("Manager: Assigning " + task["title"] + " to " + task["role"] + ".")
+                self.store.record_handoff(pid, "manager", task["role"],
+                                          "Assigned: " + task["title"][:120], task["id"])
                 self.store.start_task(task["id"])
                 signal = WorkerSignal()
                 signal.finished.connect(finished_job)
@@ -803,6 +955,8 @@ class Module:
                 else:
                     feed("Worker: Task " + str(tid) + " ready for review: " + draft[:500])
                     self.store.submit_task(tid, draft[:14000], evidence)
+                    self.store.record_handoff(task["project_id"], task["role"], "manager",
+                                              "Draft submitted for review: " + task["title"][:115], tid)
             except (ValueError, KeyError, OSError) as exc:
                 auto["project"] = None
                 alert("Worker result could not be saved: " + str(exc))
@@ -1131,12 +1285,14 @@ class Module:
                     feed("You: " + request[:500])
                     feed("Manager: Change request added to the selected project for review.")
                 quick_request.clear()
-                tabs.setCurrentWidget(tasks_tab)
-                start_auto(pid)
+                tabs.setCurrentWidget(flow_tab)
+                start_team_meeting(pid, "Kickoff: architecture, dependencies and acceptance tests",
+                                   auto_continue=True)
             except (OSError, ValueError, KeyError) as exc:
                 alert(exc)
 
         quick_start.clicked.connect(quick_start_action)
+        team_meeting_btn.clicked.connect(manual_team_meeting)
         new_project.clicked.connect(add_project_action)
         refresh_btn.clicked.connect(lambda: refresh_projects())
         project_search.textChanged.connect(lambda _: refresh_projects())
