@@ -80,6 +80,16 @@ class FoundryWindowTests(unittest.TestCase):
             module.store.audit(project["project"]["id"]))
         self.assertIn(("manager", "architect"), status["handoffs"])
         view.update_flow(status)
+        view.begin_meeting()
+        self.assertEqual(view.active_role, "architect")
+        view.note_speaker("architect")
+        self.assertEqual(view.active_role, "implementer")
+        view.note_speaker("integrator")
+        self.assertEqual(view.active_role, "manager")
+        view.note_speaker("manager")
+        self.assertIsNone(view.active_role)
+        view.finish_meeting()
+        self.assertEqual(len(view.live_spoken), 0)
         view.repaint()
 
     def test_trusted_reference_button_calls_backend(self):
