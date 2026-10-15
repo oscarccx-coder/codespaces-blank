@@ -446,6 +446,7 @@ class Module:
             result = latest_starting_test(self.base)
             if result.get("available"):
                 show_data(result["report"])
+                connection_status.setText("Loaded saved starting-system report. No live vehicle access.")
                 live_readout.setText("Loaded saved test. No live vehicle access.")
             else:
                 connection_status.setText(result["message"])
