@@ -26,7 +26,7 @@ SENSORS = {
     "0142": ("Control module voltage", "V", 2, lambda v: (v[0] * 256 + v[1]) / 1000),
 }
 DTC_MODES = {"03": "stored", "07": "pending", "0A": "permanent"}
-ALLOWED_COMMANDS = frozenset((*SETUP_COMMANDS, "ATI", *SENSORS, *DTC_MODES))
+ALLOWED_COMMANDS = frozenset((*SETUP_COMMANDS, "ATI", "ATRV", *SENSORS, *DTC_MODES))
 PROBLEMS = ("NO DATA", "UNABLE TO CONNECT", "BUS INIT", "CAN ERROR",
             "STOPPED", "BUS ERROR", "BUFFER FULL", "ERROR")
 
