@@ -8,6 +8,7 @@ from pathlib import Path
 from apollo_vehicle_starting_test import (
     StartTestControl, analyse_starting_test, capture_starting_test,
     parse_adapter_voltage, save_starting_test,
+    starting_test_history, latest_starting_test,
 )
 from apollo_obd import (
     ALLOWED_COMMANDS, BAUD_RATES, ELM327Session, OBDService,
