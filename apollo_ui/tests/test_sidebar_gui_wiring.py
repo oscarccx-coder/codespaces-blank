@@ -37,6 +37,19 @@ class SidebarWiringTests(unittest.TestCase):
         self.assertIn("self._refresh_sidebar()", ast.get_source_segment(source, self.methods["rebuild_module_ui"]))
         self.assertIn("self.sidebar_nav_layout.addWidget(button)", source)
 
+    def test_any_installed_ui_app_can_be_pinned_from_sidebar(self):
+        source = self.source
+        self.assertIn("self.sidebar_state.register_module(", source)
+        self.assertIn('self.sidebar_module_defaults[page_key] = placement == "sidebar"', source)
+        self.assertIn("self.open_module_app(target)", source)
+        self.assertIn("Add / Remove Apps", source)
+        self.assertIn("Find an app to add or remove...", source)
+        self.assertIn("self._sidebar_shortcut_menu(k, b, position)", source)
+        self.assertIn("self.sidebar_state.set_visible(key, False)", source)
+        self.assertIn('self.sidebar_state.reset(getattr(self, "sidebar_module_defaults", {}))', source)
+        self.assertIn("_sidebar_shortcut_menu", self.methods)
+        self.assertIn("register_module", (ROOT / "apollo_sidebar.py").read_text(encoding="utf-8"))
+
     def test_anchors_are_not_in_reorderable_host(self):
         text = ast.get_source_segment(self.source, self.methods["_build_sidebar"])
         self.assertIn('v.addWidget(self.nav_buttons["Hub"])', text)
