@@ -78,6 +78,54 @@ class SidebarLayoutTests(unittest.TestCase):
         self.assertEqual(loaded.display_label("Hub", "Hub"), "Home")
         self.assertEqual(loaded.state()["width"], 360)
 
+    def test_all_ui_apps_can_be_registered_and_pinned(self):
+        # Settings apps, hidden-placement UI apps and legacy sidebar apps.
+        self.assertTrue(self.layout.register_module("module::project_studio"))
+        self.assertTrue(self.layout.register_module("module::voice_center"))
+        self.assertTrue(self.layout.register_module("module::system_info", visible_by_default=True))
+        self.assertFalse(self.layout.is_visible("module::project_studio"))
+        self.assertFalse(self.layout.is_visible("module::voice_center"))
+        self.assertTrue(self.layout.is_visible("module::system_info"))
+        self.layout.set_visible("module::project_studio", True)
+        fresh = SidebarLayoutStore(self.root)
+        self.assertTrue(fresh.is_visible("module::project_studio"))
+        self.assertFalse(fresh.is_visible("module::voice_center"))
+
+    def test_removing_shortcut_keeps_app_registration(self):
+        key = "module::project_studio"
+        self.layout.register_module(key)
+        self.layout.set_visible(key, True)
+        self.layout.set_visible(key, False)
+        self.assertFalse(self.layout.is_visible(key))
+        self.assertIn(key, self.layout.state()["order"])
+        fresh = SidebarLayoutStore(self.root)
+        self.assertTrue(fresh.register_module(key, visible_by_default=True) is False)
+        self.assertFalse(fresh.is_visible(key))
+        fresh.set_visible(key, True)
+        self.assertTrue(SidebarLayoutStore(self.root).is_visible(key))
+
+    def test_reset_keeps_only_declared_default_app_shortcuts(self):
+        self.layout.register_module("module::project_studio")
+        self.layout.set_visible("module::project_studio", True)
+        self.layout.reset({
+            "module::project_studio": False,
+            "module::system_info": True,
+        })
+        again = SidebarLayoutStore(self.root)
+        self.assertFalse(again.is_visible("module::project_studio"))
+        self.assertTrue(again.is_visible("module::system_info"))
+        self.assertTrue(again.is_visible("Chat"))
+        self.assertTrue(again.is_visible("Hub"))
+
+    def test_invalid_paths_and_locked_navigation_cannot_be_pinned(self):
+        for name in ("module::../oops", "module::a/b", "module::", "random"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                self.layout.register_module(name)
+        self.assertFalse(self.layout.set_visible("Hub", False))
+        self.assertFalse(self.layout.set_visible("Settings", False))
+        self.assertTrue(self.layout.is_visible("Hub"))
+        self.assertTrue(self.layout.is_visible("Settings"))
+
     def test_reset_is_persistent(self):
         self.layout.apply(["Coding", "Chat"], ["Chat"], width=260, collapsed=True)
         self.layout.reset()
