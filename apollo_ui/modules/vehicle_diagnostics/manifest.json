@@ -1,10 +1,10 @@
 {
   "id": "vehicle_diagnostics",
   "name": "Apollo Vehicle Diagnostics",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "entrypoint": "module.py",
   "class": "Module",
-  "description": "Read-only USB/Bluetooth ELM327 OBD-II live vehicle telemetry and fault-code reader with separate demo mode.",
+  "description": "Read-only USB/Bluetooth ELM327 OBD-II diagnostics and timed starting-system tests with local history.",
   "ui": {
     "enabled": true,
     "title": "Vehicle Diagnostics",
