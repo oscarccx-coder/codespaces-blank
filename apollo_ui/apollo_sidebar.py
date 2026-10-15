@@ -143,5 +143,48 @@ class SidebarLayoutStore:
             next_state["collapsed"] = collapsed
         self._commit(next_state)
 
-    def reset(self):
-        self._commit(self.defaults())
+    def register_module(self, key, *, visible_by_default=False):
+        """Register a newly discovered UI app without silently pinning everything.
+
+        Existing visibility, order and renamed shortcuts survive module reload.
+        Legacy 'sidebar' modules remain visible by default; other modules start
+        unpinned until the owner chooses them in the sidebar manager.
+        """
+        if not isinstance(key, str) or not _MODULE_KEY.fullmatch(key):
+            raise ValueError("Expected a stable module::id sidebar key")
+        if key in self._state["order"]:
+            return False
+        state = self.state()
+        state["order"].append(key)
+        if not visible_by_default:
+            state["hidden"].append(key)
+        self._commit(state)
+        return True
+
+    def set_visible(self, key, visible):
+        """Pin/unpin an app shortcut only; never uninstall or disable the app."""
+        if not _valid_key(key):
+            raise ValueError("Unknown sidebar shortcut")
+        if key in FIXED_ITEMS:
+            return False
+        state = self.state()
+        if key not in state["order"]:
+            state["order"].append(key)
+        if visible:
+            state["hidden"] = [value for value in state["hidden"] if value != key]
+        elif key not in state["hidden"]:
+            state["hidden"].append(key)
+        self._commit(state)
+        return True
+
+    def reset(self, modules=None):
+        """Restore defaults, including installed modules' declared placements."""
+        state = self.defaults()
+        for key, default_visible in (modules or {}).items():
+            if not isinstance(key, str) or not _MODULE_KEY.fullmatch(key):
+                continue
+            if key not in state["order"]:
+                state["order"].append(key)
+            if not default_visible:
+                state["hidden"].append(key)
+        self._commit(state)
