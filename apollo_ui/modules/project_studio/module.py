@@ -874,7 +874,14 @@ class Module:
                 candidates = [t for t in state["tasks"]
                               if t["state"] == "todo" and t["id"] not in auto["started"]
                               and (t["role"] not in ("reviewer", "integrator", "tester") or any(x["role"] == "implementer" and x["state"] in ("review", "accepted") and "static checks passed" in x["evidence"].lower() for x in state["tasks"]))]
-                candidates.sort(key=lambda t: (0 if t["title"].startswith("Revise") else 1, t["id"]))
+                # A new project must produce runnable source before cycling
+                # through architecture essays and meeting commentary.
+                # Respect an explicitly queued owner change first.
+                candidates.sort(key=lambda t: (
+                    0 if t["title"].startswith(("Revise", "Fix:")) else
+                    1 if t["role"] == "implementer" else
+                    2 if t["role"] == "architect" else 3,
+                    t["id"]))
                 if not candidates:
                     auto["project"] = None
                     feed("Manager: Drafts ready for review. Reviewer and integrator are held until implementation is verified.")
@@ -884,9 +891,9 @@ class Module:
                 auto["started"].add(task["id"])
                 auto["remaining"] -= 1
                 feed("Manager: Assigning " + task["title"] + " to " + task["role"] + ".")
+                self.store.start_task(task["id"])
                 self.store.record_handoff(pid, "manager", task["role"],
                                           "Assigned: " + task["title"][:120], task["id"])
-                self.store.start_task(task["id"])
                 signal = WorkerSignal()
                 signal.finished.connect(finished_job)
                 signal.update.connect(feed)
