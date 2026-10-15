@@ -158,7 +158,8 @@ def analyse_starting_test(report):
 
 
 def capture_starting_test(port, baud=38400, duration_s=30, *, service=None,
-                          control=None, on_sample=None, interval_s=0.5):
+                          control=None, on_sample=None, interval_s=0.5,
+                          vehicle_profile="Other OBD-II vehicle"):
     """Collect bounded readings in one adapter session. Caller runs in a worker thread.
 
     Every sample records missing data explicitly; there is no demonstration-data fallback.
@@ -175,6 +176,7 @@ def capture_starting_test(port, baud=38400, duration_s=30, *, service=None,
         "source": "vehicle",
         "simulated": False,
         "port": port,
+        "vehicle_profile": str(vehicle_profile)[:80],
         "started_at_utc": utc_now(),
         "planned_duration_s": duration_s,
         "read_only": True,
@@ -245,3 +247,48 @@ def save_starting_test(report, base_dir):
     finally:
         tmp.unlink(missing_ok=True)
     return target
+
+
+def starting_test_history(base_dir, limit=10):
+    """Return recent local start-test summaries to Apollo chat without ECU access."""
+    if type(limit) is not int or not 1 <= limit <= 30:
+        raise ValueError("History limit must be 1 through 30.")
+    folder = Path(base_dir) / "storage" / "reports" / "vehicle_diagnostics" / "starting_tests"
+    result = []
+    for path in sorted(folder.glob("start-test-*.json"), reverse=True)[:limit * 2]:
+        try:
+            if path.stat().st_size > 2_000_000:
+                continue
+            report = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(report, dict) or report.get("type") != "starting_system_test":
+                continue
+            analysis = report.get("analysis") or {}
+            result.append({
+                "file": path.name,
+                "started_at_utc": report.get("started_at_utc"),
+                "vehicle_profile": report.get("vehicle_profile"),
+                "duration_s": report.get("actual_duration_s"),
+                "minimum_sampled_voltage_v": analysis.get("minimum_sampled_voltage_v"),
+                "voltage_source": analysis.get("voltage_source"),
+                "max_sampled_rpm": analysis.get("max_sampled_rpm"),
+                "summary": analysis.get("summary"),
+                "status": analysis.get("status"),
+                "sample_count": len(report.get("samples", [])),
+            })
+        except (OSError, ValueError, TypeError, KeyError):
+            continue
+        if len(result) >= limit:
+            break
+    return result
+
+
+def latest_starting_test(base_dir):
+    """Return the latest readable completed report or an explicit absence status."""
+    history = starting_test_history(base_dir, limit=1)
+    if not history:
+        return {"available": False, "message": "No recorded starting-system tests yet."}
+    filename = history[0]["file"]
+    # Name comes from a constrained local glob, not from external tool input.
+    path = Path(base_dir) / "storage" / "reports" / "vehicle_diagnostics" / "starting_tests" / filename
+    report = json.loads(path.read_text(encoding="utf-8"))
+    return {"available": True, "report": report}
