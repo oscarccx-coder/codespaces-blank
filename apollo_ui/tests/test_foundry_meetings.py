@@ -55,6 +55,45 @@ class FoundryMeetingsTests(unittest.TestCase):
         self.assertIn("AUTHORITATIVE", prompt)
         self.assertIn("No React", prompt)
 
+    def test_specialists_have_distinct_actionable_deliverables(self):
+        state = self.store.details(self.pid)
+        expectations = {
+            "architect": "public interfaces",
+            "implementer": "UI-to-backend",
+            "tester": "inputs and expected outputs",
+            "reviewer": "exact correction",
+            "integrator": "launch command",
+            "manager": "DECISION RECORD",
+        }
+        for role, requirement in expectations.items():
+            with self.subTest(role=role):
+                prompt = meeting_prompt(state, role, [])
+                self.assertIn(requirement, prompt)
+                self.assertIn("not a status report", prompt)
+                self.assertIn("Use PySide6", prompt)
+
+    def test_truncated_model_output_does_not_become_saved_decisions(self):
+        for response in (
+            {"response": "This decision is incomplete", "done_reason": "length"},
+            {"response": "x" * 3501, "done_reason": "stop"},
+        ):
+            with self.subTest(response=response.get("done_reason")):
+                with patch("apollo_foundry_meetings._read_model_response",
+                           return_value=response):
+                    with self.assertRaisesRegex(RuntimeError, "limit"):
+                        hold_meeting(self.store.details(self.pid), "qwen2.5-coder:7b")
+                self.assertEqual(self.store.meetings(self.pid), [])
+
+    def test_model_output_budget_allows_complete_manager_record(self):
+        state = self.store.details(self.pid)
+        budgets = []
+        def fake_read(request, timeout):
+            budgets.append(json.loads(request.data.decode())["options"]["num_predict"])
+            return {"response": "Concise, complete response.", "done_reason": "stop"}
+        with patch("apollo_foundry_meetings._read_model_response", side_effect=fake_read):
+            hold_meeting(state, "qwen2.5-coder:7b")
+        self.assertEqual(budgets, [650] * 5 + [1050])
+
     def test_saved_meeting_survives_restart_and_feeds_project_context(self):
         number = self.store.save_meeting(self.pid, self.complete_meeting())
         self.assertGreater(number, 0)
