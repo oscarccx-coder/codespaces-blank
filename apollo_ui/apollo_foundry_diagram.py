@@ -57,12 +57,33 @@ class ApolloTeamFlow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.snapshot = flow_snapshot({"tasks": []})
+        self.active_role = None
+        self.live_spoken = set()
         self.setMinimumSize(1030, 286)
         self.setAccessibleName("Worker coordination flow: meeting responses and recorded handoffs")
         self.setToolTip("Dashed lines: expected workflow. Solid teal: logged handoff or meeting response.")
 
     def update_flow(self, snapshot):
         self.snapshot = snapshot
+        self.update()
+
+    def begin_meeting(self):
+        self.active_role = "architect"
+        self.live_spoken = set()
+        self.update()
+
+    def note_speaker(self, role):
+        """Only mark speaking after a real Ollama response was received."""
+        if role not in ROLES:
+            return
+        self.live_spoken.add(role)
+        following = ROLES.index(role) + 1
+        self.active_role = ROLES[following] if following < len(ROLES) else None
+        self.update()
+
+    def finish_meeting(self):
+        self.active_role = None
+        self.live_spoken.clear()
         self.update()
 
     @staticmethod
@@ -109,13 +130,17 @@ class ApolloTeamFlow(QWidget):
         for role in ROLES[1:]:
             worker = layout[role]
             participants = self._status(status, role)
-            actual = bool(status["meeting"] and participants["meeting"])
+            actual = bool((status["meeting"] and participants["meeting"]) or role in self.live_spoken)
             arrow(QPointF(manager.center().x(), manager.bottom() + 2),
                   QPointF(worker.center().x(), worker.top() - 9), actual)
 
         for role, rect in layout.items():
             item = self._status(status, role)
             state_label, color = STATUSES.get(item["state"], STATUSES["todo"])
+            if role == self.active_role:
+                state_label, color = "Speaking now", "#56c6f5"
+            elif role in self.live_spoken:
+                state_label, color = "Spoke in meeting", "#64dfb7"
             painter.setBrush(QColor("#1d3139"))
             painter.setPen(QPen(QColor(color), 2))
             painter.drawRoundedRect(rect, 13, 13)
