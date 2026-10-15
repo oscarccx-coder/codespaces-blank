@@ -2652,7 +2652,7 @@ class Module:
 
     # ------------------------------- UI ------------------------------
     def build_ui(self, parent=None, ui_context=None):
-        from PySide6.QtCore import Qt, QObject, Signal, QTimer
+        from PySide6.QtCore import Qt, QObject, Signal, QTimer, QSize
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
             QTextEdit, QCheckBox, QFileDialog, QComboBox, QListWidget, QMessageBox,
@@ -2681,9 +2681,12 @@ class Module:
         left = QWidget()
         left_layout = QVBoxLayout(left)
         profiles_list = QListWidget()
+        profiles_list.setObjectName("savedVoiceProfiles")
+        profiles_list.setAccessibleName("Saved voice profiles")
+        profiles_list.setSpacing(4)
         left_layout.addWidget(QLabel("Voice Profiles"))
         left_layout.addWidget(profiles_list, 1)
-        hint = QLabel("Use ⋮ beside any voice to select, retrain, rename or delete it.")
+        hint = QLabel("Select a voice by name. Delete removes only that voice; ⋮ has more options.")
         hint.setWordWrap(True)
         left_layout.addWidget(hint)
         refresh_profiles = QPushButton("Refresh Voices")
@@ -3144,26 +3147,85 @@ class Module:
                 test_voice_combo.addItem("Choose a voice profile…", None)
                 for row in result["profiles"]:
                     name = str(row["name"])
+                    profile_id = str(row["id"])
                     label = ("● " if row.get("active") else "") + name
                     detail = "Ready" if row.get("signature_trained") else "Needs training"
+                    if row.get("active"):
+                        detail += "  ·  Apollo default"
                     item = QListWidgetItem()
-                    item.setData(Qt.UserRole, row["id"])
+                    item.setData(Qt.UserRole, profile_id)
+                    item.setToolTip(f"{name} | {detail}")
+                    # The item MUST have a height before attaching a custom
+                    # widget. Otherwise Qt can render the controls as blank,
+                    # clipped, 20-pixel-high rows under the main Apollo theme.
+                    item.setSizeHint(QSize(0, 58))
                     profiles_list.addItem(item)
+
                     cell = QWidget(profiles_list)
+                    cell.setObjectName("voiceProfileTile")
+                    cell.setMinimumHeight(54)
+                    cell.setStyleSheet(
+                        "QWidget#voiceProfileTile { background-color: #092a29; "
+                        "border: 1px solid #1c5b55; border-radius: 7px; }"
+                    )
                     cell_layout = QHBoxLayout(cell)
-                    cell_layout.setContentsMargins(8, 4, 6, 4)
-                    text_button = QPushButton(f"{label}  ·  {detail}")
-                    text_button.setFlat(True)
-                    text_button.setToolTip("Select this voice")
-                    text_button.setStyleSheet("text-align:left;")
-                    text_button.clicked.connect(
-                        lambda _checked=False, pid=row["id"]: voice_option(pid, "select")
+                    cell_layout.setContentsMargins(10, 5, 8, 5)
+                    cell_layout.setSpacing(7)
+
+                    name_column = QVBoxLayout()
+                    name_column.setContentsMargins(0, 0, 0, 0)
+                    name_column.setSpacing(1)
+                    name_button = QPushButton(label, cell)
+                    name_button.setObjectName("voiceProfileName")
+                    name_button.setAccessibleName(f"Select voice {name}")
+                    name_button.setToolTip(f"Select {name}")
+                    name_button.setFlat(True)
+                    name_button.setMinimumWidth(0)
+                    name_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                    name_button.setStyleSheet(
+                        "QPushButton { color: #e5fff9; background: transparent; "
+                        "border: none; padding: 0; font-size: 12px; "
+                        "font-weight: 600; text-align: left; }"
+                        "QPushButton:hover { color: #74e7d4; }"
+                    )
+                    name_button.clicked.connect(
+                        lambda _checked=False, pid=profile_id: voice_option(pid, "select")
+                    )
+                    status_label = QLabel(detail, cell)
+                    status_label.setObjectName("voiceProfileStatus")
+                    status_label.setToolTip(detail)
+                    status_label.setStyleSheet(
+                        "color: #8accc3; background: transparent; border: none; font-size: 10px;"
+                    )
+                    name_column.addWidget(name_button)
+                    name_column.addWidget(status_label)
+                    cell_layout.addLayout(name_column, 1)
+
+                    delete_button = QToolButton(cell)
+                    delete_button.setObjectName("voiceProfileDelete")
+                    delete_button.setText("Delete")
+                    delete_button.setToolTip(f"Delete {name} (confirmation required)")
+                    delete_button.setAccessibleName(f"Delete voice {name}")
+                    delete_button.setMinimumWidth(58)
+                    delete_button.setStyleSheet(
+                        "QToolButton { color: #ffd6d6; background-color: #3b2026; "
+                        "border: 1px solid #87545b; border-radius: 5px; padding: 5px; }"
+                        "QToolButton:hover { background-color: #663038; }"
+                    )
+                    delete_button.clicked.connect(
+                        lambda _checked=False, pid=profile_id: voice_option(pid, "delete")
                     )
                     dots = QToolButton(cell)
+                    dots.setObjectName("voiceProfileOptions")
                     dots.setText("⋮")
                     dots.setToolTip(f"Options for {name}")
                     dots.setAccessibleName(f"Options for {name}")
                     dots.setMinimumWidth(32)
+                    dots.setStyleSheet(
+                        "QToolButton { color: #d8fff6; background-color: #10413d; "
+                        "border: 1px solid #286b63; border-radius: 5px; padding: 5px; }"
+                        "QToolButton:hover { background-color: #1c5b55; }"
+                    )
                     menu = QMenu(dots)
                     for title, choice in (
                         ("Select", "select"),
@@ -3176,14 +3238,13 @@ class Module:
                     ):
                         act = menu.addAction(title)
                         act.triggered.connect(
-                            lambda _checked=False, pid=row["id"], op=choice: voice_option(pid, op)
+                            lambda _checked=False, pid=profile_id, op=choice: voice_option(pid, op)
                         )
                     dots.setMenu(menu)
                     dots.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-                    cell_layout.addWidget(text_button, 1)
+                    cell_layout.addWidget(delete_button)
                     cell_layout.addWidget(dots)
                     profiles_list.setItemWidget(item, cell)
-                    item.setSizeHint(cell.sizeHint())
                     test_voice_combo.addItem(("● " if row.get("active") else "") + name, row["id"])
                     if row["id"] == selected:
                         profiles_list.setCurrentItem(item)
