@@ -49,4 +49,53 @@ Only serial port names actually detected by the OS may be opened. Serial operati
 
 A real ELM327 adapter and car were not available in GitHub Actions. Perform a Windows USB/Bluetooth smoke test before treating physical hardware operation as verified.
 
-Future improvements could include time-series graphs and maker-specific code interpretation. Write features would require new, explicitly approved design work.
+## Starting-system test: Fiesta or generic OBD-II
+
+The **Vehicle Diagnostics** screen now offers a **Ford Fiesta (2008)** preset and
+**Other OBD-II vehicle**. The name is a report label only: it does not perform
+Ford-specific ECU operations or assume access to proprietary modules.
+
+1. With the car safely parked and engine off, plug in the ELM327 serial adapter.
+2. Select its COM port, then choose 15, 30 or 60 seconds.
+3. Select **Start Starting-System Test**. Apollo records sample timestamps,
+   adapter voltage (ELM327 read-only `ATRV`), ECU voltage (service 01 PID
+   `42`), engine speed (PID `0C`), and an occasional vehicle-speed PID `0D`.
+4. While recording, click **Mark Key Turn** immediately before a start attempt.
+   The key event is manually timed and approximate. Keep the engine off for
+   several initial seconds if you want to record a baseline.
+5. Use **Stop & Analyse** to finish early, or allow the chosen time to expire.
+   Apollo shows the lowest measured voltage, available baseline and RPM,
+   communication gaps and possibilities that justify further inspection.
+6. Every successfully completed test is automatically saved as JSON under
+   `storage/reports/vehicle_diagnostics/starting_tests/`, with a timestamp and
+   vehicle-profile label. **Load Latest Test** reopens the last report. Saved
+   history is available in Apollo chat through `obd_starting_history`, and
+   the full latest report through `obd_latest_starting_test`.
+
+**Read-only safety:** No OBD command starts the engine, engages the starter,
+controls the throttle or changes ECU programming. If the vehicle speed PID
+reports movement, recording stops. The captured data stays on this PC unless
+the owner intentionally exports it. The local `storage/` directory is
+gitignored so new vehicle reports are not shared by source updates.
+
+**Measurement limits:** ECU voltage PID 42 may not be supported by every
+vehicle. ELM327 `ATRV` gives an approximate adapter-side supply voltage,
+not a precision reading at the battery posts. ELM327 serial polling is not
+a high-speed oscilloscope: it can miss millisecond-scale voltage dips, and
+the ECU or adapter may stop responding during a crank attempt. The report
+records unavailable values as missing, never zero and never mock data.
+Even a measured fall below 9.6 V does **not** prove that the starter is
+drawing excessive current: a degraded battery, cable resistance, bad earth
+or other load can cause similar symptoms. For a definitive battery and
+starter test, use a suitable meter/battery tester and, where needed,
+a mechanic's high-current clamp. Keep cranking attempts brief, with cooling
+time between attempts, according to the vehicle handbook.
+
+Unit tests: `cd apollo_ui && python -m unittest -v tests.test_obd_reader`.
+Tests cover synthetic voltage collapse, absent data, blocked ECU writes,
+adapter parsing, recording and history persistence. Physical Windows
+ELM327 validation still requires real vehicle hardware.
+
+Future improvements could include graphs, faster externally sampled
+battery-terminal voltage with timestamp synchronisation, and maker-specific
+read-only diagnostics. ECU-write functionality remains out of scope.
