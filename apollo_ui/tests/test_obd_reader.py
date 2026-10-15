@@ -158,7 +158,8 @@ class AdapterTests(unittest.TestCase):
         instance = mod.Module({"base_dir": str(Path(__file__).resolve().parents[1]), "validation": True})
         self.assertTrue(instance.self_test())
         tools = {t["name"] for t in instance.tools()}
-        self.assertEqual(tools, {"obd_list_ports", "obd_live_snapshot", "obd_fault_codes", "obd_demo"})
+        self.assertEqual(tools, {"obd_list_ports", "obd_live_snapshot", "obd_fault_codes", "obd_demo",
+                                 "obd_starting_history", "obd_latest_starting_test"})
         sample = instance.run("obd_demo", {})
         self.assertTrue(sample["snapshot"]["simulated"])
         with self.assertRaises(KeyError):
@@ -228,12 +229,19 @@ class StartingSystemTests(AdapterTests):
         with self.assertRaises(ValueError):
             capture_starting_test("COM7", service=service, duration_s=400)
 
+    def test_history_handles_empty_storage(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(starting_test_history(folder), [])
+            self.assertFalse(latest_starting_test(folder)["available"])
+
     def test_report_saved_locally(self):
         report = {"type": "starting_system_test", "samples": [], "analysis": {}}
         with tempfile.TemporaryDirectory() as folder:
             target = save_starting_test(report, folder)
             self.assertTrue(target.exists())
             self.assertIn("starting_tests", str(target))
+            self.assertEqual(len(starting_test_history(folder)), 1)
+            self.assertTrue(latest_starting_test(folder)["available"])
             self.assertEqual(__import__("json").loads(target.read_text())["type"],
                              "starting_system_test")
 
