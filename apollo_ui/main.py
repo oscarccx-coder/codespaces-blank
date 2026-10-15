@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton, QStackedWidget, QFrame, QLineEdit, QTextEdit, QGridLayout,
     QProgressBar, QListWidget, QListWidgetItem, QScrollArea, QMessageBox,
     QComboBox, QTextBrowser, QTabWidget, QInputDialog, QCheckBox, QDialog,
-    QPlainTextEdit, QAbstractSpinBox, QSizePolicy, QAbstractItemView
+    QPlainTextEdit, QAbstractSpinBox, QSizePolicy, QAbstractItemView, QMenu
 )
 
 from memory import MemoryStore
@@ -1164,8 +1164,8 @@ class ApolloWindow(QMainWindow):
         self.dynamic_nav_host = self.sidebar_nav_host
         self.dynamic_nav_layout = self.sidebar_nav_layout
 
-        self.sidebar_customize_btn = QPushButton("⚙  Customise Sidebar")
-        self.sidebar_customize_btn.setToolTip("Reorder, rename or hide navigation items")
+        self.sidebar_customize_btn = QPushButton("＋  Add / Remove Apps")
+        self.sidebar_customize_btn.setToolTip("Add, remove, reorder and rename installed app shortcuts")
         self.sidebar_customize_btn.clicked.connect(self.open_sidebar_manager)
         v.addWidget(self.sidebar_customize_btn)
 
@@ -1192,7 +1192,7 @@ class ApolloWindow(QMainWindow):
         self.sidebar_logo.setText("△" if collapsed else "△  A P O L L O")
         self.sidebar_tagline.setVisible(not collapsed)
         self.sidebar_privacy_label.setVisible(not collapsed)
-        self.sidebar_customize_btn.setText("⚙" if collapsed else "⚙  Customise Sidebar")
+        self.sidebar_customize_btn.setText("＋" if collapsed else "＋  Add / Remove Apps")
 
         for key in ("Hub", *ordered, "Settings"):
             button = self.nav_buttons.get(key)
@@ -1202,26 +1202,55 @@ class ApolloWindow(QMainWindow):
             default = self.sidebar_default_labels.get(key, key)
             title = self.sidebar_state.display_label(key, default)
             button.setText(icon if collapsed else f"{icon}    {title}")
-            button.setToolTip(title)
+            button.setToolTip(title + (" (right-click to remove)" if key not in ("Hub", "Settings") else ""))
+            if key not in ("Hub", "Settings") and not button.property("_sidebar_remove_menu_connected"):
+                button.setContextMenuPolicy(Qt.CustomContextMenu)
+                button.customContextMenuRequested.connect(
+                    lambda position, k=key, b=button: self._sidebar_shortcut_menu(k, b, position)
+                )
+                button.setProperty("_sidebar_remove_menu_connected", True)
             if key not in ("Hub", "Settings"):
                 self.sidebar_nav_layout.addWidget(button)
                 button.setVisible(self.sidebar_state.is_visible(key))
             else:
                 button.setVisible(True)
 
+    def _sidebar_shortcut_menu(self, key, button, position):
+        """Quick unpin; the app remains installed and accessible elsewhere."""
+        if key in ("Hub", "Settings") or not self.sidebar_state.is_visible(key):
+            return
+        menu = QMenu(button)
+        remove = menu.addAction("Remove from sidebar")
+        manage = menu.addAction("Manage all apps...")
+        selected = menu.exec(button.mapToGlobal(position))
+        if selected == remove:
+            self.sidebar_state.set_visible(key, False)
+            self._refresh_sidebar()
+        elif selected == manage:
+            self.open_sidebar_manager()
+
     def open_sidebar_manager(self):
         """Edit the navigation without modifying, uninstalling or disabling modules."""
         dialog = QDialog(self)
         dialog.setWindowTitle("Apollo Sidebar Manager")
-        dialog.resize(470, 590)
+        dialog.resize(540, 640)
         layout = QVBoxLayout(dialog)
         layout.addWidget(label(
-            "Drag to reorder. Untick to hide. Home and Settings are locked.",
+            "Tick to add an installed app to the sidebar; untick to remove it. "
+            "Drag to reorder. Shortcuts never uninstall apps. Home and Settings stay available.",
             11, "#a5d1c8"
         ))
 
+        search_apps = QLineEdit()
+        search_apps.setPlaceholderText("Find an app to add or remove...")
+        search_apps.setClearButtonEnabled(True)
+        layout.addWidget(search_apps)
         listing = QListWidget()
-        listing.setAlternatingRowColors(True)
+        listing.setAlternatingRowColors(False)
+        listing.setStyleSheet(
+            "QListWidget { background:#142229; color:#e7eef3; } "
+            "QListWidget::item:selected { background:#23655c; color:#ffffff; }"
+        )
         listing.setDragDropMode(QAbstractItemView.InternalMove)
         listing.setDefaultDropAction(Qt.MoveAction)
         for key in self.sidebar_state.ordered(self.nav_buttons.keys()):
@@ -1237,6 +1266,26 @@ class ApolloWindow(QMainWindow):
             )
             listing.addItem(item)
         layout.addWidget(listing, 1)
+        def filter_apps(query):
+            needle = query.strip().casefold()
+            for index in range(listing.count()):
+                item = listing.item(index)
+                name = self.sidebar_default_labels.get(item.data(Qt.UserRole), item.text())
+                item.setHidden(needle not in (name + " " + item.text()).casefold())
+        search_apps.textChanged.connect(filter_apps)
+
+        shortcuts = QHBoxLayout()
+        add_selected = QPushButton("Add selected")
+        remove_selected = QPushButton("Remove selected")
+        def mark_selected(visible):
+            for item in listing.selectedItems():
+                item.setCheckState(Qt.Checked if visible else Qt.Unchecked)
+        add_selected.clicked.connect(lambda: mark_selected(True))
+        remove_selected.clicked.connect(lambda: mark_selected(False))
+        shortcuts.addWidget(add_selected)
+        shortcuts.addWidget(remove_selected)
+        shortcuts.addStretch()
+        layout.addLayout(shortcuts)
 
         rename = QPushButton("Rename selected")
         def rename_selected():
@@ -1271,7 +1320,7 @@ class ApolloWindow(QMainWindow):
         cancel_button = QPushButton("Cancel")
         apply_button = QPushButton("Save layout")
         def reset_layout():
-            self.sidebar_state.reset()
+            self.sidebar_state.reset(getattr(self, "sidebar_module_defaults", {}))
             self._refresh_sidebar()
             dialog.accept()
         def save_layout():
