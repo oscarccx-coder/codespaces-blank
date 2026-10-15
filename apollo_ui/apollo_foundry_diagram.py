@@ -77,8 +77,9 @@ class ApolloTeamFlow(QWidget):
         if role not in ROLES:
             return
         self.live_spoken.add(role)
-        following = ROLES.index(role) + 1
-        self.active_role = ROLES[following] if following < len(ROLES) else None
+        speaking_order = (*ROLES[1:], "manager")
+        following = speaking_order.index(role) + 1
+        self.active_role = speaking_order[following] if following < len(speaking_order) else None
         self.update()
 
     def finish_meeting(self):
