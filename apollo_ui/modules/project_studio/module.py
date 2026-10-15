@@ -952,6 +952,9 @@ class Module:
                     auto["project"] = None
                     self.store.fail_task(tid, error[:2300])
                     alert("Worker stopped safely. Review the failure and generated files.\n\n" + error[:850])
+                    if task["project_id"] == project_id():
+                        QTimer.singleShot(0, lambda pid=task["project_id"], issue=error:
+                            start_team_meeting(pid, "Blocked worker: diagnose " + issue[:420]))
                 else:
                     feed("Worker: Task " + str(tid) + " ready for review: " + draft[:500])
                     self.store.submit_task(tid, draft[:14000], evidence)
@@ -1227,6 +1230,8 @@ class Module:
             try:
                 self.store.report_issue(pid, title, details)
                 refresh_details()
+                QTimer.singleShot(0, lambda pid=pid, subject=title:
+                    start_team_meeting(pid, "Issue review: " + subject[:150]))
             except (ValueError, KeyError) as exc:
                 alert(exc)
 
