@@ -32,6 +32,26 @@ class VoiceUIWiringTests(unittest.TestCase):
         for forbidden in ("archive_profile_from_ui", "rename_profile_from_ui", "reorder_profiles_from_ui"):
             self.assertNotIn(forbidden, tools_source)
 
+    def test_voice_rows_show_text_and_direct_delete_without_scrolling(self):
+        source = self.voice_text
+        for required in (
+            'profiles_list.setObjectName("savedVoiceProfiles")',
+            'item.setSizeHint(QSize(0, 58))',
+            'name_button.setObjectName("voiceProfileName")',
+            'status_label.setObjectName("voiceProfileStatus")',
+            'delete_button.setObjectName("voiceProfileDelete")',
+            'delete_button.clicked.connect(',
+            'voice_option(pid, "delete")',
+            'QMessageBox.question(',
+            'self.archive_profile_from_ui(pid)',
+        ):
+            self.assertIn(required, source)
+
+    def test_settings_apps_description_uses_real_line_break(self):
+        source = self.main_text
+        self.assertIn('module_info.get(\'title\', module_id)}\\n"', source)
+        self.assertNotIn('module_info.get(\'title\', module_id)}\\\\n"', source)
+
     def test_startup_recentered_once_not_restored_to_old_coordinates(self):
         source = self.main_text
         self.assertIn("from apollo_window_geometry import centered_window_geometry", source)
