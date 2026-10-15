@@ -163,10 +163,10 @@ class SidebarLayoutStore:
 
     def set_visible(self, key, visible):
         """Pin/unpin an app shortcut only; never uninstall or disable the app."""
-        if not _valid_key(key):
-            raise ValueError("Unknown sidebar shortcut")
         if key in FIXED_ITEMS:
             return False
+        if not _valid_key(key):
+            raise ValueError("Unknown sidebar shortcut")
         state = self.state()
         if key not in state["order"]:
             state["order"].append(key)
