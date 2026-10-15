@@ -591,7 +591,8 @@ class Module:
                     transcript.append(f"TEAM MEETING #{meeting['id']}  ·  {meeting['created_at']}\n"
                                       f"Topic: {meeting['topic']}")
                     transcript.extend(
-                        f"{turn['role'].upper()}: {turn['message']}"
+                        f"{turn.get('at', meeting['created_at'])[:19]}  "
+                        f"{turn['role'].upper()} → TEAM: {turn['message']}"
                         for turn in meeting["turns"])
                     transcript.append("MANAGER DECISIONS:\n" + meeting["decisions"])
                     transcript.append("──────────────────")
