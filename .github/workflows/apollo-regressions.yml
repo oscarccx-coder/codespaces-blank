@@ -92,7 +92,7 @@ jobs:
         shell: cmd
         run: |
           set QT_QPA_PLATFORM=offscreen
-          .venv\Scripts\python.exe -m unittest -v tests.test_windows_ui_polish tests.test_windows_foundry_ui
+          .venv\Scripts\python.exe -m unittest -v tests.test_windows_ui_polish tests.test_windows_foundry_ui tests.test_windows_obd_starting_ui
       - name: Check numbered Setup batch entrypoints
         working-directory: apollo_ui
         shell: cmd
