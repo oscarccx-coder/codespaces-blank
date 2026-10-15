@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 import urllib.request
 
 from apollo_project_workers import LOCAL_ENDPOINT, MODEL_LOCK, _read_model_response
@@ -83,7 +84,8 @@ def hold_meeting(state, model, *, topic="Planning and project risks", on_message
             message = response.get("response")
             if not isinstance(message, str) or not message.strip():
                 raise RuntimeError(f"{role} returned an empty meeting response")
-            turn = {"role": role, "message": message.strip()[:3500]}
+            turn = {"role": role, "message": message.strip()[:3500],
+                    "at": datetime.now(timezone.utc).isoformat()}
             turns.append(turn)
             if on_message:
                 on_message(role, turn["message"])
