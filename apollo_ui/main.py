@@ -4283,7 +4283,7 @@ class ApolloWindow(QMainWindow):
             if placement == "apps":
                 # Preserve lazy loading of Settings-based module apps.
                 item = QListWidgetItem(
-                    f"[{group_for(module_id)}]  {module_info.get('title', module_id)}\\n"
+                    f"[{group_for(module_id)}]  {module_info.get('title', module_id)}\n"
                     f"{module_info.get('description', '')}"
                 )
                 item.setData(Qt.UserRole, module_id)
