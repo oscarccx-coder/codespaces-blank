@@ -4253,15 +4253,35 @@ class ApolloWindow(QMainWindow):
         if hasattr(self, "apps_list"):
             self.apps_list.clear()
 
+        self.sidebar_module_defaults = {}
         for module_info in self.module_manager.ui_modules():
             module_id = module_info["id"]
             placement = module_info["placement"]
+            page_key = f"module::{module_id}"
+            self.sidebar_module_defaults[page_key] = placement == "sidebar"
+
+            # Offer every installed UI-capable module in the sidebar picker,
+            # even if its normal UI placement is Settings Apps or hidden.
+            # Building a shortcut must not instantiate the app's actual UI.
+            button = QPushButton(str(module_info.get("title", module_id)))
+            button.setObjectName("nav")
+            button.setCheckable(True)
+            button.setMinimumHeight(34)
+            button.clicked.connect(
+                lambda checked=False, target=module_id: self.open_module_app(target)
+            )
+            self.dynamic_sidebar_buttons[module_id] = button
+            self.nav_buttons[page_key] = button
+            self.sidebar_default_labels[page_key] = str(module_info.get("title", module_id))
+            self.sidebar_state.register_module(
+                page_key, visible_by_default=(placement == "sidebar")
+            )
+
             if placement == "none":
                 continue
 
             if placement == "apps":
-                # App definitions are cheap; create their expensive Qt widgets
-                # lazily only when someone actually opens one.
+                # Preserve lazy loading of Settings-based module apps.
                 item = QListWidgetItem(
                     f"[{group_for(module_id)}]  {module_info.get('title', module_id)}\\n"
                     f"{module_info.get('description', '')}"
@@ -4270,25 +4290,13 @@ class ApolloWindow(QMainWindow):
                 self.apps_list.addItem(item)
                 continue
 
-            page = self._build_module_page_widget(module_info)
-            if page is None:
-                continue
-            self.dynamic_module_pages[module_id] = page
-
             if placement == "sidebar":
-                page_key = f"module::{module_id}"
+                page = self._build_module_page_widget(module_info)
+                if page is None:
+                    continue
+                self.dynamic_module_pages[module_id] = page
                 self.pages[page_key] = page
                 self.stack.addWidget(page)
-                button = QPushButton(str(module_info.get("title", module_id)))
-                button.setObjectName("nav")
-                button.setCheckable(True)
-                button.clicked.connect(
-                    lambda checked=False, key=page_key: self.switch_page(key)
-                )
-                self.dynamic_nav_layout.addWidget(button)
-                self.dynamic_sidebar_buttons[module_id] = button
-                self.nav_buttons[page_key] = button
-                self.sidebar_default_labels[page_key] = str(module_info.get("title", module_id))
 
         if hasattr(self, "apps_list") and self.apps_list.count() == 0:
             item = QListWidgetItem(
