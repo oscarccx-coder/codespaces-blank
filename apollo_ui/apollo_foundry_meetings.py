@@ -31,6 +31,8 @@ def meeting_prompt(state, role, turns, *, topic="Planning and project risks"):
     )[-4300:]
     task_status = "; ".join(
         f"{t['role']} {t['title'][:65]}: {t['state']}"
+        + (f" (blocker: {str(t.get('feedback', ''))[:240]})"
+           if t["state"] == "blocked" else "")
         for t in state["tasks"][-16:]
     )[:1800]
     instruction = (
