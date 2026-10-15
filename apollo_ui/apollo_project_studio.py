@@ -89,6 +89,13 @@ class StudioStore:
             created_at TEXT NOT NULL,
             FOREIGN KEY(project_id) REFERENCES projects(id)
         );
+        CREATE TABLE IF NOT EXISTS meetings(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL,
+            topic TEXT NOT NULL, turns TEXT NOT NULL, decisions TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_foundry_meetings_project ON meetings(project_id, id);
         -- Persistent databases created on earlier builds get these indexes
         -- automatically, without destroying or migrating project records.
         CREATE INDEX IF NOT EXISTS idx_foundry_tasks_project ON tasks(project_id, id);
@@ -126,7 +133,11 @@ class StudioStore:
                 "SELECT * FROM tasks WHERE project_id=? ORDER BY id", (project["id"],))]
             issues = [dict(x) for x in self.conn.execute(
                 "SELECT * FROM issues WHERE project_id=? ORDER BY id DESC", (project["id"],))]
-            return {"project": project, "tasks": tasks, "issues": issues}
+            meeting = self.conn.execute(
+                "SELECT decisions FROM meetings WHERE project_id=? ORDER BY id DESC LIMIT 1",
+                (project["id"],)).fetchone()
+            return {"project": project, "tasks": tasks, "issues": issues,
+                    "meeting_context": meeting["decisions"] if meeting else ""}
 
     def _event(self, project_id, task_id, kind, detail):
         self.conn.execute(
@@ -372,6 +383,56 @@ class StudioStore:
                 "SELECT * FROM events WHERE project_id=? ORDER BY id DESC LIMIT ?",
                 (int(project_id), min(100, max(1, int(limit)))))
             return [dict(x) for x in rows.fetchall()]
+
+    def save_meeting(self, project_id, meeting):
+        """Persist only an actual completed six-speaker meeting, never fake chat."""
+        from apollo_foundry_meetings import SPECIALISTS
+        if not isinstance(meeting, dict):
+            raise ValueError("Invalid meeting")
+        turns = meeting.get("turns")
+        if not isinstance(turns, list) or len(turns) != 6:
+            raise ValueError("A completed meeting needs all six model responses")
+        if [x.get("role") for x in turns if isinstance(x, dict)] != [*SPECIALISTS, "manager"]:
+            raise ValueError("Meeting roles are missing or out of order")
+        for item in turns:
+            if not isinstance(item.get("message"), str) or not 1 <= len(item["message"]) <= 3500:
+                raise ValueError("Invalid meeting response")
+        decisions = clean_text(meeting.get("decisions"), 3500, name="Meeting decisions")
+        if decisions != turns[-1]["message"]:
+            raise ValueError("Only the manager's actual response may be saved as decisions")
+        topic = clean_text(meeting.get("topic"), 220, name="Meeting topic")
+        with self.lock:
+            self._project(project_id)
+            with self.conn:
+                cur = self.conn.execute(
+                    "INSERT INTO meetings(project_id,topic,turns,decisions,created_at) "
+                    "VALUES(?,?,?,?,?)",
+                    (int(project_id), topic, json.dumps(turns), decisions, utcnow()))
+                self._event(int(project_id), None, "meeting",
+                            f"Team meeting #{cur.lastrowid}: {topic}; six real responses recorded")
+            return cur.lastrowid
+
+    def meetings(self, project_id, limit=10):
+        with self.lock:
+            self._project(project_id)
+            rows = self.conn.execute(
+                "SELECT * FROM meetings WHERE project_id=? ORDER BY id DESC LIMIT ?",
+                (int(project_id), max(1, min(30, int(limit)))))
+            return [{**dict(row), "turns": json.loads(row["turns"])} for row in rows]
+
+    def record_handoff(self, project_id, from_role, to_role, summary, task_id=None):
+        """A factual dispatch/handback event, rather than a fabricated model message."""
+        if from_role not in ROLES or to_role not in ROLES:
+            raise ValueError("Invalid handoff role")
+        summary = clean_text(summary, 600, name="Handoff summary")
+        with self.lock:
+            self._project(project_id)
+            if task_id is not None and self._task(task_id)["project_id"] != int(project_id):
+                raise ValueError("Cross-project handoff")
+            with self.conn:
+                self._event(int(project_id), task_id, "handoff",
+                            f"{from_role} → {to_role}: {summary}")
+        return True
 
     def recover_interrupted_tasks(self, project_id):
         """Owner-triggered recovery after an app exit or killed model process.
