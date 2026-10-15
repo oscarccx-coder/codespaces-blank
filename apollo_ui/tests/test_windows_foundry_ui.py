@@ -49,6 +49,39 @@ class FoundryWindowTests(unittest.TestCase):
         runner.assert_not_called()
         self.assertEqual(module.store.sandbox_history(state["project"]["id"]), [])
 
+    def test_workflow_diagram_and_team_meeting_controls(self):
+        from PySide6.QtWidgets import QTabWidget, QPushButton, QInputDialog
+        from apollo_foundry_diagram import ApolloTeamFlow, flow_snapshot
+        from modules.project_studio.module import Module
+
+        module = Module({"base_dir": self.base})
+        self.addCleanup(module.close)
+        project = module.store.add_project("Casimir project", "Python PySide6 desktop app")
+        panel = module.build_ui()
+        self.addCleanup(panel.close)
+
+        tabs = panel.findChild(QTabWidget)
+        self.assertIn("Workflow & Meetings",
+                      [tabs.tabText(i) for i in range(tabs.count())])
+        view = panel.findChild(ApolloTeamFlow)
+        self.assertIsNotNone(view)
+        self.assertEqual(view.snapshot["roles"]["architect"]["count"], 1)
+        self.assertEqual(view.snapshot["roles"]["implementer"]["state"], "todo")
+        button = next(b for b in panel.findChildren(QPushButton)
+                      if b.text() == "Hold Team Meeting")
+        # Cancelled manual meeting must not call Ollama or invent a transcript.
+        with patch.object(QInputDialog, "getText", return_value=("", False)):
+            button.click()
+        self.assertEqual(module.store.meetings(project["project"]["id"]), [])
+        module.store.record_handoff(project["project"]["id"],
+                                    "manager", "architect", "Begin architecture")
+        status = flow_snapshot(
+            module.store.details(project["project"]["id"]), [],
+            module.store.audit(project["project"]["id"]))
+        self.assertIn(("manager", "architect"), status["handoffs"])
+        view.update_flow(status)
+        view.repaint()
+
     def test_trusted_reference_button_calls_backend(self):
         from PySide6.QtWidgets import QWidget, QPushButton
 
