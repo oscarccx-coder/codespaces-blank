@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from apollo_foundry_artifacts import save_bundle
 from apollo_foundry_workspace import (
@@ -134,6 +135,22 @@ class WorkspaceCheckpointTests(unittest.TestCase):
     def test_invalid_checkpoint_id_refused(self):
         with self.assertRaisesRegex(ValueError, "Invalid checkpoint"):
             restore_checkpoint(self.folder, self.storage, self.pid, "../other")
+
+
+class PreflightTests(unittest.TestCase):
+    def test_preflight_does_not_install_or_execute_project_code(self):
+        from apollo_foundry_preflight import inspect_foundry
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("apollo_foundry_preflight.shutil.which", return_value=None):
+                with patch("apollo_foundry_sandbox.availability",
+                           return_value={"ok": False, "reason": "Docker missing"}):
+                    with patch("apollo_foundry_preflight.subprocess.run") as runner:
+                        result = inspect_foundry(tmp)
+        runner.assert_not_called()
+        self.assertFalse(result["ready"])
+        names = {item["name"]: item for item in result["checks"]}
+        self.assertFalse(names["Docker Foundry image"]["ok"])
+        self.assertFalse(names["Ollama"]["ok"])
 
 
 if __name__ == "__main__":
