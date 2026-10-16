@@ -467,7 +467,7 @@ class Module:
             "continuous": False, "paused": False, "testing": False,
             "meeting_after": 5, "since_meeting": 0, "repair_count": 0,
             "waiting": False, "sandbox_stage": None, "poll_token": 0,
-            "retry_pending": None,
+            "retry_pending": None, "idle_announced": False,
         }
 
         def update_session_status():
@@ -918,6 +918,8 @@ class Module:
                 except (ValueError, KeyError, OSError) as exc:
                     feed("Manager: Meeting could not be saved: " + str(exc))
                     should_continue = False
+                    if auto["continuous"] and auto["project"] == pid:
+                        auto["paused"] = True
             if should_continue and not error:
                 if auto["continuous"]:
                     if auto["project"] == pid and not auto["paused"]:
@@ -955,6 +957,10 @@ class Module:
             except (OSError, ValueError, KeyError) as exc:
                 meeting_queue.update({"pid": None, "auto_continue": False})
                 active_jobs[:] = [a for a in active_jobs if a[0] != f"meeting:{pid}"]
+                if auto["continuous"] and auto["project"] == pid:
+                    auto["paused"] = True
+                    poll_timer.stop()
+                    update_session_status()
                 alert("Could not start team meeting: " + str(exc))
 
         def manual_team_meeting():
@@ -997,8 +1003,9 @@ class Module:
                     t["id"]))
                 if not candidates:
                     if auto["continuous"]:
-                        if not auto["waiting"]:
+                        if not auto["idle_announced"]:
                             feed("Manager: No ready tasks. Waiting for your review or new instructions; session remains active.")
+                            auto["idle_announced"] = True
                         auto["waiting"] = True
                         update_session_status()
                     else:
@@ -1016,6 +1023,7 @@ class Module:
                 auto["started"].add(task["id"])
                 auto["remaining"] -= 1
                 auto["waiting"] = False
+                auto["idle_announced"] = False
                 update_session_status()
                 feed("Manager: Assigning " + task["title"] + " to " + task["role"] + ".")
                 self.store.start_task(task["id"])
@@ -1085,7 +1093,7 @@ class Module:
                 "attempts": {}, "continuous": True, "paused": False,
                 "testing": False, "since_meeting": 0, "repair_count": 0,
                 "waiting": False, "sandbox_stage": None,
-                "retry_pending": None,
+                "retry_pending": None, "idle_announced": False,
                 "poll_token": auto["poll_token"] + 1,
             })
             feed("Manager: Continuous development authorized. Docker tests and periodic team meetings enabled.")
