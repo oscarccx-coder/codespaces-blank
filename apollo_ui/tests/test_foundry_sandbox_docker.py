@@ -54,6 +54,24 @@ class RealDockerFoundryTests(unittest.TestCase):
         self.assertIn("GUI STARTUP SURVIVED 3s", report["output"])
         self.assertFalse(report["passed_ui_interactions"])
 
+    def test_scientific_dependencies_work_inside_offline_container(self):
+        folder = self.store.project_folder(self.pid)
+        (folder / "tests" / "test_science.py").write_text(
+            "import unittest\\n"
+            "import numpy as np\\n"
+            "import sympy as sp\\n"
+            "import matplotlib\\n"
+            "class Science(unittest.TestCase):\\n"
+            "    def test_derivative_and_array(self):\\n"
+            "        x = sp.symbols('x')\\n"
+            "        self.assertEqual(sp.diff(x**3, x), 3*x**2)\\n"
+            "        self.assertEqual(int(np.array([1,2,3]).sum()), 6)\\n",
+            encoding="utf-8",
+        )
+        report = self.store.run_sandbox_tests(self.pid, "unit")
+        self.assertEqual(report["status"], "passed", report)
+        self.assertIn("Ran 2 tests", report["output"])
+
     def test_container_restrictions_hold_at_runtime(self):
         """Enforce isolation inside Docker, not merely by checking CLI args."""
         folder = self.store.project_folder(self.pid)
