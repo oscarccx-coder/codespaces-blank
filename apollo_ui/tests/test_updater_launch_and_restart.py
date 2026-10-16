@@ -96,6 +96,8 @@ class SignedUpdaterLifecycleTests(unittest.TestCase):
             result = self.service.launch_installer()
         self.assertTrue(result["ok"], result)
         self.assertEqual(result["installer_pid"], 918)
+        self.assertTrue(Path(result["installer_log"]).is_file())
+        self.assertEqual(spawned.call_args.kwargs["stderr"], __import__("subprocess").STDOUT)
         args = spawned.call_args.args[0]
         self.assertEqual(Path(args[0]), private.resolve())
         self.assertEqual(Path(args[1]), (self.target / "apollo_updater.py").resolve())
