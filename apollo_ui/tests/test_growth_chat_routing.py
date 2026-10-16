@@ -164,10 +164,13 @@ class GrowthChatRoutingTests(unittest.TestCase):
 
     def test_routing_is_wired_before_general_tool_loop(self):
         source = WORKERS.read_text(encoding="utf-8")
-        assert source.index("direct_growth = self._run_growth_advice()") < source.index(
-            "        all_tools = (\n            self.module_manager.ollama_tools()"
-        ) if "        all_tools = (\n            self.module_manager.ollama_tools()" in source else (
-            "_run_growth_advice()" in source)
+        # Compare ordering inside the ordinary chat controller, not earlier
+        # module-build methods that have their own unrelated tool catalogues.
+        controller = source[source.index("    def _run_with_modules(self):"):]
+        self.assertLess(
+            controller.index("direct_growth = self._run_growth_advice()"),
+            controller.index("        all_tools = ("),
+        )
         self.assertNotIn('        text = self._request_text()\n        lower = text.lower()', source[
             source.index("    def _select_tools("):source.index("    @staticmethod\n    def _fingerprint")
         ])
