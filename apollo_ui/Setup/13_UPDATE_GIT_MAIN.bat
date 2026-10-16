@@ -42,8 +42,19 @@ if errorlevel 1 (
     echo [ERROR] Git origin remote is not configured.
     goto :DONE
 )
+rem CMD's FOR /F command capture can discard Git's leading porcelain
+rem status bytes. Inspect the actual exit code and file size instead.
+set "STATUS_FILE=%TEMP%\Apollo_Git_Status_%RANDOM%_%RANDOM%.txt"
+git status --porcelain --untracked-files=normal >"%STATUS_FILE%" 2>&1
+if errorlevel 1 (
+    echo [ERROR] Git status could not inspect this checkout.
+    type "%STATUS_FILE%"
+    del /q "%STATUS_FILE%" >nul 2>&1
+    goto :DONE
+)
 set "DIRTY="
-for /f "delims=" %%C in ('git status --porcelain --untracked-files=normal') do set "DIRTY=1"
+for %%S in ("%STATUS_FILE%") do if %%~zS GTR 0 set "DIRTY=1"
+del /q "%STATUS_FILE%" >nul 2>&1
 if defined DIRTY (
     echo [STOPPED] Uncommitted or untracked files in Git checkout.
     echo [FIX] Commit, stash or move these files safely; updater will not overwrite them.
