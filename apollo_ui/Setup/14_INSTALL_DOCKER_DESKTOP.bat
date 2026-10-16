@@ -129,7 +129,7 @@ exit /b 0
 echo [CHECK] Docker CLI found. Checking the Linux engine...
 set "INFO_FILE=%TEMP%\Apollo_Docker_Desktop_Info_%RANDOM%_%RANDOM%.txt"
 set "DOCKER_OS="
-"%DOCKER_EXE%" info --format "{{.OSType}}" >"%INFO_FILE%" 2>&1
+call "%DOCKER_EXE%" info --format "{{.OSType}}" >"%INFO_FILE%" 2>&1
 if errorlevel 1 (
   echo [ERROR] Docker is installed but its engine is not running.
   echo [FIX] Start Docker Desktop and complete any WSL 2 prompts.
