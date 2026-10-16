@@ -70,6 +70,14 @@ def assess_project(state, static_report, readiness, sandbox_runs, meetings, audi
             "note": ("Checked in Docker for this revision" if passed else
                      "No passing Docker evidence for the current revision"),
         })
+    # The static scanner inventories each Python file it actually parsed.
+    # Share filenames/check outcomes only, never arbitrary source content.
+    source_files = [
+        {"path": _clean(item["check"][7:], 140), "status": _clean(item.get("status"), 24)}
+        for item in static_report.get("checks", [])
+        if isinstance(item, dict) and isinstance(item.get("check"), str)
+        and item["check"].startswith("syntax:")
+    ][:60]
     static_status = static_report.get("status", "unavailable")
     if static_status not in ("passed", "failed", "incomplete", "unavailable"):
         static_status = "unavailable"
@@ -150,6 +158,7 @@ def assess_project(state, static_report, readiness, sandbox_runs, meetings, audi
         "blocked_tasks": blocked_tasks[:12],
         "awaiting_review": pending[:12],
         "static_status": static_status,
+        "source_files": source_files,
         "tests": tests,
         "source_digest": current_source if current_valid else None,
         "source_release_checks_passed": app_ready,
@@ -182,6 +191,13 @@ def format_brief(report):
     ]
     for item in report["tests"]:
         lines.append(f"  {item['label']}: {item['status'].upper()}")
+    lines.extend(["", f"Python files inspected: {report.get('static_files_inspected', 0)}"])
+    files = report.get("source_files") or []
+    if files:
+        lines.append("Source check results:")
+        lines.extend(f"  {item['path']}: {item['status']}" for item in files[:20])
+        if len(files) > 20:
+            lines.append(f"  ...and {len(files) - 20} more source files.")
     lines.extend(["", "What needs your attention:"])
     lines.extend(f"  {index}. {action}" for index, action in enumerate(report["owner_decisions"], 1))
     if report["recent_team_conversation"]:
