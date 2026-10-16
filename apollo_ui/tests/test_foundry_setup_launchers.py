@@ -101,9 +101,16 @@ class SetupCmdIntegrationTests(unittest.TestCase):
     def run_installer(self, name, *options):
         path = self.root / "Setup" / name
         args = " ".join(options)
-        command = f'call "{path}" {args}'
+        # Execute a simple wrapper in cwd. CMD /c strips nested quote layers
+        # in a surprising way when a quoted .bat path contains parentheses.
+        # A real wrapper exercises precisely the Explorer / CALL launch path.
+        wrapper = self.workdir / "invoke_foundry_test.bat"
+        wrapper.write_text(
+            '@echo off\n' + f'call "{path}" {args}\n' +
+            'exit /b %errorlevel%\n', encoding="utf-8",
+        )
         return subprocess.run(
-            ["cmd.exe", "/d", "/c", command],
+            ["cmd.exe", "/d", "/c", "invoke_foundry_test.bat"],
             env=self.env, cwd=self.workdir, capture_output=True,
             text=True, timeout=20, check=False,
         )
