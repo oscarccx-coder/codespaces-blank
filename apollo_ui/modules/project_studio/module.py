@@ -388,7 +388,9 @@ class Module:
         sandbox_unit = QPushButton("Run Tests in Sandbox")
         sandbox_gui = QPushButton("GUI Launch Smoke Test")
         sandbox_fix = QPushButton("Send Failures to Worker")
-        for button in (sandbox_unit, sandbox_gui, sandbox_fix):
+        docker_check = QPushButton("Check Docker")
+        docker_check.setObjectName("foundryCheckDocker")
+        for button in (sandbox_unit, sandbox_gui, sandbox_fix, docker_check):
             sandbox_buttons.addWidget(button)
         sandbox_layout.addLayout(sandbox_buttons)
         sandbox_status = QLabel("No sandbox run recorded for this project.")
@@ -513,6 +515,7 @@ class Module:
             (retry_task, "Reopen an accepted, blocked or reviewed task for another attempt."),
             (assign_fix, "Create an implementation task from the selected open issue."),
             (resolve_bug, "Close an issue only after its fix task is accepted."),
+            (docker_check, "Check whether Docker Desktop and Apollo's local Qt test image are ready; never downloads anything."),
             (sandbox_unit, "Run project's unittest discovery inside a locked-down Docker container."),
             (sandbox_gui, "Start launch.py in a PySide6 Docker image and check for early startup failure; no GUI interactions are verified."),
             (sandbox_fix, "Queue failures from the last sandbox run as a human-reviewable fix task."),
@@ -1450,6 +1453,23 @@ class Module:
                         QTimer.singleShot(0, advance_auto)
                 update_session_status()
 
+        def check_docker_action():
+            from apollo_foundry_sandbox import availability
+            check = availability("unit")
+            if check["ok"]:
+                QMessageBox.information(
+                    page, "Foundry Docker Ready",
+                    "Docker and the trusted Apollo Qt test image are ready.\n"
+                    "Image: " + check["image"]
+                )
+            else:
+                alert(
+                    "Docker setup incomplete: " + check["reason"] + "\n\n"
+                    "Run Setup/14_INSTALL_DOCKER_DESKTOP.bat, start Docker Desktop "
+                    "in Linux-container mode, then run "
+                    "Setup/09_SETUP_FOUNDRY_SANDBOX.bat."
+                )
+
         def start_auto_sandbox(pid, kind):
             # Only a currently authorized continuous session can start these
             # restricted Docker jobs without an additional per-test dialog.
@@ -1773,6 +1793,7 @@ class Module:
         run_checks_btn.clicked.connect(run_static_checks_action)
         fix_checks_btn.clicked.connect(request_check_fix_action)
         show_folder_btn.clicked.connect(open_project_folder_action)
+        docker_check.clicked.connect(check_docker_action)
         sandbox_unit.clicked.connect(lambda: run_sandbox_action("unit"))
         sandbox_gui.clicked.connect(lambda: run_sandbox_action("gui"))
         sandbox_fix.clicked.connect(sandbox_fix_action)
