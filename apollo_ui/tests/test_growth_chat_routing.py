@@ -164,6 +164,47 @@ class GrowthChatRoutingTests(unittest.TestCase):
         self.assertEqual(chat._select_tools(manager.ollama_tools()), [])
         self.assertIsNone(chat._explicit_pile_directive())
 
+    def test_actual_normal_chat_flow_offers_and_creates_foundry_project(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from apollo_growth_missions import GrowthMissionStore
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "config.json").write_text(
+                '{"version":"8.0.0","model":"qwen2.5-coder:7b"}',
+                encoding="utf-8",
+            )
+            manager = GrowthManager()
+            manager.base_dir = root
+            question = self.make_router(
+                "i need you to make money so we can upgrade you",
+                manager=manager,
+            )
+            offered = question._run_growth_advice()
+            self.assertIn("begin Apollo project 1", offered)
+            initial = GrowthMissionStore(root)
+            try:
+                self.assertFalse(initial.snapshot()["exists"])
+            finally:
+                initial.close()
+            confirmed = self.make_router("begin Apollo project 1", manager=manager)
+            with patch.object(
+                GrowthMissionStore, "run_one_step",
+                lambda instance, **kwargs: instance.snapshot(),
+            ):
+                answer = confirmed._run_growth_mission()
+            self.assertIn("Growth project started in Foundry", answer)
+            self.assertEqual(confirmed.signals.chunk.calls, [answer])
+            stored = GrowthMissionStore(root)
+            try:
+                state = stored.snapshot()
+                self.assertEqual(state["state"], "READY_TO_DRAFT")
+                self.assertGreater(state["project_id"], 0)
+                self.assertGreater(state["work_id"], 0)
+            finally:
+                stored.close()
+
     def test_routing_is_wired_before_general_tool_loop(self):
         source = WORKERS.read_text(encoding="utf-8")
         # Compare ordering inside the ordinary chat controller, not earlier
