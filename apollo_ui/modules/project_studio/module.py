@@ -1268,6 +1268,12 @@ class Module:
                 preview_process.kill()
 
         preview_process.readyReadStandardOutput.connect(preview_output_ready)
+        preview_process.started.connect(
+            lambda: preview_status.setText(
+                "App window process running (UNSANDBOXED). "
+                "Interact with its separate window; click Stop App when finished."
+            )
+        )
         preview_process.finished.connect(preview_finished)
         preview_process.errorOccurred.connect(preview_error)
         preview_launch.clicked.connect(launch_local_preview_action)
