@@ -40,6 +40,7 @@ class FoundryWindowTests(unittest.TestCase):
         self.assertIn("Run Tests in Sandbox", buttons)
         self.assertIn("GUI Launch Smoke Test", buttons)
         self.assertIn("Send Failures to Worker", buttons)
+        self.assertIn("Check Docker", buttons)
         tabs = panel.findChild(QTabWidget)
         self.assertIn("4. Sandbox", [tabs.tabText(i) for i in range(tabs.count())])
         with patch.object(QMessageBox, "question", return_value=QMessageBox.No):
