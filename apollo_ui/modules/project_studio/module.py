@@ -387,11 +387,13 @@ class Module:
         sandbox_layout.addWidget(sandbox_intro)
         sandbox_buttons = QHBoxLayout()
         sandbox_unit = QPushButton("Run Tests in Sandbox")
+        sandbox_ui = QPushButton("Test UI Buttons")
+        sandbox_ui.setObjectName("foundrySandboxUiInteractions")
         sandbox_gui = QPushButton("GUI Launch Smoke Test")
         sandbox_fix = QPushButton("Send Failures to Worker")
         docker_check = QPushButton("Check Docker")
         docker_check.setObjectName("foundryCheckDocker")
-        for button in (sandbox_unit, sandbox_gui, sandbox_fix, docker_check):
+        for button in (sandbox_unit, sandbox_ui, sandbox_gui, sandbox_fix, docker_check):
             sandbox_buttons.addWidget(button)
         sandbox_layout.addLayout(sandbox_buttons)
         sandbox_status = QLabel("No sandbox run recorded for this project.")
@@ -543,6 +545,7 @@ class Module:
             (resolve_bug, "Close an issue only after its fix task is accepted."),
             (docker_check, "Check whether Docker Desktop and Apollo's local Qt test image are ready; never downloads anything."),
             (sandbox_unit, "Run project's unittest discovery inside a locked-down Docker container."),
+            (sandbox_ui, "Actually click declared Qt controls and verify their backend calls inside Docker."),
             (sandbox_gui, "Start launch.py in a PySide6 Docker image and check for early startup failure; no GUI interactions are verified."),
             (sandbox_fix, "Queue failures from the last sandbox run as a human-reviewable fix task."),
             (checkpoint_save, "Snapshot generated code without running it; automatic snapshots are also made after passing Docker checks."),
@@ -611,7 +614,8 @@ class Module:
                                 rework_task, retry_task, report_bug, assign_fix, resolve_bug,
                                 approve_project, reopen_project, recover_workers,
                                 starter_btn, run_checks_btn, fix_checks_btn, show_folder_btn,
-                                sandbox_unit, sandbox_gui, sandbox_fix, preview_launch):
+                                sandbox_unit, sandbox_ui, sandbox_gui, sandbox_fix, preview_launch,
+                                checkpoint_save, checkpoint_restore):
                     control.setEnabled(False)
                 update_session_status()
                 return
@@ -632,6 +636,7 @@ class Module:
             run_checks_btn.setEnabled(True)
             show_folder_btn.setEnabled(True)
             sandbox_unit.setEnabled(not active_jobs and not auto["continuous"])
+            sandbox_ui.setEnabled(not active_jobs and not auto["continuous"])
             sandbox_gui.setEnabled(not active_jobs and not auto["continuous"])
             preview_launch.setEnabled(
                 not active_jobs and not auto["continuous"]
@@ -801,8 +806,9 @@ class Module:
                 sandbox_status.setText("No isolated test has run. Docker Desktop and approved images are required.")
                 sandbox_report.setPlainText(
                     "Run Tests in Sandbox uses Python unittest tests. "
-                    "GUI Launch Smoke Test checks whether launch.py stays alive for three seconds. "
-                    "Neither test grants generated code access to Apollo's files or network."
+                    "Test UI Buttons clicks declared Qt controls and checks backend calls. "
+                    "GUI Launch Smoke Test checks startup survival for three seconds. "
+                    "All tests run in restricted Docker containers, not Apollo's host process."
                 )
             nodes = {}
             for task in state["tasks"]:
@@ -1254,7 +1260,7 @@ class Module:
                     tid, problem = auto["retry_pending"]
                     auto["retry_pending"] = None
                     QTimer.singleShot(0, lambda: retry_generation(tid, problem))
-                elif not active_jobs and auto["testing"] and auto["sandbox_stage"] in ("unit", "gui"):
+                elif not active_jobs and auto["testing"] and auto["sandbox_stage"] in ("unit", "ui", "gui"):
                     kind = auto["sandbox_stage"]
                     QTimer.singleShot(0, lambda: start_auto_sandbox(auto["project"], kind))
                 elif not active_jobs and not auto["testing"]:
@@ -1538,8 +1544,13 @@ class Module:
                     report = {"status": "failed", "reason": error[:600], "output": ""}
                 status = report.get("status")
                 if status == "passed" and auto["sandbox_stage"] == "unit":
+                    auto["sandbox_stage"] = "ui"
+                    feed("Tester: Unit tests passed; checking actual Qt button interactions.")
+                    if not auto["paused"]:
+                        QTimer.singleShot(0, lambda: start_auto_sandbox(pid, "ui"))
+                elif status == "passed" and auto["sandbox_stage"] == "ui":
                     auto["sandbox_stage"] = "gui"
-                    feed("Tester: Unit tests passed; GUI startup smoke test is next.")
+                    feed("Tester: UI interactions passed; GUI startup smoke test is next.")
                     if not auto["paused"]:
                         QTimer.singleShot(0, lambda: start_auto_sandbox(pid, "gui"))
                 else:
@@ -1554,13 +1565,13 @@ class Module:
                             refresh_details()
                         except (ValueError, OSError) as exc:
                             feed("Integrator: Checkpoint not saved: " + str(exc)[:200])
-                        feed("Tester: Docker unit tests and GUI startup smoke test passed. "
-                             "UI interactions still need human testing.")
+                        feed("Tester: Docker unit tests, actual UI signals and GUI startup passed. "
+                             "Visual usability still needs human acceptance.")
                     else:
                         if status in ("unavailable", "refused"):
                             auto["testing"] = True
                             auto["sandbox_stage"] = (
-                                "gui" if report.get("kind") == "docker-gui" else "unit"
+                                str(report.get("kind", "docker-unit")).removeprefix("docker-")
                             )
                             auto["paused"] = True
                             poll_timer.stop()
@@ -1677,7 +1688,11 @@ class Module:
                 return alert("Select an app project first.")
             if active_jobs or auto["continuous"]:
                 return alert("A worker or continuous session is already active.")
-            what = ("project unit tests" if kind == "unit" else "a three-second GUI startup smoke test")
+            what = {
+                "unit": "project unit tests",
+                "ui": "actual Qt UI button-to-backend interaction tests",
+                "gui": "a three-second GUI startup smoke test",
+            }[kind]
             if QMessageBox.question(
                 page, "Run Isolated Foundry Sandbox",
                 f"Run {what} in a Docker container?\n\n"
@@ -1904,8 +1919,8 @@ class Module:
                 if not readiness["ready"]:
                     if QMessageBox.warning(
                         page, "Unverified Application",
-                        "Current generated source does NOT have both passing Docker "
-                        "unit and GUI startup checks.\n\n"
+                        "Current generated source does NOT have passing Docker "
+                        "unit, UI interaction and GUI startup checks.\n\n"
                         + readiness["reason"]
                         + "\n\nYou can still approve this workflow explicitly, "
                           "but it is NOT a verified release. Approve anyway?",
@@ -1995,6 +2010,7 @@ class Module:
         checkpoint_restore.clicked.connect(restore_checkpoint_action)
         docker_check.clicked.connect(check_docker_action)
         sandbox_unit.clicked.connect(lambda: run_sandbox_action("unit"))
+        sandbox_ui.clicked.connect(lambda: run_sandbox_action("ui"))
         sandbox_gui.clicked.connect(lambda: run_sandbox_action("gui"))
         sandbox_fix.clicked.connect(sandbox_fix_action)
         recover_workers.clicked.connect(recover_action)
