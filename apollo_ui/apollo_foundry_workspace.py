@@ -102,9 +102,12 @@ def _checkpoint_base(storage_root, project_id):
     pid = int(project_id)
     if pid < 1:
         raise ValueError("Invalid project ID.")
-    base = Path(storage_root).resolve() / "foundry" / "checkpoints" / f"app-{pid:04d}"
+    raw_storage = Path(storage_root)
+    if raw_storage.is_symlink():
+        raise ValueError("Foundry storage root is symlinked.")
+    parent = raw_storage.resolve()
+    base = parent / "foundry" / "checkpoints" / f"app-{pid:04d}"
     # Do not trust a redirected storage path.
-    parent = Path(storage_root).resolve()
     if not base.is_relative_to(parent) or any(
         item.is_symlink() for item in (parent / "foundry", parent / "foundry" / "checkpoints", base)
     ):
