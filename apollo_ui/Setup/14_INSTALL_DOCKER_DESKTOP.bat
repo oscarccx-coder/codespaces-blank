@@ -60,27 +60,8 @@ where docker >nul 2>&1
 if not errorlevel 1 set "DOCKER_EXE=docker"
 if not defined DOCKER_EXE if exist "%ProgramFiles%\Docker\Docker\resources\bin\docker.exe" set "DOCKER_EXE=%ProgramFiles%\Docker\Docker\resources\bin\docker.exe"
 if defined DOCKER_EXE (
-  echo [CHECK] Docker CLI found. Checking the engine...
-  set "INFO_FILE=%TEMP%\Apollo_Docker_Desktop_Info_%RANDOM%_%RANDOM%.txt"
-  "%DOCKER_EXE%" info --format "{{.OSType}}" >"%INFO_FILE%" 2>&1
-  if errorlevel 1 (
-    echo [ERROR] Docker is installed but its engine is not running.
-    echo [FIX] Start Docker Desktop and complete any WSL 2 prompts.
-    echo [FIX] Wait for Engine running, then retry.
-    type "%INFO_FILE%"
-    >>"%SETUP_LOG%" echo ERROR: Docker installed, engine unavailable.
-    type "%INFO_FILE%" >>"%SETUP_LOG%"
-    del /q "%INFO_FILE%" >nul 2>&1
-    exit /b 3
-  )
-  set /p "DOCKER_OS="<"%INFO_FILE%"
-  del /q "%INFO_FILE%" >nul 2>&1
-  if /I not "%DOCKER_OS%"=="linux" (
-    echo [ERROR] Docker Desktop is running Windows containers.
-    echo [FIX] Switch to Linux containers before building the sandbox.
-    >>"%SETUP_LOG%" echo ERROR: Wrong Docker container mode.
-    exit /b 3
-  )
+  call :CHECK_ENGINE
+  if errorlevel 1 exit /b 3
   echo [OK] Docker Desktop Linux engine is available.
   if "%CHECK_ONLY%"=="1" exit /b 0
   echo [NEXT] Starting the separate, owner-confirmed Foundry image setup.
@@ -142,4 +123,29 @@ echo [NEXT] Restart Windows if prompted, then open Docker Desktop.
 echo [NEXT] Complete WSL 2 setup and wait for the Linux engine to start.
 echo [NEXT] Run Setup\09_SETUP_FOUNDRY_SANDBOX.bat to build the image.
 >>"%SETUP_LOG%" echo SUCCESS: winget returned success; Docker setup still requires first run.
+exit /b 0
+
+:CHECK_ENGINE
+echo [CHECK] Docker CLI found. Checking the Linux engine...
+set "INFO_FILE=%TEMP%\Apollo_Docker_Desktop_Info_%RANDOM%_%RANDOM%.txt"
+set "DOCKER_OS="
+"%DOCKER_EXE%" info --format "{{.OSType}}" >"%INFO_FILE%" 2>&1
+if errorlevel 1 (
+  echo [ERROR] Docker is installed but its engine is not running.
+  echo [FIX] Start Docker Desktop and complete any WSL 2 prompts.
+  echo [FIX] Wait for Engine running, then retry.
+  type "%INFO_FILE%"
+  >>"%SETUP_LOG%" echo ERROR: Docker installed, engine unavailable.
+  type "%INFO_FILE%" >>"%SETUP_LOG%"
+  del /q "%INFO_FILE%" >nul 2>&1
+  exit /b 3
+)
+set /p "DOCKER_OS="<"%INFO_FILE%"
+del /q "%INFO_FILE%" >nul 2>&1
+if /I not "%DOCKER_OS%"=="linux" (
+  echo [ERROR] Docker Desktop is not running Linux containers.
+  echo [FIX] Switch to Linux containers before building the sandbox.
+  >>"%SETUP_LOG%" echo ERROR: Wrong Docker container mode.
+  exit /b 3
+)
 exit /b 0
