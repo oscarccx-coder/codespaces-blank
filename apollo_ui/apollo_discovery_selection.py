@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 import re
 from typing import Mapping
 
-_DIGEST = re.compile(r"[0-9a-f]{64}\\Z")
+_DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 STRATEGIES = frozenset({"direct", "decompose", "verify", "retrieval"})
 RECIPE_FIELDS = frozenset({"strategy", "review_passes", "context_budget", "retrieval_limit"})
 
