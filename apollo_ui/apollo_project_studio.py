@@ -136,8 +136,25 @@ class StudioStore:
             meeting = self.conn.execute(
                 "SELECT decisions FROM meetings WHERE project_id=? ORDER BY id DESC LIMIT 1",
                 (project["id"],)).fetchone()
+            recent_tests = self.conn.execute(
+                "SELECT kind,status,report FROM test_runs WHERE project_id=? "
+                "AND kind IN ('docker-unit','docker-gui') ORDER BY id DESC LIMIT 2",
+                (project["id"],)
+            ).fetchall()
+            test_context = []
+            for item in recent_tests:
+                try:
+                    report = json.loads(item["report"])
+                except (ValueError, TypeError):
+                    report = {}
+                test_context.append(
+                    f"{item['kind']} status={item['status']} "
+                    f"reason={str(report.get('reason', ''))[:300]} "
+                    f"output={str(report.get('output', ''))[-800:]}"
+                )
             return {"project": project, "tasks": tasks, "issues": issues,
-                    "meeting_context": meeting["decisions"] if meeting else ""}
+                    "meeting_context": meeting["decisions"] if meeting else "",
+                    "test_context": "\n".join(test_context)[:2200]}
 
     def _event(self, project_id, task_id, kind, detail):
         self.conn.execute(
