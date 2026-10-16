@@ -176,7 +176,7 @@ class StudioStore:
                 (project["id"],)).fetchone()
             recent_tests = self.conn.execute(
                 "SELECT kind,status,report FROM test_runs WHERE project_id=? "
-                "AND kind IN ('docker-unit','docker-gui') ORDER BY id DESC LIMIT 2",
+                "AND kind IN ('docker-unit','docker-ui','docker-gui') ORDER BY id DESC LIMIT 3",
                 (project["id"],)
             ).fetchall()
             test_context = []
@@ -692,8 +692,8 @@ class StudioStore:
     def run_sandbox_tests(self, project_id, kind, *, docker_bin=None):
         """Owner-initiated container execution, with persistent auditable report."""
         from apollo_foundry_sandbox import run_sandbox
-        if kind not in ("unit", "gui"):
-            raise ValueError("Sandbox test type must be unit or gui.")
+        if kind not in ("unit", "ui", "gui"):
+            raise ValueError("Sandbox test type must be unit, ui or gui.")
         with self.lock:
             project = self._project(project_id)
             folder = self.project_folder(project_id)
@@ -733,7 +733,7 @@ class StudioStore:
             self._project(project_id)
             rows = self.conn.execute(
                 "SELECT id,status,kind,created_at,report FROM test_runs "
-                "WHERE project_id=? AND kind IN ('docker-unit','docker-gui') "
+                "WHERE project_id=? AND kind IN ('docker-unit','docker-ui','docker-gui') "
                 "ORDER BY id DESC LIMIT ?",
                 (int(project_id), min(30, max(1, int(limit)))),
             ).fetchall()
@@ -755,7 +755,7 @@ class StudioStore:
             folder = self.project_folder(project_id)
             records = self.conn.execute(
                 "SELECT kind,status,report FROM test_runs WHERE project_id=? "
-                "AND kind IN ('docker-unit','docker-gui') ORDER BY id DESC LIMIT 60",
+                "AND kind IN ('docker-unit','docker-ui','docker-gui') ORDER BY id DESC LIMIT 90",
                 (int(project_id),),
             ).fetchall()
         try:
@@ -763,7 +763,7 @@ class StudioStore:
         except (ValueError, OSError) as exc:
             return {"ready": False, "reason": "Source cannot be inspected: " + str(exc)[:250],
                     "unit": False, "gui": False}
-        checks = {"docker-unit": False, "docker-gui": False}
+        checks = {"docker-unit": False, "docker-ui": False, "docker-gui": False}
         # The newest result for a particular source and test kind wins. A
         # later failed rerun must invalidate an earlier passing run.
         seen = set()
@@ -777,13 +777,14 @@ class StudioStore:
             if item["kind"] not in seen:
                 checks[item["kind"]] = item["status"] == "passed"
                 seen.add(item["kind"])
-        unit, gui = checks["docker-unit"], checks["docker-gui"]
+        unit, ui, gui = (checks["docker-unit"], checks["docker-ui"],
+                         checks["docker-gui"])
         return {
-            "ready": unit and gui, "unit": unit, "gui": gui,
+            "ready": unit and ui and gui, "unit": unit, "ui": ui, "gui": gui,
             "source_digest": digest,
-            "reason": ("Current source passed Docker unit tests and GUI startup smoke."
-                       if unit and gui else
-                       "Current source needs passing Docker unit and GUI startup checks. "
+            "reason": ("Current source passed Docker unit tests, real UI interactions and GUI startup smoke."
+                       if unit and ui and gui else
+                       "Current source needs passing Docker unit, UI interaction and GUI startup checks. "
                        "Previous results may be stale or failed."),
         }
 
