@@ -89,6 +89,15 @@ class StudioStore:
             created_at TEXT NOT NULL,
             FOREIGN KEY(project_id) REFERENCES projects(id)
         );
+        CREATE TABLE IF NOT EXISTS coding_evaluations(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL, kind TEXT NOT NULL,
+            status TEXT NOT NULL, source_digest TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_foundry_coding_progress
+            ON coding_evaluations(project_id, id);
         CREATE TABLE IF NOT EXISTS meetings(
             id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL,
             topic TEXT NOT NULL, turns TEXT NOT NULL, decisions TEXT NOT NULL,
@@ -201,8 +210,34 @@ class StudioStore:
         from apollo_foundry_workspace import read_workspace_context
         with self.lock:
             state = self.details(project_id)
-            state["source_context"] = read_workspace_context(self.project_folder(project_id))
+            active_tasks = [
+                str(task["title"]) + " " + str(task["brief"])
+                for task in state["tasks"] if task["state"] == "running"
+            ]
+            focus = "\n".join(active_tasks)[:2000]
+            state["source_context"] = read_workspace_context(
+                self.project_folder(project_id), focus=focus)
+            state["coding_learning_context"] = self.coding_progress()["worker_guidance"]
             return state
+
+    def coding_progress(self, project_id=None):
+        """Read only structured Docker evaluation evidence; use across app projects."""
+        from apollo_foundry_learning import summarize_coding_progress
+        with self.lock:
+            if project_id is not None:
+                self._project(project_id)
+                records = self.conn.execute(
+                    "SELECT kind,status,source_digest FROM coding_evaluations "
+                    "WHERE project_id=? ORDER BY id DESC LIMIT 4000", (int(project_id),)
+                ).fetchall()
+            else:
+                records = self.conn.execute(
+                    "SELECT kind,status,source_digest FROM coding_evaluations "
+                    "ORDER BY id DESC LIMIT 4000"
+                ).fetchall()
+            result = summarize_coding_progress(reversed(records))
+            result["scope"] = "project" if project_id is not None else "all-projects"
+            return result
 
     def _event(self, project_id, task_id, kind, detail):
         self.conn.execute(
@@ -655,18 +690,15 @@ class StudioStore:
             # Refuse partial overwrites and user-created symlinks.
             if any((folder / name).exists() or (folder / name).is_symlink() for name in sample):
                 raise FileExistsError("Starter UI files already exist. Existing project code was not changed.")
-            created = []
-            try:
-                for name, content in sample.items():
-                    dest = folder / name
-                    dest.parent.mkdir(parents=True, exist_ok=True)
-                    with dest.open("x", encoding="utf-8", newline="\n") as output:
-                        output.write(content)
-                    created.append(dest)
-            except OSError:
-                for dest in created:
-                    dest.unlink(missing_ok=True)
-                raise
+            # Use the same guarded writer as model-generated app files. Without
+            # this manifest the starter was visible but could NEVER be improved
+            # by Foundry workers: its files were treated as unowned user edits.
+            from apollo_foundry_artifacts import save_bundle
+            save_bundle(folder, {
+                "files": [{"path": name, "content": content}
+                          for name, content in sample.items()],
+                "summary": "Owner-requested trusted editable starter application",
+            })
             with self.conn:
                 self._event(project["id"], None, "starter-created",
                             "Added trusted sample UI, backend, click-through test and launcher; nothing executed")
@@ -737,6 +769,14 @@ class StudioStore:
                 "INSERT INTO test_runs(project_id,status,kind,report,created_at) VALUES(?,?,?,?,?)",
                 (project["id"], report["status"], report["kind"],
                  json.dumps(report, ensure_ascii=False), utcnow()),
+            )
+            from apollo_foundry_learning import evidence_row
+            observed = evidence_row(report)
+            self.conn.execute(
+                "INSERT INTO coding_evaluations(project_id,kind,status,source_digest,created_at) "
+                "VALUES(?,?,?,?,?)",
+                (project["id"], observed["kind"], observed["status"],
+                 observed["source_digest"], utcnow())
             )
             self._event(project["id"], None, "sandbox",
                         f"Docker {kind} test: {report['status']} (report saved)")

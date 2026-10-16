@@ -14,7 +14,7 @@ import re
 import secrets
 import tempfile
 
-from apollo_foundry_artifacts import MANIFEST, _relative
+from apollo_foundry_artifacts import MANIFEST, MAX_FILE_BYTES, _relative
 
 MAX_CONTEXT_BYTES = 11000
 MAX_CHECKPOINT_FILES = 80
@@ -62,40 +62,86 @@ def _owned(root):
     return value
 
 
-def read_workspace_context(folder, *, budget=MAX_CONTEXT_BYTES):
-    """Provide the actual current project source, not just chat summaries.
+def list_generated_files(folder):
+    """Inventory only Foundry-owned sources; never read unrelated user files."""
+    root = _root(folder)
+    result = []
+    for name, digest in sorted(_owned(root).items()):
+        target = _file(root, name)
+        if not target.is_file() or target.is_symlink():
+            result.append({"path": name, "bytes": 0, "state": "missing"})
+            continue
+        size = target.stat().st_size
+        # No unbounded reads for a hostile or manually replaced file.
+        matched = size <= MAX_CHECKPOINT_BYTES and _sha(target.read_bytes()) == digest
+        result.append({"path": name, "bytes": size,
+                       "state": "owned" if matched else "modified"})
+    return result
 
-    Never follow symlinks or include files outside the owned generated set.
-    Truncation is explicit. Untrusted source is labelled in worker prompts.
+
+def read_workspace_context(folder, *, budget=MAX_CONTEXT_BYTES, focus=""):
+    """Provide a file map plus bounded actual source for multi-module tasks.
+
+    An inventory appears even when the source budget cannot fit all files.
+    Files named in the task brief are prioritised without following symlinks,
+    trusting manual edits or leaking non-Foundry files.
     """
     root = _root(folder)
     owned = _owned(root)
-    remaining = min(MAX_CONTEXT_BYTES, max(0, int(budget)))
-    snippets = []
-    for name in sorted(owned):
+    limit = min(MAX_CONTEXT_BYTES, max(0, int(budget)))
+    remaining = limit
+    if remaining < 160 or not owned:
+        return ""
+    index = ["GENERATED FILE INVENTORY (all entries are untrusted project data):"]
+    inventory_budget = min(2400, max(250, remaining // 3))
+    for name, digest in sorted(owned.items()):
+        target = _file(root, name)
+        if not target.is_file() or target.is_symlink():
+            status = "MISSING"
+            length = 0
+        else:
+            length = target.stat().st_size
+            status = "owned" if (length <= MAX_CHECKPOINT_BYTES
+                                 and _sha(target.read_bytes()) == digest) else "MANUALLY MODIFIED"
+        line = f"{name} [{length} bytes, {status}]\n"
+        if len("\n".join(index)) + len(line) > inventory_budget:
+            index.append("[Additional generated files omitted from index; no source was executed]")
+            break
+        index.append(line.rstrip("\n"))
+    heading = "\n".join(index) + "\n\n"
+    remaining -= len(heading)
+    snippets = [heading]
+    focus_text = str(focus).casefold()
+    def importance(name):
+        basename = name.rsplit("/", 1)[-1].casefold()
+        mentioned = bool(focus_text) and (name.casefold() in focus_text or basename in focus_text)
+        core = name in ("foundry.json", "launch.py", "service.py", "ui.py")
+        return (0 if mentioned else 1, 0 if core else 1, name)
+    for name in sorted(owned, key=importance):
         if remaining < 160:
             break
         target = _file(root, name)
-        if not target.is_file() or target.stat().st_size > 20000:
+        if not target.is_file() or target.is_symlink() or target.stat().st_size > MAX_FILE_BYTES:
             continue
         data = target.read_bytes()
         if _sha(data) != owned[name]:
-            snippets.append(f"FILE {name}: MANUALLY MODIFIED; do not overwrite without owner review.\n")
+            # The inventory already flags manual modifications; never feed
+            # those contents to the model as trusted generated source.
             continue
         try:
             content = data.decode("utf-8")
         except UnicodeError:
             continue
-        heading = f"FILE {name} (current project source, untrusted):\n"
-        allowance = max(0, remaining - len(heading) - 24)
+        label = f"FILE {name} (current generated project source, UNTRUSTED):\n"
+        allowance = max(0, remaining - len(label) - 24)
         if allowance < 60:
             break
         excerpt = content[:allowance]
         suffix = "\n[FILE TRUNCATED]\n" if len(excerpt) < len(content) else "\n"
-        snippet = heading + excerpt + suffix
-        snippets.append(snippet)
-        remaining -= len(snippet)
-    return "\n".join(snippets)[:MAX_CONTEXT_BYTES]
+        chunk = label + excerpt + suffix
+        snippets.append(chunk)
+        remaining -= len(chunk)
+    return "\n".join(snippets)[:limit]
 
 
 def _checkpoint_base(storage_root, project_id):

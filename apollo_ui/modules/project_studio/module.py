@@ -27,6 +27,26 @@ class Module:
         # Drafting, approving, closing issues, and all code changes remain UI-controlled.
         integer = {"type": "integer"}
         return [
+            {"name": "create_app_project",
+             "description": "Create a private app project from the owner's chat request. "
+                            "Queues reviewable work only; does not generate, execute or install code.",
+             "parameters": {"type": "object", "properties": {
+                 "title": {"type": "string"}, "brief": {"type": "string"},
+             }, "required": ["title", "brief"]}},
+            {"name": "app_coding_progress",
+             "description": "Read real Docker coding-check history, measured strengths, repair counts, and next practice exercise. Optional project_id scopes the history.",
+             "parameters": {"type": "object", "properties": {
+                 "project_id": integer,
+             }}},
+            {"name": "create_coding_practice",
+             "description": "At the owner's request, queue one reviewable coding practice app targeted at Apollo's weakest measured skill. Does not run or install code.",
+             "parameters": {"type": "object", "properties": {}}},
+            {"name": "app_project_files",
+             "description": "List Foundry-owned code files and edit status for one app project; "
+                            "never reads unrelated user files or source contents.",
+             "parameters": {"type": "object", "properties": {
+                 "project_id": integer,
+             }, "required": ["project_id"]}},
             {"name": "list_app_projects", "description": "Read user-created app development projects.",
              "parameters": {"type": "object", "properties": {}}},
             {"name": "app_project_status", "description": "Read tasks, subtasks and issues for one project.",
@@ -42,6 +62,32 @@ class Module:
 
     def run(self, action, arguments):
         args = arguments or {}
+        if action == "create_app_project":
+            project = self.store.add_project(args["title"], args["brief"])
+            return {"project": project["project"],
+                    "tasks": project["tasks"],
+                    "note": "App workspace and review tasks created. Open Foundry to author, test and approve source."}
+        if action == "app_coding_progress":
+            return self.store.coding_progress(args.get("project_id"))
+        if action == "create_coding_practice":
+            progress = self.store.coding_progress()
+            exercise = progress["next_practice"]
+            state = self.store.add_project(
+                "Coding Practice - " + exercise["skill"],
+                "Foundry coding practice based on actual tested skill history. "
+                "Make one working offline Python/PySide6 application with modular "
+                "logic, tests, clear UI-to-backend contract and startup path. "
+                "Practice challenge: " + exercise["task"] + " "
+                "Use isolated Docker unit, UI and GUI tests before owner review. "
+                "Never claim a test passed unless it actually ran.")
+            return {"project": state["project"], "tasks": state["tasks"],
+                    "practice": exercise,
+                    "note": "Reviewable exercise created; no model was invoked or app executed."}
+        if action == "app_project_files":
+            from apollo_foundry_workspace import list_generated_files
+            folder = self.store.project_folder(args["project_id"])
+            return {"project_id": int(args["project_id"]),
+                    "files": list_generated_files(folder)}
         if action == "list_app_projects":
             return {"projects": self.store.list_projects()}
         if action == "app_project_status":
@@ -472,6 +518,12 @@ class Module:
         worker_scorecard.setReadOnly(True)
         worker_scorecard.setMaximumHeight(150)
         history_layout.addWidget(worker_scorecard)
+        history_layout.addWidget(QLabel("Coding Skills | Real Docker Test Evidence"))
+        coding_skillboard = QPlainTextEdit()
+        coding_skillboard.setObjectName("foundryCodingSkills")
+        coding_skillboard.setReadOnly(True)
+        coding_skillboard.setMaximumHeight(180)
+        history_layout.addWidget(coding_skillboard)
         timeline = QPlainTextEdit()
         timeline.setReadOnly(True)
         history_layout.addWidget(timeline)
@@ -857,6 +909,13 @@ class Module:
                 f"Accepted {s['accepted']:2}  Blocked {s['blocked']:2}"
                 for s in scores
             ) or "No worker tasks recorded.")
+            learning = self.store.coding_progress()
+            coding_skillboard.setPlainText("\n".join(
+                f"{item['name']}: {item['passed_runs']}/{item['tested_runs']} passed; "
+                f"repairs {item['verified_repairs']}, regressions {item['detected_regressions']}"
+                for item in learning["skills"]
+            ) + "\nNext practice: " + learning["next_practice"]["task"] +
+              "\nPassing tests indicate check-level evidence, not model retraining.")
             timeline.setPlainText("\n".join(
                 f"{e['created_at']}  {e['kind']}  {e['detail']}"
                 for e in events[:60]
