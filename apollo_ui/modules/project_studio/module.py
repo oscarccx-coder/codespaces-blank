@@ -759,6 +759,10 @@ class Module:
                     "todo": "To do", "running": "Working", "review": "Needs review",
                     "accepted": "Accepted", "blocked": "Blocked"
                 }.get(task["state"], task["state"])
+                if task.get("blocked_by") and task["state"] == "todo":
+                    display_state = "Waiting on " + ", ".join(
+                        "#" + str(item) for item in task["blocked_by"]
+                    )
                 node = QTreeWidgetItem([
                     task["title"], task["role"].title(), display_state, str(task["iteration"])
                 ])
@@ -800,9 +804,12 @@ class Module:
                 if update_controls:
                     update_actions()
                 return
-            task = self.store._task(tid)
+            task = next((item for item in self.store.details(project_id())["tasks"]
+                         if item["id"] == tid), self.store._task(tid))
             result_text.setPlainText(
-                f"WORKER: {task['role'].title()}    STATUS: {task['state'].title()}\n\n"
+                f"WORKER: {task['role'].title()}    STATUS: {task['state'].title()}\n"
+                f"DEPENDS ON: {task.get('depends_on', []) or 'None'}\n"
+                f"WAITING ON: {task.get('blocked_by', []) or 'None'}\n\n"
                 f"JOB\n{task['brief']}\n\n"
                 f"DRAFT (NOT EXECUTED)\n{task['result'] or 'Start this task to request a draft.'}\n\n"
                 f"REVIEW FEEDBACK\n{task['feedback'] or 'No review yet.'}\n\n"
@@ -1000,6 +1007,7 @@ class Module:
                 # Start with the newest owner change, not stale template tasks.
                 candidates = [t for t in state["tasks"]
                               if t["state"] == "todo" and t["id"] not in auto["started"]
+                              and not t.get("blocked_by")
                               and (t["role"] not in ("reviewer", "integrator", "tester") or any(x["role"] == "implementer" and x["state"] in ("review", "accepted") and "static checks passed" in x["evidence"].lower() for x in state["tasks"]))]
                 # A new project must produce runnable source before cycling
                 # through architecture essays and meeting commentary.
