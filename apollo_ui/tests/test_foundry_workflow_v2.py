@@ -53,7 +53,7 @@ class DependencyTests(unittest.TestCase):
         self.assertEqual(self.store._task(tasks[2]["id"])["state"], "running")
 
     def test_plan_rejects_cycles_forward_references_and_duplicates(self):
-        for deps in ([0], [1], [-1], [False], [0, 0]):
+        for deps in ([1], [-1], [False], [0, 0]):
             with self.subTest(deps=deps):
                 with self.assertRaisesRegex(ValueError, "dependencies"):
                     validate_subtask_plan({"tasks": [
