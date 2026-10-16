@@ -543,7 +543,9 @@ def shared_service(root, *, executor=None, validation=False):
     key=str(Path(root).resolve()).casefold()
     with SERVICE_LOCK:
         obj=SERVICES.get(key)
-        if obj is None:
+        if obj is None or obj._shutdown.is_set():
+            # A module disable/reload invalidates the old executor/permissions.
+            # The new module will construct a fresh service from durable state.
             obj=MissionService(root,executor=executor)
             SERVICES[key]=obj
         elif executor is not None:
