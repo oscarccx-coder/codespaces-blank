@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+import hashlib
 import os
 import secrets
 import shutil
@@ -120,6 +121,30 @@ def _make_snapshot(src: Path, dest: Path):
                 write.write(payload)
             out.chmod(0o644)
     return count
+
+
+def snapshot_fingerprint(snapshot):
+    """Hash exactly the files copied into the container's read-only /work."""
+    root = Path(snapshot).resolve()
+    digest = hashlib.sha256()
+    for item in sorted(root.rglob("*")):
+        if not item.is_file() or item.is_symlink():
+            continue
+        data = item.read_bytes()
+        name = item.relative_to(root).as_posix().encode("utf-8")
+        digest.update(len(name).to_bytes(4, "big"))
+        digest.update(name)
+        digest.update(len(data).to_bytes(8, "big"))
+        digest.update(data)
+    return digest.hexdigest()
+
+
+def project_fingerprint(folder):
+    """Bounded current-source fingerprint without running generated code."""
+    with tempfile.TemporaryDirectory(prefix="apollo-foundry-fingerprint-") as temp:
+        target = Path(temp) / "project"
+        _make_snapshot(folder, target)
+        return snapshot_fingerprint(target)
 
 
 def _container_args(binary, container_name, snapshot, kind):
@@ -239,6 +264,7 @@ def run_sandbox(project_folder, kind, *, docker_bin=None):
     with tempfile.TemporaryDirectory(prefix="apollo-foundry-") as temp:
         snapshot = Path(temp) / "project"
         _make_snapshot(src, snapshot)
+        source_digest = snapshot_fingerprint(snapshot)
         name = "apollo-foundry-" + secrets.token_hex(7)
         argv = _container_args(binary, name, str(snapshot.resolve()), kind)
         # A file-backed log is polled while Docker runs. A generated app
@@ -262,6 +288,7 @@ def run_sandbox(project_folder, kind, *, docker_bin=None):
                 reason += ". Warning: Docker container cleanup could not be confirmed."
             return {
                 **base, "status": status, "reason": reason,
+                "source_digest": source_digest,
                 "executed_project_code": code not in (125, 126, 127)
                 and (code is not None or proc["timeout"] or proc["overflow"]),
                 "output": proc["output"],
