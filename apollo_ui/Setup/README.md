@@ -6,7 +6,7 @@
 |---|---|
 | `01_INSTALL_APOLLO.bat` | Install/repair core requirements, then open setup |
 | `02_START_APOLLO.bat` | Launch Apollo |
-| `03_UPDATE_APOLLO.bat` | Pull code changes in a clean Git checkout only |
+| `03_UPDATE_APOLLO.bat` | Safely fast-forward a clean local Git checkout from `origin/main` only; `--check` is read-only |
 | `04_REPAIR_VOICE.bat` | Install/repair optional XTTS Python runtime |
 | `05_DIAGNOSE.bat` | Check Ollama, XTTS model files, packages and isolated XTTS imports |
 | `06_BACKUP.bat` | Create a local, unencrypted data backup ZIP |
@@ -16,6 +16,7 @@
 | `09_SETUP_FOUNDRY_SANDBOX.bat` | Build the trusted isolated PySide6 Docker test image (requires running Docker Desktop) |
 | `14_INSTALL_DOCKER_DESKTOP.bat` | Optional, explicitly confirmed official Docker Desktop installation using winget; complete WSL 2 / Docker first-run setup manually |
 | `15_CHECK_FOUNDRY_PREREQUISITES.bat` | Read-only check for Python, PySide6, Ollama coding model, Docker image, WSL and available Windows disk space |
+| `18_TEST_APOLLO_UPDATER.bat` | **Read-only installer self-test:** verify main-branch Git preflight and execute disposable offline Git/Ed25519 signed-update/rollback regressions in Apollo's private Python environment |
 | `16_INSTALL_FOUNDRY_SCIENCE.bat` | Optional, owner-confirmed SymPy and Matplotlib installation inside Apollo's private virtualenv for trusted local app previews |
 | `10_SETUP_WIZARD.bat` | Open the setup wizard directly |
 | `12_SETUP_RELEASE_SIGNING.bat` | Generate/reuse a persistent signing identity OFFLINE, display its public fingerprint, and guide first secure release setup (no automatic GitHub secret upload or key trust) |
@@ -30,3 +31,5 @@ The main launch, installer and repair files remain in `apollo_ui/` as **compatib
 **XTTS:** dependency reinstall can be several GB and may need CUDA and FFmpeg. Existing voice profiles and model weights are not automatically erased. If the clean XTTS installer reached 10/10 and failed saving `settings.json`, use `11_FINISH_XTTS_SETUP.bat` after updating the code. It checks the existing model and writes settings without rerunning heavy dependency installs.
 
 **Raspberry Pi 5:** Use `pi/install_pi.sh` from a Linux terminal instead of Windows .bat files. Its headless service has separate requirements and no Windows GUI.
+
+**Updater self-test:** Double-click `18_TEST_APOLLO_UPDATER.bat`. It does **not** pull, install, upgrade models, create external accounts or change live Apollo code. It prints a check result, then runs offline signed-release and disposable Git regression tests using private Python. Failure logs are preserved under `%TEMP%\Apollo_Updater_Self_Test.log`. If the folder isn't a clean `main` Git checkout, the preflight correctly reports a warning. Fix checkout issues before attempting a real source update. CI uses `--tests-only` because pull request checkouts intentionally have detached HEAD.
