@@ -41,6 +41,9 @@ class FoundryWindowTests(unittest.TestCase):
         self.assertIn("GUI Launch Smoke Test", buttons)
         self.assertIn("Send Failures to Worker", buttons)
         self.assertIn("Check Docker", buttons)
+        self.assertIn("Test UI Buttons", buttons)
+        self.assertIsNotNone(panel.findChild(QPushButton, "foundryCheckpointSave"))
+        self.assertIsNotNone(panel.findChild(QPushButton, "foundryCheckpointRestore"))
         tabs = panel.findChild(QTabWidget)
         self.assertIn("4. Sandbox", [tabs.tabText(i) for i in range(tabs.count())])
         with patch.object(QMessageBox, "question", return_value=QMessageBox.No):
