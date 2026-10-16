@@ -238,7 +238,8 @@ class FoundryPhaseOneTests(unittest.TestCase):
         module = Module({"base_dir": self.root})
         self.addCleanup(module.close)
         names = {x["name"] for x in module.tools()}
-        self.assertEqual(names, {"list_app_projects", "app_project_status", "queue_app_change"})
+        self.assertEqual(names, {"list_app_projects", "app_project_status", "queue_app_change",
+                                 "list_discovery_campaigns", "discovery_campaign_status"})
         with self.assertRaises(KeyError):
             module.run("approve_project", {"project_id": self.project_id})
         response = module.run("queue_app_change", {
