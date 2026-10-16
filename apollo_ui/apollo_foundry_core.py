@@ -29,7 +29,7 @@ PROTECTED_NAMES = frozenset({
     "config.json", ".env", "release_private.pem", "modules_state.json",
     "apollo_memory.db", "credentials.json",
 })
-SUGGESTION_KINDS = ("todo", "fixme", "syntax")
+SUGGESTION_KINDS = ("todo", "fixme", "syntax", "quality", "testing", "maintainability", "proposed")
 STATUSES = ("suggested", "review_requested", "dismissed")
 
 
@@ -142,10 +142,39 @@ class ApolloCoreSuggestions:
                     continue
                 observations = []
                 try:
-                    ast.parse(text, filename=relative)
+                    tree = ast.parse(text, filename=relative)
                 except SyntaxError as exc:
+                    tree = None
                     observations.append(("syntax", exc.lineno or 1,
                                          "Python syntax error; requires review."))
+                if tree is not None:
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.ExceptHandler) and node.type is None:
+                            observations.append((
+                                "quality", node.lineno,
+                                "Bare except handler may hide failures; review exception handling."
+                            ))
+                        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            length = (node.end_lineno or node.lineno) - node.lineno
+                            if length >= 130:
+                                observations.append((
+                                    "maintainability", node.lineno,
+                                    "Long function; consider smaller testable components."
+                                ))
+                    if relative.endswith("/module.py"):
+                        module_classes = [
+                            n for n in tree.body if isinstance(n, ast.ClassDef)
+                            and n.name == "Module"
+                        ]
+                        if module_classes and not any(
+                            isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                            and n.name == "self_test"
+                            for n in module_classes[0].body
+                        ):
+                            observations.append((
+                                "testing", module_classes[0].lineno,
+                                "Module has no self_test method; consider adding a regression."
+                            ))
                 for line_number, line in enumerate(text.splitlines(), 1):
                     # Do not copy raw source lines into suggestion storage.
                     if re.search(r"\bFIXME\b", line):
@@ -179,6 +208,38 @@ class ApolloCoreSuggestions:
                 "total": len(state["suggestions"]),
                 "policy": "local_read_only_no_git_no_core_changes",
             }
+
+    def propose(self, title, rationale, source_path):
+        """AI may submit an evidence-linked idea, never approve or implement it."""
+        if (not isinstance(title, str) or not 8 <= len(title.strip()) <= 160
+                or not isinstance(rationale, str) or not 20 <= len(rationale.strip()) <= 1200):
+            raise ValueError("A proposal needs a specific title and evidence-based rationale.")
+        relative = _source_relative(source_path)
+        target = _inside(self.base, relative)
+        if not target.is_file() or target.stat().st_size > MAX_SOURCE_BYTES:
+            raise ValueError("Suggestion must refer to an existing small Apollo source file.")
+        data = target.read_bytes()
+        identity = _digest(
+            ("proposed:" + relative.as_posix() + ":" + title.strip().casefold()).encode()
+        )[:20]
+        with self.lock:
+            state = _read_json(self.store)
+            for item in state["suggestions"]:
+                if item["id"] == identity:
+                    return {"suggestion": dict(item), "new": False}
+            if len(state["suggestions"]) >= MAX_SUGGESTIONS:
+                raise ValueError("Suggestion queue full; review existing suggestions first.")
+            entry = {
+                "id": identity, "path": relative.as_posix(), "line": 1,
+                "kind": "proposed", "title": title.strip(),
+                "source_sha256": _digest(data), "status": "suggested",
+                "created_at": _utc(), "last_seen": _utc(),
+                "notes": "", "rationale": rationale.strip(), "candidate": None,
+            }
+            state["suggestions"].append(entry)
+            self._save(state)
+            return {"suggestion": dict(entry), "new": True,
+                    "applied": False, "pushed": False}
 
     def set_review(self, suggestion_id, *, request_review, notes=""):
         """A human-facing UI calls this, never the model's suggestion scanner."""
