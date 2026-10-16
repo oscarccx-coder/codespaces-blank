@@ -4,6 +4,7 @@ from collections import Counter
 
 from tool_call_parser import extract_text_tool_calls, normalize_tool_call
 from apollo_growth_chat import explicit_pile_command, wants_growth_advice, growth_advice
+from apollo_growth_missions import GrowthMissionStore, intent as growth_mission_intent
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 
 
@@ -221,6 +222,62 @@ class ChatTask(QRunnable):
             "original": text,
         }
 
+    def _growth_root(self):
+        from pathlib import Path
+        if self.module_manager is not None:
+            root = getattr(self.module_manager, "base_dir", None)
+            if root is not None:
+                return Path(root).resolve()
+        return Path(__file__).resolve().parent
+
+    def _run_growth_mission(self):
+        """Owner-triggered action: create a real Foundry project or report progress.
+
+        This checks the newest message ONLY. The text must match an explicit
+        Apollo-project command; it never interprets normal chat as consent.
+        """
+        action = growth_mission_intent(self._last_user_text())
+        if action is None:
+            return None
+        mode, choice = action
+        mission = GrowthMissionStore(self._growth_root())
+        try:
+            if mode == "begin":
+                state = mission.begin(choice, owner_confirmed=True)
+                # Do useful local work immediately after explicit consent.
+                # At most ONE bounded Ollama draft per user action.
+                state = mission.run_one_step(owner_confirmed=True)
+                result = (
+                    "**Growth project started in Foundry.**\n\n"
+                    + mission.report()
+                    + "\n\nFor repeated coding, meetings and Docker tests, "
+                      "select this project in Foundry and authorise a "
+                      "Continuous Session there. No client outreach or "
+                      "financial transaction has happened."
+                )
+            elif mode == "status":
+                result = mission.report()
+            elif mode == "pause":
+                mission.pause()
+                result = "I have paused new chat-driven project work.\n\n" + mission.report()
+            elif mode == "continue":
+                mission.resume(owner_confirmed=True)
+                mission.run_one_step(owner_confirmed=True)
+                result = mission.report()
+            else:
+                return None
+        except (PermissionError, ValueError, OSError, RuntimeError) as exc:
+            result = (
+                "I couldn't complete that Apollo growth action: "
+                f"{type(exc).__name__}: {exc}. "
+                "Nothing has been sold or sent; check Growth Lab and Foundry "
+                "for any partial records and the actual project state."
+            )
+        finally:
+            mission.close()
+        self.signals.chunk.emit(result)
+        return result
+
     def _run_growth_advice(self):
         """Explain Apollo's realistic revenue options in normal Chat.
 
@@ -254,6 +311,20 @@ class ChatTask(QRunnable):
                 ideas = None
                 fund = None
         content = growth_advice(ideas, fund)
+        # A real selectable project offer is persisted. Permission is still
+        # REQUIRED in the user's next command before any work is started.
+        try:
+            mission = GrowthMissionStore(self._growth_root())
+            try:
+                offer = mission.offer()
+            finally:
+                mission.close()
+            content = offer + "\n\n" + content
+        except (OSError, ValueError, RuntimeError) as exc:
+            content = (
+                "I can propose work, but cannot save a project offer yet: "
+                f"{type(exc).__name__}: {exc}.\n\n" + content
+            )
         self.signals.chunk.emit(content)
         return content
 
@@ -2970,9 +3041,14 @@ class ChatTask(QRunnable):
         if direct_pile is not None:
             return direct_pile
 
-        # Questions about earning upgrade money are useful without an
-        # unreliable Pile search or an invented promise of AI business autonomy.
-        # The Growth Lab read-only planning answer works offline.
+        # Explicit "begin Apollo project 1"/status/pause/continue are safe
+        # command channels, not model hallucinated function calls. Never run
+        # automatic work from a vague request to make money.
+        direct_mission = self._run_growth_mission()
+        if direct_mission is not None:
+            return direct_mission
+
+        # Show real, scoped projects that can be started by explicit reply.
         direct_growth = self._run_growth_advice()
 
         if direct_growth is not None:
