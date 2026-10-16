@@ -61,6 +61,13 @@ class WindowsSetupTests(unittest.TestCase):
         for name in RETIRED_WINDOWS_LAUNCHERS:
             self.assertEqual(str(safe_relative(name)), name)
 
+    def test_foundry_preflight_is_read_only_and_uses_venv(self):
+        script = read("Setup/15_CHECK_FOUNDRY_PREREQUISITES.bat")
+        self.assertIn(".venv\\Scripts\\python.exe", script)
+        self.assertIn("apollo_foundry_preflight.py", script)
+        self.assertNotIn("winget install", script)
+        self.assertNotIn("docker build", script)
+
     def test_docker_desktop_setup_requires_explicit_consent(self):
         script = read("Setup/14_INSTALL_DOCKER_DESKTOP.bat")
         self.assertIn("Docker.DockerDesktop", script)
