@@ -93,13 +93,16 @@ class WindowsSetupTests(unittest.TestCase):
         self.assertIn("Docker.DockerDesktop", helper)
         self.assertIn("Confirm-Action", helper)
         self.assertLess(helper.index("Confirm-Action 'Install Docker Desktop"),
-                        helper.index(" install --id Docker.DockerDesktop"))
+                        helper.index("Invoke-Native $winget.Source"))
         self.assertLess(helper.index("Confirm-Action 'Build the trusted"),
-                        helper.index("& $docker build "))
+                        helper.index("Invoke-Native $docker @('build'"))
         self.assertIn("wsl --install --no-distribution", helper)
         self.assertNotIn("& wsl.exe --install", helper)
         self.assertIn("Get-WinEvent", helper)
         self.assertIn("Show-FailureLogs", helper)
+        self.assertIn("Invoke-Native", helper)
+        self.assertIn("DOCKER_HOST", helper)
+        self.assertIn("context inspect", helper)
         self.assertIn("--network=none", helper)
         self.assertIn("--read-only", helper)
         self.assertIn("APOLLO_SANDBOX_READY", helper)
