@@ -211,6 +211,9 @@ class LearningMissionTests(unittest.TestCase):
         self.assertEqual(parse_owner_command("stop learning mission 3"),
                          {"action":"stop","mission_id":3})
         self.assertEqual(parse_owner_command("status learning missions"),{"action":"list"})
+        self.assertEqual(parse_owner_command("you can stop now"),{"action":"stop_current"})
+        self.assertEqual(parse_owner_command("start learning mission about knowledge graphs")["action"],
+                         "needs_web_consent")
         for raw in [
             "Learn about better memory", "please be intelligent",
             "stop working", "yes", "Hello Apollo",
@@ -243,6 +246,26 @@ class LearningMissionTests(unittest.TestCase):
         self.assertIn("Learning mission #1 started",output)
         self.assertEqual(self.service.store.list()[0]["title"],"knowledge graph provenance")
         self.assertIn("STOP_REQUESTED",handle_command("stop learning mission 1",adapter))
+
+    def test_natural_stop_phrase_only_stops_single_active_mission(self):
+        class Adapter:
+            def __init__(self, service):
+                self.service=service
+            def owner_action(self,action,**args):
+                if action=="list":
+                    return self.service.store.list()
+                if action=="stop":
+                    return self.service.stop(args["mission_id"])
+                raise KeyError(action)
+        adapter=Adapter(self.service)
+        first=self.create()["id"]
+        self.assertIn("STOP_REQUESTED",handle_command("you can stop now",adapter))
+        second=self.create()["id"]
+        third=self.create()["id"]
+        answer=handle_command("Apollo, you can stop now",adapter)
+        self.assertIn("More than one",answer)
+        self.assertEqual(self.service.store.status(second)["state"],"RUNNING")
+        self.assertEqual(self.service.store.status(third)["state"],"RUNNING")
 
     def test_chat_entrypoint_wired_before_other_tool_routing(self):
         code=(Path(__file__).resolve().parents[1]/"workers.py").read_text(encoding="utf-8")
