@@ -103,6 +103,14 @@ class StudioStore:
         CREATE INDEX IF NOT EXISTS idx_foundry_issues_project ON issues(project_id, id);
         CREATE INDEX IF NOT EXISTS idx_foundry_events_project ON events(project_id, id);
         CREATE INDEX IF NOT EXISTS idx_foundry_tests_project_kind ON test_runs(project_id, kind, id);
+        -- Additive migration: no existing task rows or IDs are changed.
+        CREATE TABLE IF NOT EXISTS task_dependencies(
+            task_id INTEGER NOT NULL, depends_on INTEGER NOT NULL,
+            PRIMARY KEY(task_id, depends_on),
+            FOREIGN KEY(task_id) REFERENCES tasks(id),
+            FOREIGN KEY(depends_on) REFERENCES tasks(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_foundry_dependencies_task ON task_dependencies(task_id);
         """)
         self.conn.commit()
 
@@ -131,6 +139,21 @@ class StudioStore:
             project = self._project(project_id)
             tasks = [dict(x) for x in self.conn.execute(
                 "SELECT * FROM tasks WHERE project_id=? ORDER BY id", (project["id"],))]
+            dependency_rows = self.conn.execute(
+                "SELECT d.task_id,d.depends_on,t.state FROM task_dependencies d "
+                "JOIN tasks t ON t.id=d.depends_on "
+                "JOIN tasks owner ON owner.id=d.task_id "
+                "WHERE owner.project_id=?", (project["id"],)
+            ).fetchall()
+            dependencies = {}
+            blockers = {}
+            for dep in dependency_rows:
+                dependencies.setdefault(dep["task_id"], []).append(dep["depends_on"])
+                if dep["state"] not in ("review", "accepted"):
+                    blockers.setdefault(dep["task_id"], []).append(dep["depends_on"])
+            for task in tasks:
+                task["depends_on"] = dependencies.get(task["id"], [])
+                task["blocked_by"] = blockers.get(task["id"], [])
             issues = [dict(x) for x in self.conn.execute(
                 "SELECT * FROM issues WHERE project_id=? ORDER BY id DESC", (project["id"],))]
             meeting = self.conn.execute(
@@ -242,16 +265,22 @@ class StudioStore:
         if not isinstance(proposals, list) or not 1 <= len(proposals) <= 8:
             raise ValueError("A manager proposal requires 1 to 8 subtasks.")
         approved = []
-        for entry in proposals:
-            if not isinstance(entry, dict) or set(entry) != {"title", "brief", "role"}:
-                raise ValueError("Every subtask must have title, brief and role.")
+        for index, entry in enumerate(proposals):
+            if not isinstance(entry, dict) or not {"title", "brief", "role"} <= set(entry) or set(entry) - {"title", "brief", "role", "depends_on"}:
+                raise ValueError("Every subtask needs title, brief, role and optional depends_on.")
             role = entry["role"]
             if role not in ROLES:
                 raise ValueError("Invalid worker role in manager proposal.")
+            depends = entry.get("depends_on", [])
+            if (not isinstance(depends, list) or len(depends) > 7
+                    or len(set(map(str, depends))) != len(depends)
+                    or any(type(dep) is not int or dep < 0 or dep >= index for dep in depends)):
+                raise ValueError("Dependencies must be unique earlier zero-based plan indices.")
             approved.append({
                 "title": clean_text(entry["title"], 120, name="Task title"),
                 "brief": clean_text(entry["brief"], 5000, name="Task brief"),
                 "role": role,
+                "depends_on": depends,
             })
         if len({item["title"].casefold() for item in approved}) != len(approved):
             raise ValueError("Manager plan contains duplicate subtask names.")
@@ -269,10 +298,19 @@ class StudioStore:
             with self.conn:
                 ids = []
                 for entry in approved:
-                    ident = self._new_task(parent["project_id"], parent_id=parent["id"], **entry)
+                    ident = self._new_task(
+                        parent["project_id"], parent_id=parent["id"],
+                        title=entry["title"], brief=entry["brief"], role=entry["role"]
+                    )
                     ids.append(ident)
+                    for dependency_index in entry["depends_on"]:
+                        self.conn.execute(
+                            "INSERT INTO task_dependencies(task_id,depends_on) VALUES(?,?)",
+                            (ident, ids[dependency_index]),
+                        )
                     self._event(parent["project_id"], ident, "manager-plan",
-                                "Owner approved role " + entry["role"])
+                                "Owner approved role " + entry["role"] +
+                                f"; dependencies: {entry['depends_on']}")
             return [self._task(tid) for tid in ids]
 
     def start_task(self, task_id):
@@ -280,6 +318,15 @@ class StudioStore:
             task = self._task(task_id)
             if task["state"] != "todo":
                 raise ValueError("Only todo tasks can start.")
+            unfinished = self.conn.execute(
+                "SELECT d.depends_on FROM task_dependencies d "
+                "JOIN tasks prior ON prior.id=d.depends_on "
+                "WHERE d.task_id=? AND prior.state NOT IN ('review','accepted')",
+                (task["id"],),
+            ).fetchall()
+            if unfinished:
+                raise ValueError("Task dependencies not ready: " +
+                                 ", ".join(str(row["depends_on"]) for row in unfinished))
             project = self._project(task["project_id"])
             if project["state"] == "approved":
                 raise ValueError("Approved projects cannot change without reopening.")
