@@ -130,6 +130,21 @@ class StudioStore:
             raise KeyError("Task not found")
         return dict(t)
 
+    def dependency_status(self, task_id):
+        """Return prerequisites without refreshing the entire project view."""
+        with self.lock:
+            self._task(task_id)
+            rows = self.conn.execute(
+                "SELECT d.depends_on,t.state FROM task_dependencies d "
+                "JOIN tasks t ON t.id=d.depends_on WHERE d.task_id=? "
+                "ORDER BY d.depends_on", (int(task_id),),
+            ).fetchall()
+            return {
+                "depends_on": [row["depends_on"] for row in rows],
+                "blocked_by": [row["depends_on"] for row in rows
+                               if row["state"] not in ("review", "accepted")],
+            }
+
     def list_projects(self):
         with self.lock:
             return [dict(x) for x in self.conn.execute("SELECT * FROM projects ORDER BY id DESC LIMIT ?", (MAX_PROJECTS,))]
