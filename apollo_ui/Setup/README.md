@@ -15,6 +15,7 @@
 | `09_START_SAFE_MODE.bat` | Troubleshoot without loading risky modules |
 | `09_SETUP_FOUNDRY_SANDBOX.bat` | Build the trusted isolated PySide6 Docker test image (requires running Docker Desktop) |
 | `14_INSTALL_DOCKER_DESKTOP.bat` | Optional, explicitly confirmed official Docker Desktop installation using winget; complete WSL 2 / Docker first-run setup manually |
+| `15_CHECK_FOUNDRY_PREREQUISITES.bat` | Read-only check for Python, PySide6, Ollama coding model, Docker image, WSL and available Windows disk space |
 | `10_SETUP_WIZARD.bat` | Open the setup wizard directly |
 | `12_SETUP_RELEASE_SIGNING.bat` | Generate/reuse a persistent signing identity OFFLINE, display its public fingerprint, and guide first secure release setup (no automatic GitHub secret upload or key trust) |
 | `11_FINISH_XTTS_SETUP.bat` | Retry XTTS step 10 configuration without uninstalling/reinstalling packages or downloading the model |
