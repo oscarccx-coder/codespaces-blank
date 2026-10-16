@@ -240,7 +240,10 @@ class Module:
         continuous_resume.setObjectName("foundryContinuousResume")
         continuous_stop = QPushButton("Stop")
         continuous_stop.setObjectName("foundryContinuousStop")
-        for control in (continuous_start, continuous_pause, continuous_resume, continuous_stop):
+        continuous_finish = QPushButton("I'm Happy / Review")
+        continuous_finish.setObjectName("foundryContinuousFinish")
+        for control in (continuous_start, continuous_pause, continuous_resume, continuous_stop,
+                        continuous_finish):
             session_controls.addWidget(control)
         right_layout.addLayout(session_controls)
         session_status = QLabel("Continuous mode: off. Docker tests require one explicit session approval.")
@@ -484,6 +487,7 @@ class Module:
             continuous_pause.setEnabled(running and not auto["paused"])
             continuous_resume.setEnabled(running and auto["paused"])
             continuous_stop.setEnabled(running)
+            continuous_finish.setEnabled(running)
 
         poll_timer = QTimer(page)
         poll_timer.setInterval(30000)
@@ -516,6 +520,7 @@ class Module:
             (continuous_pause, "Pause new work after the current Ollama/Docker operation finishes."),
             (continuous_resume, "Resume a paused session without repeating setup authorization."),
             (continuous_stop, "Stop the session after its current operation; keep project files and test history."),
+            (continuous_finish, "Finish the coding session and review generated drafts. Project approval is still manual."),
             (preview_launch, "Open the generated app in a separate Windows window, only after explicit informed consent. NOT sandboxed."),
             (preview_stop, "Stop the local preview process; Apollo itself stays open."),
         ):
@@ -1727,10 +1732,28 @@ class Module:
             except (OSError, ValueError, KeyError) as exc:
                 alert(exc)
 
+        def finish_continuous_action():
+            if not auto["continuous"]:
+                return
+            if QMessageBox.question(
+                page, "Review Generated Application",
+                "Stop the continuous development session and review the app?\n\n"
+                "Any current model/Docker operation may finish, but no more jobs "
+                "will start. This does NOT automatically approve tasks, close "
+                "issues or publish software. Review results and use "
+                "'Approve Reviewed Project' only when satisfied.",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            ) != QMessageBox.Yes:
+                return
+            stop_continuous_action()
+            tabs.setCurrentWidget(tasks_tab)
+            feed("Owner: Ready to review. Approve individual drafts only after inspecting their evidence.")
+
         continuous_start.clicked.connect(start_continuous_action)
         continuous_pause.clicked.connect(pause_continuous_action)
         continuous_resume.clicked.connect(resume_continuous_action)
         continuous_stop.clicked.connect(stop_continuous_action)
+        continuous_finish.clicked.connect(finish_continuous_action)
         quick_start.clicked.connect(quick_start_action)
         team_meeting_btn.clicked.connect(manual_team_meeting)
         new_project.clicked.connect(add_project_action)
