@@ -1,0 +1,13 @@
+{
+  "id": "mission_control",
+  "name": "Mission Control",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Live mission progress, pause, resume, graceful stop and persistent audit.",
+  "ui": {
+    "enabled": true,
+    "title": "Mission Control",
+    "default_placement": "apps"
+  }
+}

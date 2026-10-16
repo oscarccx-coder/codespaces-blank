@@ -6,7 +6,7 @@
 |---|---|
 | `01_INSTALL_APOLLO.bat` | Install/repair core requirements, then open setup |
 | `02_START_APOLLO.bat` | Launch Apollo |
-| `03_UPDATE_APOLLO.bat` | Pull code changes in a clean Git checkout only |
+| `03_UPDATE_APOLLO.bat` | Safely fast-forward a clean local Git checkout from `origin/main` only; `--check` is read-only |
 | `04_REPAIR_VOICE.bat` | Install/repair optional XTTS Python runtime |
 | `05_DIAGNOSE.bat` | Check Ollama, XTTS model files, packages and isolated XTTS imports |
 | `06_BACKUP.bat` | Create a local, unencrypted data backup ZIP |
@@ -16,6 +16,8 @@
 | `09_SETUP_FOUNDRY_SANDBOX.bat` | Build the trusted isolated PySide6 Docker test image (requires running Docker Desktop) |
 | `14_INSTALL_DOCKER_DESKTOP.bat` | Optional, explicitly confirmed official Docker Desktop installation using winget; complete WSL 2 / Docker first-run setup manually |
 | `15_CHECK_FOUNDRY_PREREQUISITES.bat` | Read-only check for Python, PySide6, Ollama coding model, Docker image, WSL and available Windows disk space |
+| `17_CHECK_XTTS_GPU.bat` | Read-only XTTS GPU diagnostic for Apollo's own Python, PyTorch CUDA availability and RTX CUDA execution |
+| `18_TEST_APOLLO_UPDATER.bat` | **Read-only installer self-test:** verify main-branch Git preflight and execute disposable offline Git/Ed25519 signed-update/rollback regressions in Apollo's private Python environment |
 | `16_INSTALL_FOUNDRY_SCIENCE.bat` | Optional, owner-confirmed SymPy and Matplotlib installation inside Apollo's private virtualenv for trusted local app previews |
 | `10_SETUP_WIZARD.bat` | Open the setup wizard directly |
 | `12_SETUP_RELEASE_SIGNING.bat` | Generate/reuse a persistent signing identity OFFLINE, display its public fingerprint, and guide first secure release setup (no automatic GitHub secret upload or key trust) |
@@ -30,3 +32,27 @@ The main launch, installer and repair files remain in `apollo_ui/` as **compatib
 **XTTS:** dependency reinstall can be several GB and may need CUDA and FFmpeg. Existing voice profiles and model weights are not automatically erased. If the clean XTTS installer reached 10/10 and failed saving `settings.json`, use `11_FINISH_XTTS_SETUP.bat` after updating the code. It checks the existing model and writes settings without rerunning heavy dependency installs.
 
 **Raspberry Pi 5:** Use `pi/install_pi.sh` from a Linux terminal instead of Windows .bat files. Its headless service has separate requirements and no Windows GUI.
+
+## Docker and Foundry sandbox installers that disappear on double-click
+
+The Docker Desktop installer (`14_INSTALL_DOCKER_DESKTOP.bat`) and the Foundry sandbox image setup (`09_SETUP_FOUNDRY_SANDBOX.bat`) now display a final result and **wait for a keypress** even when an error occurs. Neither should close immediately on a missing Docker CLI, an unavailable engine or a failed image build.
+
+Run `14_INSTALL_DOCKER_DESKTOP.bat` first if Docker is not installed. It asks before invoking the official `winget install` command. After Docker Desktop is installed, finish first-run setup, start its engine and select Linux containers. Then run `09_SETUP_FOUNDRY_SANDBOX.bat` and approve the initial test-image build. Installing Docker Desktop alone does not build Apollo's test image.
+
+Both batches support a read-only `--check` argument for diagnostics (no install/build/approval prompts), plus `--no-pause` for already-attached terminals. The sandbox check additionally verifies that `apollo-foundry-qt:phase1` is present.
+
+For an error that occurs *before* a window can display, use Command Prompt rather than double-clicking:
+
+```bat
+cd /d "F:\Apollo\apollo 1\apollo_ui"
+call "Setup\14_INSTALL_DOCKER_DESKTOP.bat"
+call "Setup\09_SETUP_FOUNDRY_SANDBOX.bat"
+```
+
+Adjust the Apollo location to your installation. Keep the Command Prompt open to read actual Docker and `winget` errors. Local summary logs are written to `%TEMP%\Apollo_Docker_Desktop_Setup.log` and `%TEMP%\Apollo_Foundry_Sandbox_Setup.log`.
+
+If you see **Docker CLI found but engine unavailable**, open Docker Desktop and check the WSL 2/backend status, virtualization and available disk space. If you see **not running Linux containers**, change Docker Desktop's container mode. If `winget` is missing, use Docker's official Windows installer, then run the sandbox image setup separately.
+
+The noninteractive Windows CI smoke tests mock Docker; they **never install Docker or pull/build a live image**. A real installation still requires testing on the owner's PC.
+
+**Updater self-test:** Double-click `18_TEST_APOLLO_UPDATER.bat`. It does **not** pull, install, upgrade models, create external accounts or change live Apollo code. It prints a check result, then runs offline signed-release and disposable Git regression tests using private Python. Failure logs are preserved under `%TEMP%\Apollo_Updater_Self_Test.log`. If the folder isn't a clean `main` Git checkout, the preflight correctly reports a warning. Fix checkout issues before attempting a real source update. CI uses `--tests-only` because pull request checkouts intentionally have detached HEAD.
