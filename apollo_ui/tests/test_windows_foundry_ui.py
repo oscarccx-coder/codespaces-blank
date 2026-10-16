@@ -120,6 +120,35 @@ class FoundryWindowTests(unittest.TestCase):
                             source.index('self.store.record_handoff(pid, "manager", task["role"]'))
             pool.assert_not_called()
 
+    def test_local_app_preview_requires_explicit_consent(self):
+        from PySide6.QtCore import QProcess
+        from PySide6.QtWidgets import QPushButton, QMessageBox, QPlainTextEdit
+        from modules.project_studio.module import Module
+
+        module = Module({"base_dir": self.base})
+        self.addCleanup(module.close)
+        project = module.store.add_project("Local preview", "Test explicit consent")
+        panel = module.build_ui()
+        self.addCleanup(panel.close)
+        launch = panel.findChild(QPushButton, "foundryLocalPreviewLaunch")
+        stop = panel.findChild(QPushButton, "foundryLocalPreviewStop")
+        console = panel.findChild(QPlainTextEdit, "foundryLocalPreviewOutput")
+        self.assertIsNotNone(launch)
+        self.assertIsNotNone(stop)
+        self.assertIsNotNone(console)
+        self.assertTrue(launch.isEnabled())
+        self.assertFalse(stop.isEnabled())
+        target = module.store.project_folder(project["project"]["id"]) / "launch.py"
+        with patch("apollo_foundry_preview.prepare_local_preview", return_value=target):
+            with patch.object(QMessageBox, "warning",
+                              return_value=QMessageBox.StandardButton.No) as confirm:
+                with patch.object(QProcess, "start") as start:
+                    launch.click()
+                    self.assertEqual(confirm.call_count, 1)
+                    self.assertIn("NOT isolated", confirm.call_args.args[2])
+                    start.assert_not_called()
+        self.assertFalse(stop.isEnabled())
+
     def test_trusted_reference_button_calls_backend(self):
         from PySide6.QtWidgets import QWidget, QPushButton
 
