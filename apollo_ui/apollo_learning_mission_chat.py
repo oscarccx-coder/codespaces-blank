@@ -48,7 +48,9 @@ def parse_owner_command(text):
     if match:
         topic=match.group(1).strip(" .")
         fixed=re.search(r"\s+for\s+(\d{1,3})\s+(?:research\s+)?(?:batches|cycles)$",topic,re.I)
-        continuous=re.search(r"\s+until\s+i\s+(?:say|tell\s+you\s+to)\s+stop$",topic,re.I)
+        continuous=re.search(
+            r"\s+until\s+i\s+(?:(?:say\s+(?:you\s+can\s+)?stop(?:\s+now)?)|"
+            r"(?:tell\s+you\s+to\s+stop))$",topic,re.I)
         if fixed:
             mode="fixed"
             steps=int(fixed.group(1))
