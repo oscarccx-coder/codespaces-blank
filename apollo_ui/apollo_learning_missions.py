@@ -17,6 +17,7 @@ import threading
 import time
 from urllib.parse import urlsplit
 import weakref
+import uuid
 
 MIN_INTERVAL = 30
 MAX_INTERVAL = 3600
@@ -86,6 +87,8 @@ class MissionStore:
                   failed_steps INTEGER NOT NULL DEFAULT 0,
                   no_new_steps INTEGER NOT NULL DEFAULT 0,
                   next_due REAL NOT NULL DEFAULT 0,
+                  lease_owner TEXT NOT NULL DEFAULT '',
+                  lease_until REAL NOT NULL DEFAULT 0,
                   last_error TEXT NOT NULL DEFAULT '',
                   created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
                   report TEXT NOT NULL DEFAULT ''
@@ -240,8 +243,8 @@ class MissionStore:
                 self.stop(item["id"], owner_confirmed=True)
         return self.list()
 
-    def pick(self, *, now=None):
-        """Choose at most one due job. Only RUNNING jobs are executable."""
+    def pick(self, *, owner, now=None):
+        """Choose at most one due job using an expiring cross-process lease."""
         now = now or time.time()
         with self.lock, self.db:
             candidates = self.db.execute(
@@ -260,6 +263,8 @@ class MissionStore:
                     tomorrow = datetime.fromisoformat(day_start).replace(tzinfo=timezone.utc).timestamp()+86400
                     self.db.execute("UPDATE missions SET next_due=? WHERE id=?", (tomorrow,mid))
                     continue
+                if row["lease_until"] > now:
+                    continue
                 if row["mode"]=="fixed" and row["completed_steps"]>=row["max_steps"]:
                     self._finish(mid, "COMPLETED")
                     continue
@@ -268,17 +273,19 @@ class MissionStore:
                     continue
                 # Reserve step before web action, guaranteeing one active worker/cycle.
                 self.db.execute(
-                    "UPDATE missions SET next_due=?,updated_at=? WHERE id=?",
-                    (now+row["interval_seconds"],utc(),mid),
+                    "UPDATE missions SET next_due=?,lease_owner=?,lease_until=?,updated_at=? WHERE id=?",
+                    (now+row["interval_seconds"],owner,now+240,utc(),mid),
                 )
                 self._event(mid, "step_started", "Source research batch reserved")
                 return dict(row)
         return None
 
-    def record(self, mid, query, result=None, error=None):
-        """Persist source receipts. No model-generated claim is marked verified."""
+    def record(self, mid, query, result=None, error=None, *, owner):
+        """Persist source receipts only for the current leased worker."""
         with self.lock, self.db:
             item = self._mission(mid)
+            if item["lease_owner"] != owner:
+                raise PermissionError("Research result arrived without current mission lease; refusing stale write.")
             step_no = item["completed_steps"]+item["failed_steps"]+1
             sources = (result or {}).get("sources") or []
             urls = sorted({
@@ -313,7 +320,7 @@ class MissionStore:
                 )
                 self.db.execute(
                     "UPDATE missions SET completed_steps=completed_steps+?,failed_steps=failed_steps+?,"
-                    "no_new_steps=?,last_error=?,updated_at=? WHERE id=?",
+                    "no_new_steps=?,last_error=?,lease_owner='',lease_until=0,updated_at=? WHERE id=?",
                     (int(success),int(not success),
                      (0 if new_urls else item["no_new_steps"]+1) if success else item["no_new_steps"],
                      "" if success else str(error or "No fetched source pages")[:600],utc(),mid),
@@ -376,7 +383,7 @@ class MissionStore:
         details = (error + ("; last failure: "+item["last_error"] if item["last_error"] else "")
                    if error else item["last_error"])[:600]
         self.db.execute(
-            "UPDATE missions SET state=?,autorun=0,report=?,last_error=?,updated_at=? WHERE id=?",
+            "UPDATE missions SET state=?,autorun=0,lease_owner='',lease_until=0,report=?,last_error=?,updated_at=? WHERE id=?",
             (state,report,details,utc(),mid),
         )
         self._event(mid,"finalized",state+": "+str(error)[:300])
@@ -384,7 +391,8 @@ class MissionStore:
     def finalize_stops(self):
         with self.lock, self.db:
             mids=[r[0] for r in self.db.execute(
-                "SELECT id FROM missions WHERE state='STOP_REQUESTED'"
+                "SELECT id FROM missions WHERE state='STOP_REQUESTED' AND lease_until<=?"
+                ,(time.time(),)
             )]
             for mid in mids:
                 self._finish(mid,"STOPPED")
@@ -440,6 +448,7 @@ class MissionService:
         self._wake = threading.Event()
         self._shutdown = threading.Event()
         self.thread = None
+        self.owner_id = uuid.uuid4().hex
         self.auto_thread = auto_thread
         self.store.recover()
         if auto_thread:
@@ -490,7 +499,7 @@ class MissionService:
         if self._shutdown.is_set() or self.executor is None:
             # Never burn through pending missions while the Tool Manager loads.
             return None
-        item=self.store.pick()
+        item=self.store.pick(owner=self.owner_id)
         if item is None:
             return None
         mid=item["id"]
@@ -506,7 +515,7 @@ class MissionService:
             result=self.executor(query,filename,3)
         except Exception as exc:
             error=f"{type(exc).__name__}: {str(exc)[:500]}"
-        return self.store.record(mid,query,result,error)
+        return self.store.record(mid,query,result,error,owner=self.owner_id)
 
     def _loop(self):
         while not self._shutdown.is_set():
