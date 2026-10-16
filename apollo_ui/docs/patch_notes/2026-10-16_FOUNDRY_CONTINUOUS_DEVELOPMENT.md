@@ -1,7 +1,7 @@
 # Apollo Foundry: owner-controlled continuous development (2026-10-16)
 
 ## New workflow
-Foundry now has **Start Continuous Build**, **Pause**, **Resume** and **Stop**. This is a session-only authorization: it does not silently restart when Apollo restarts.
+Foundry now has **Start Continuous Build**, **Pause**, **Resume**, **Stop** and **I'm Happy / Review**. This is a session-only authorization: it does not silently restart when Apollo restarts.
 
 Start requires:
 - a selected, non-approved app project;
@@ -28,3 +28,5 @@ If all available tasks have produced drafts, Foundry stays **WAITING**, checking
 - Pausing/stopping does not interrupt an in-flight local Ollama HTTP call or Docker operation; it prevents subsequent jobs.
 - If a task repeatedly fails, Docker becomes unavailable, or a meeting fails, the session pauses for review instead of endlessly retrying.
 - Continuous operation only runs while Apollo's Foundry UI is open and active. There is no unattended service and no cross-restart execution.
+
+The **I'm Happy / Review** action asks for confirmation, stops the continuous session and opens the task-review view. It never bypasses individual task acceptance or project approval.
