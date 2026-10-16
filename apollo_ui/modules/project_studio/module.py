@@ -1409,9 +1409,14 @@ class Module:
                              "UI interactions still need human testing.")
                     else:
                         if status in ("unavailable", "refused"):
+                            auto["testing"] = True
+                            auto["sandbox_stage"] = (
+                                "gui" if report.get("kind") == "docker-gui" else "unit"
+                            )
                             auto["paused"] = True
+                            poll_timer.stop()
                             feed("Manager: Docker execution unavailable/refused. "
-                                 "Paused for environment repair, not a source-code rewrite.")
+                                 "Paused for environment repair; Resume retries the Docker test.")
                             update_session_status()
                             return
                         auto["repair_count"] += 1
