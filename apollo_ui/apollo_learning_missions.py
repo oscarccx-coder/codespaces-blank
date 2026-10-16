@@ -247,6 +247,9 @@ class MissionStore:
         """Choose at most one due job using an expiring cross-process lease."""
         now = now or time.time()
         with self.lock, self.db:
+            # Acquire the SQLite write reservation BEFORE reading candidates,
+            # otherwise a second Apollo process can read the same unlocked row.
+            self.db.execute("BEGIN IMMEDIATE")
             candidates = self.db.execute(
                 "SELECT * FROM missions WHERE state='RUNNING' AND autorun=1 AND web_allowed=1"
                 " AND next_due<=? ORDER BY next_due,id LIMIT 20", (now,)
@@ -283,8 +286,9 @@ class MissionStore:
     def record(self, mid, query, result=None, error=None, *, owner):
         """Persist source receipts only for the current leased worker."""
         with self.lock, self.db:
+            self.db.execute("BEGIN IMMEDIATE")
             item = self._mission(mid)
-            if item["lease_owner"] != owner:
+            if item["lease_owner"] != owner or item["lease_until"] < time.time():
                 raise PermissionError("Research result arrived without current mission lease; refusing stale write.")
             step_no = item["completed_steps"]+item["failed_steps"]+1
             sources = (result or {}).get("sources") or []
@@ -390,6 +394,7 @@ class MissionStore:
 
     def finalize_stops(self):
         with self.lock, self.db:
+            self.db.execute("BEGIN IMMEDIATE")
             mids=[r[0] for r in self.db.execute(
                 "SELECT id FROM missions WHERE state='STOP_REQUESTED' AND lease_until<=?"
                 ,(time.time(),)
