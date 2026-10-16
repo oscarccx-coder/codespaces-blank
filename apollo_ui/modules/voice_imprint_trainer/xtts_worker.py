@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import traceback
 import wave
 from pathlib import Path
@@ -109,15 +110,42 @@ class XTTSEngine:
                 "transformers or torch packages."
             ) from exc
 
+    def cuda_status(self) -> Dict[str, Any]:
+        """Report the CUDA state of this *worker interpreter*, not Apollo's UI."""
+        if self.torch is None:
+            self.torch = importlib.import_module("torch")
+        cuda = self.torch.cuda
+        available = bool(cuda.is_available())
+        gpu = str(cuda.get_device_name(0)) if available else ""
+        cuda_build = str(getattr(getattr(self.torch, "version", None), "cuda", "") or "")
+        return {
+            "python_executable": sys.executable,
+            "torch_version": str(getattr(self.torch, "__version__", "unknown")),
+            "torch_path": str(getattr(self.torch, "__file__", "")),
+            "cuda_available": available,
+            "cuda_build": cuda_build,
+            "gpu_name": gpu,
+            "model_loaded": self.model is not None,
+            "model_device": self.device,
+            "diagnosis": ("CUDA is ready for XTTS."
+                          if available else
+                          "CUDA unavailable in the XTTS worker. Check NVIDIA driver, "
+                          "CUDA-enabled PyTorch and the selected Python environment."),
+        }
+
     def _choose_device(self, requested: str) -> str:
         requested = (requested or "auto").lower()
-
+        available = bool(self.torch.cuda.is_available())
         if requested in ("auto", "default"):
-            return "cuda" if self.torch.cuda.is_available() else "cpu"
+            return "cuda" if available else "cpu"
 
-        if requested.startswith("cuda"):
-            if not self.torch.cuda.is_available():
-                raise RuntimeError("CUDA requested, but PyTorch cannot see CUDA.")
+        if requested == "cuda" or requested.startswith("cuda:"):
+            if not available:
+                raise RuntimeError(
+                    "XTTS GPU mode requested but CUDA is unavailable in the worker Python "
+                    f"({sys.executable}). Run the XTTS GPU diagnostic and check CUDA PyTorch. "
+                    "Refusing to silently fall back to slow CPU synthesis."
+                )
             return requested
 
         if requested == "cpu":
@@ -168,6 +196,8 @@ class XTTSEngine:
                 "cached": True,
                 "device": self.device,
                 "model_dir": self.model_dir,
+                "cuda_available": bool(self.torch.cuda.is_available()),
+                "cpu_fallback": str(device or "auto").lower() in ("auto", "default") and chosen == "cpu",
             }
 
         XttsConfig, Xtts = self._import_xtts()
@@ -207,6 +237,8 @@ class XTTSEngine:
             "model_dir": resolved_root,
             "coqui_tts_version": _version("coqui-tts"),
             "torch_version": getattr(self.torch, "__version__", "unknown"),
+            "cuda_available": bool(self.torch.cuda.is_available()),
+            "cpu_fallback": str(device or "auto").lower() in ("auto", "default") and chosen == "cpu",
         }
 
     def _validate_reference(self, reference: Any) -> Any:
@@ -245,7 +277,8 @@ class XTTSEngine:
         if key in self._voice_cache:
             return self._voice_cache[key]
 
-        cond = self.model.get_conditioning_latents(audio_path=reference)
+        with self.torch.inference_mode():
+            cond = self.model.get_conditioning_latents(audio_path=reference)
 
         # Keep only one current profile cached to control VRAM/RAM use.
         self._voice_cache.clear()
@@ -298,23 +331,29 @@ class XTTSEngine:
         if reference is None:
             raise ValueError("No speaker reference audio supplied.")
 
+        started = time.perf_counter()
         gpt_cond_latent, speaker_embedding = self._conditioning(reference)
+        conditioning_seconds = time.perf_counter() - started
 
-        result = self.model.inference(
-            text=text,
-            language=str(request.get("language", "en") or "en"),
-            gpt_cond_latent=gpt_cond_latent,
-            speaker_embedding=speaker_embedding,
-            temperature=float(request.get("temperature", 0.75) or 0.75),
-            length_penalty=float(request.get("length_penalty", 1.0) or 1.0),
-            repetition_penalty=float(
-                request.get("repetition_penalty", 2.0) or 2.0
-            ),
-            top_k=int(request.get("top_k", 50) or 50),
-            top_p=float(request.get("top_p", 0.85) or 0.85),
-            speed=float(request.get("speed", 1.0) or 1.0),
-            enable_text_splitting=True,
-        )
+        tuning = request.get("tuning") if isinstance(request.get("tuning"), dict) else {}
+        generation_started = time.perf_counter()
+        with self.torch.inference_mode():
+            result = self.model.inference(
+                text=text,
+                language=str(request.get("language", "en") or "en"),
+                gpt_cond_latent=gpt_cond_latent,
+                speaker_embedding=speaker_embedding,
+                temperature=float(tuning.get("temperature", request.get("temperature", 0.75))),
+                length_penalty=float(tuning.get("length_penalty", request.get("length_penalty", 1.0))),
+                repetition_penalty=float(tuning.get("repetition_penalty", request.get("repetition_penalty", 2.0))),
+                top_k=int(tuning.get("top_k", request.get("top_k", 50))),
+                top_p=float(tuning.get("top_p", request.get("top_p", 0.85))),
+                speed=float(tuning.get("speed", request.get("speed", 1.0))),
+                enable_text_splitting=bool(tuning.get("enable_text_splitting", True)),
+            )
+        if self.device.startswith("cuda"):
+            self.torch.cuda.synchronize()
+        generation_seconds = time.perf_counter() - generation_started
 
         if not isinstance(result, dict) or result.get("wav") is None:
             raise RuntimeError("XTTS returned no wav data.")
@@ -339,6 +378,13 @@ class XTTSEngine:
             "duration_seconds": round(duration, 3),
             "device": self.device,
             "model_cached": bool(load_info.get("cached")),
+            "cuda_available": bool(load_info.get("cuda_available")),
+            "cpu_fallback": bool(load_info.get("cpu_fallback")),
+            "warning": ("XTTS is running on CPU because auto mode could not access CUDA. "
+                        "Set Device to CUDA to get a clear error, then inspect the worker Python and CUDA install."
+                        if load_info.get("cpu_fallback") else ""),
+            "conditioning_seconds": round(conditioning_seconds, 3),
+            "generation_seconds": round(generation_seconds, 3),
         }
 
 
@@ -379,6 +425,9 @@ def main() -> int:
                     "coqui_tts_version": _version("coqui-tts"),
                     "legacy_tts_version": _version("TTS"),
                 }
+
+            elif command in ("cuda_status", "gpu_status"):
+                result = engine.cuda_status()
 
             elif command == "load":
                 result = engine.load(
