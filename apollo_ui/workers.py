@@ -3,6 +3,7 @@ import re
 from collections import Counter
 
 from tool_call_parser import extract_text_tool_calls, normalize_tool_call
+from apollo_growth_chat import explicit_pile_command, wants_growth_advice, growth_advice
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 
 
@@ -205,66 +206,56 @@ class ChatTask(QRunnable):
         return query
 
     def _explicit_pile_directive(self):
+        """Only an explicit command about The Pile may invoke remote retrieval.
+
+        Merely mentioning prior Pile failures, or having "learn" somewhere in
+        an unrelated question, must never trigger a dataset request.
+        """
         text = self._last_user_text()
-        lower = text.lower()
-
-        if not re.search(
-            r"\b(?:the\s+)?pile\b",
-            lower,
-        ):
-            return None
-
-        learn_words = (
-            "learn",
-            "study",
-            "remember",
-            "absorb",
-            "gain knowledge",
-            "research",
-        )
-
-        search_words = (
-            "search",
-            "query",
-            "access",
-            "look",
-            "find",
-            "use",
-        )
-
-        mode = None
-
-        if any(
-            word in lower
-            for word in learn_words
-        ):
-            mode = "learn"
-
-        elif any(
-            word in lower
-            for word in search_words
-        ):
-            mode = "search"
-
+        mode = explicit_pile_command(text)
         if mode is None:
             return None
-
-        query = self._pile_query_from_text(
-            text
-        )
-
-        if not query:
-            return {
-                "mode": mode,
-                "query": "",
-                "original": text,
-            }
-
         return {
             "mode": mode,
-            "query": query,
+            "query": self._pile_query_from_text(text),
             "original": text,
         }
+
+    def _run_growth_advice(self):
+        """Explain Apollo's realistic revenue options in normal Chat.
+
+        This uses only read-only Growth Lab data. No Pile lookup, model call,
+        customer outreach, draft creation, financial mutation or deployment.
+        """
+        text = self._resolved_user_request()
+        if not wants_growth_advice(text):
+            return None
+        ideas = None
+        fund = None
+        if self.module_manager is not None:
+            try:
+                available = self.module_manager.ollama_tools()
+                names = self._allowed_tool_names(available)
+                if "growth_lab__growth_opportunity_ideas" in names:
+                    result = self.module_manager.execute_tool(
+                        "growth_lab__growth_opportunity_ideas", {}
+                    )
+                    if isinstance(result, dict):
+                        ideas = result.get("opportunities")
+                if "growth_lab__growth_fund_status" in names:
+                    result = self.module_manager.execute_tool(
+                        "growth_lab__growth_fund_status", {}
+                    )
+                    if isinstance(result, dict):
+                        fund = result
+            except (OSError, ValueError, KeyError, RuntimeError):
+                # Still explain business options when optional local modules
+                # are disabled or broken; never claim their data was read.
+                ideas = None
+                fund = None
+        content = growth_advice(ideas, fund)
+        self.signals.chunk.emit(content)
+        return content
 
     def _record_direct_tool(
         self,
@@ -2518,7 +2509,10 @@ class ChatTask(QRunnable):
         Qwen 7B behaves much more reliably when it is not shown dozens of tools
         that are irrelevant to the current task.
         """
-        text = self._request_text()
+        # Route using the current user intent, NOT all historical messages.
+        # Otherwise a past Pile search or web lookup contaminates unrelated
+        # questions later in the same conversation.
+        text = self._resolved_user_request()
         lower = text.lower()
 
         # Explicit Pile requests should never expose unrelated tools such as
@@ -2532,10 +2526,7 @@ class ChatTask(QRunnable):
             "learn about",
         )
 
-        explicit_pile = (
-            "pile" in lower
-            and any(phrase in lower for phrase in pile_phrases)
-        )
+        explicit_pile = explicit_pile_command(text) is not None
 
         if explicit_pile:
             selected = []
@@ -2590,6 +2581,11 @@ class ChatTask(QRunnable):
                 "gpu", "graphics card", "vram",
             )):
                 prefixes += ["gpu_monitor__"]
+
+            if wants_growth_advice(text) or any(x in lower for x in (
+                "growth lab", "upgrade fund", "fund status",
+            )):
+                prefixes += ["growth_lab__"]
 
             if any(x in lower for x in (
                 "your source", "your code", "your architecture", "how are you built",
@@ -2973,6 +2969,14 @@ class ChatTask(QRunnable):
 
         if direct_pile is not None:
             return direct_pile
+
+        # Questions about earning upgrade money are useful without an
+        # unreliable Pile search or an invented promise of AI business autonomy.
+        # The Growth Lab read-only planning answer works offline.
+        direct_growth = self._run_growth_advice()
+
+        if direct_growth is not None:
+            return direct_growth
 
         achievement = self._prepare_to_do_achievement()
 
