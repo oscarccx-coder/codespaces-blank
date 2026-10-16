@@ -197,7 +197,7 @@ class XTTSEngine:
                 "device": self.device,
                 "model_dir": self.model_dir,
                 "cuda_available": bool(self.torch.cuda.is_available()),
-                "cpu_fallback": device.lower() in ("auto", "default") and chosen == "cpu",
+                "cpu_fallback": str(device or "auto").lower() in ("auto", "default") and chosen == "cpu",
             }
 
         XttsConfig, Xtts = self._import_xtts()
@@ -238,7 +238,7 @@ class XTTSEngine:
             "coqui_tts_version": _version("coqui-tts"),
             "torch_version": getattr(self.torch, "__version__", "unknown"),
             "cuda_available": bool(self.torch.cuda.is_available()),
-            "cpu_fallback": device.lower() in ("auto", "default") and chosen == "cpu",
+            "cpu_fallback": str(device or "auto").lower() in ("auto", "default") and chosen == "cpu",
         }
 
     def _validate_reference(self, reference: Any) -> Any:
@@ -339,10 +339,10 @@ class XTTSEngine:
         generation_started = time.perf_counter()
         with self.torch.inference_mode():
             result = self.model.inference(
-            text=text,
-            language=str(request.get("language", "en") or "en"),
-            gpt_cond_latent=gpt_cond_latent,
-            speaker_embedding=speaker_embedding,
+                text=text,
+                language=str(request.get("language", "en") or "en"),
+                gpt_cond_latent=gpt_cond_latent,
+                speaker_embedding=speaker_embedding,
                 temperature=float(tuning.get("temperature", request.get("temperature", 0.75))),
                 length_penalty=float(tuning.get("length_penalty", request.get("length_penalty", 1.0))),
                 repetition_penalty=float(tuning.get("repetition_penalty", request.get("repetition_penalty", 2.0))),
