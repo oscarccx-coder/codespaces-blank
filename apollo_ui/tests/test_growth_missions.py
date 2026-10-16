@@ -107,7 +107,7 @@ class GrowthMissionsTests(unittest.TestCase):
         finally:
             growth.close()
             studio.close()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(PermissionError):
             # A single offer must never create multiple Foundry projects.
             self.missions.begin(2, owner_confirmed=True)
 
