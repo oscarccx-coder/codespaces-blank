@@ -842,8 +842,8 @@ class Module:
                 if update_controls:
                     update_actions()
                 return
-            task = next((item for item in self.store.details(project_id())["tasks"]
-                         if item["id"] == tid), self.store._task(tid))
+            task = self.store._task(tid)
+            task.update(self.store.dependency_status(tid))
             result_text.setPlainText(
                 f"WORKER: {task['role'].title()}    STATUS: {task['state'].title()}\n"
                 f"DEPENDS ON: {task.get('depends_on', []) or 'None'}\n"
