@@ -110,7 +110,8 @@ the Ollama model and Docker Desktop on the owner's own Windows computer.
   continuous sessions are UI-lifetime only).
 - Git branch and pull-request staging for **Apollo core** changes with
   per-file diff approval, trusted CI and release signing.
-- Quantitative worker evaluations, task duration budgets and searchable
-  architecture/bug memory.
+- Deeper worker evaluations (quality by defect class, task duration budgets)
+  and searchable architecture/bug memory. The History tab already shows
+  factual per-role drafts, reviews, acceptances and blocked tasks.
 - Explicit dependency installation approval, vulnerability audits and
   reproducible application packaging.
