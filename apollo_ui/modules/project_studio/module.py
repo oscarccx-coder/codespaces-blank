@@ -1042,7 +1042,7 @@ class Module:
                 signal.update.connect(feed)
                 active_jobs.append((task["id"], signal))
                 QThreadPool.globalInstance().start(
-                    DraftJob(task["id"], self.store.details(pid), model, signal))
+                    DraftJob(task["id"], self.store.worker_state(pid), model, signal))
                 refresh_details()
             except (OSError, ValueError, KeyError) as exc:
                 if auto["continuous"]:
@@ -1167,7 +1167,7 @@ class Module:
                 return
             auto["retry_pending"] = None
             try:
-                state = self.store.details(pid)
+                state = self.store.worker_state(pid)
                 signal = WorkerSignal()
                 signal.finished.connect(finished_job)
                 signal.update.connect(feed)
@@ -1262,7 +1262,7 @@ class Module:
                 model = model_from_config(self.base)
                 self.store.start_task(tid)
                 feed("Worker: Starting task " + str(tid) + " with " + model + "...")
-                state = self.store.details(pid)
+                state = self.store.worker_state(pid)
                 signal = WorkerSignal()
                 signal.finished.connect(finished_job)
                 signal.update.connect(feed)
