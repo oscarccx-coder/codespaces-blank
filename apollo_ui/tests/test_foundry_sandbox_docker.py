@@ -29,6 +29,25 @@ class RealDockerFoundryTests(unittest.TestCase):
         self.assertIn("Ran 1 test", report["output"])
         self.assertEqual(self.store.sandbox_history(self.pid)[0]["report"]["kind"], "docker-unit")
 
+    def test_real_declared_ui_click_invokes_backend_in_docker(self):
+        report = self.store.run_sandbox_tests(self.pid, "ui")
+        self.assertEqual(report["status"], "passed", report)
+        self.assertTrue(report["passed_ui_interactions"])
+        self.assertIn("UI INTERACTION PASSED: save_button clicked save", report["output"])
+
+    def test_real_ui_wiring_regression_is_detected(self):
+        folder = self.store.project_folder(self.pid)
+        source = (folder / "ui.py").read_text(encoding="utf-8")
+        self.assertIn("self.backend.save()", source)
+        (folder / "ui.py").write_text(
+            source.replace("self.backend.save()", "None  # broken connection"),
+            encoding="utf-8",
+        )
+        report = self.store.run_sandbox_tests(self.pid, "ui")
+        self.assertEqual(report["status"], "failed", report)
+        self.assertFalse(report["passed_ui_interactions"])
+        self.assertIn("UI interaction did not call backend", report["output"])
+
     def test_actual_gui_starts_and_survives_smoke_window(self):
         report = self.store.run_sandbox_tests(self.pid, "gui")
         self.assertEqual(report["status"], "passed", report)
