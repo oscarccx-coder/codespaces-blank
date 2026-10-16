@@ -404,7 +404,9 @@ class Module:
                 return
             git_process.setWorkingDirectory(str(checkout))
             git_process.setProgram("cmd.exe")
-            git_process.setArguments(["/d", "/c", str(script)])
+            # Launch through CALL so CMD returns to Qt and paths with spaces work.
+            # The --no-pause argument keeps this subprocess non-interactive.
+            git_process.setArguments(["/d", "/s", "/c", f'call "{script}" --no-pause'])
             git_process.start()
             if not git_process.waitForStarted(1500):
                 set_busy(False)
@@ -449,7 +451,7 @@ class Module:
                         raise FileNotFoundError(str(launcher))
                     if window is None:
                         raise RuntimeError("Apollo main window is unavailable.")
-                    subprocess.Popen(["cmd.exe", "/c", str(launcher)], cwd=str(self.base),
+                    subprocess.Popen(["cmd.exe", "/d", "/s", "/c", f'call "{launcher}"'], cwd=str(self.base),
                                      creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
                     QTimer.singleShot(200, window.close)
                 except (OSError, RuntimeError) as exc:
