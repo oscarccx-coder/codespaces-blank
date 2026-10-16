@@ -35,6 +35,13 @@ class Module:
             {"name": "list_apollo_core_suggestions",
              "description": "List local Apollo-core improvement suggestions and their review states. No source changes.",
              "parameters": {"type": "object", "properties": {}}},
+            {"name": "propose_apollo_core_improvement",
+             "description": "Suggest an evidence-based Apollo improvement tied to a real Python source file. Queues only; never edits, tests, approves, installs, pushes or merges.",
+             "parameters": {"type": "object", "properties": {
+                 "title": {"type": "string"},
+                 "rationale": {"type": "string"},
+                 "source_path": {"type": "string"},
+             }, "required": ["title", "rationale", "source_path"]}},
             {"name": "list_app_projects", "description": "Read user-created app development projects.",
              "parameters": {"type": "object", "properties": {}}},
             {"name": "app_project_status", "description": "Read tasks, subtasks and issues for one project.",
@@ -54,6 +61,10 @@ class Module:
             return self.core_suggestions.scan()
         if action == "list_apollo_core_suggestions":
             return {"suggestions": self.core_suggestions.list()}
+        if action == "propose_apollo_core_improvement":
+            return self.core_suggestions.propose(
+                args["title"], args["rationale"], args["source_path"]
+            )
         if action == "list_app_projects":
             return {"projects": self.store.list_projects()}
         if action == "app_project_status":
@@ -358,12 +369,14 @@ class Module:
         core_scan = QPushButton("Inspect Apollo & Suggest")
         core_scan.setObjectName("foundryCoreScan")
         core_refresh = QPushButton("Refresh Suggestions")
+        core_propose = QPushButton("+ Suggest an Improvement")
+        core_propose.setObjectName("foundryCorePropose")
         core_review = QPushButton("Request Review")
         core_review.setObjectName("foundryCoreReview")
         core_dismiss = QPushButton("Dismiss")
         core_verify = QPushButton("Inspect Staged Candidate")
         core_verify.setObjectName("foundryCoreVerify")
-        for button in (core_scan, core_refresh, core_review, core_dismiss, core_verify):
+        for button in (core_scan, core_refresh, core_propose, core_review, core_dismiss, core_verify):
             core_buttons.addWidget(button)
         core_layout.addLayout(core_buttons)
         core_table = QTableWidget(0, 4)
@@ -1962,7 +1975,8 @@ class Module:
                 "KIND: " + item["kind"] + "\\n"
                 "STATUS: " + item["status"] + "\\n"
                 "SOURCE SHA-256: " + item["source_sha256"] + "\\n"
-                "OWNER NOTES: " + item.get("notes", "") + "\\n\\n"
+                "OWNER NOTES: " + item.get("notes", "") + "\\n"
+                "RATIONALE: " + item.get("rationale", "Automatic code-quality finding.") + "\\n\\n"
                 "No core file was modified. Static inspection does not "
                 "verify a fix, and this screen cannot push or merge code."
             )
@@ -1976,6 +1990,30 @@ class Module:
                      " new suggestions. No code changed.")
             except (ValueError, OSError) as exc:
                 alert("Apollo Core scan unavailable: " + str(exc))
+
+        def core_propose_action():
+            title, ok = QInputDialog.getText(
+                page, "Suggest an Apollo Improvement", "Improvement title:"
+            )
+            if not ok or not title.strip():
+                return
+            source, ok = QInputDialog.getText(
+                page, "Apollo Source Evidence",
+                "Source file relative to apollo_ui (e.g. modules/project_studio/module.py):",
+            )
+            if not ok or not source.strip():
+                return
+            rationale, ok = QInputDialog.getMultiLineText(
+                page, "Why Improve This?", "Describe the observed problem and expected benefit:"
+            )
+            if not ok or not rationale.strip():
+                return
+            try:
+                self.core_suggestions.propose(title, rationale, source.strip())
+                refresh_core_suggestions()
+                feed("Apollo Core: Improvement suggestion queued; nothing changed.")
+            except (ValueError, OSError) as exc:
+                alert("Could not record suggestion: " + str(exc))
 
         def core_review_action(request_review):
             ident = selected_core_suggestion()
@@ -2166,6 +2204,7 @@ class Module:
         continuous_finish.clicked.connect(finish_continuous_action)
         core_scan.clicked.connect(scan_core_action)
         core_refresh.clicked.connect(refresh_core_suggestions)
+        core_propose.clicked.connect(core_propose_action)
         core_review.clicked.connect(lambda: core_review_action(True))
         core_dismiss.clicked.connect(lambda: core_review_action(False))
         core_verify.clicked.connect(inspect_core_candidate_action)
