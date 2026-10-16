@@ -66,7 +66,8 @@ def inspect_foundry(root):
         add("WSL 2", False, "Install WSL 2 and enable hardware virtualization.", required=False)
     for name in ("numpy", "sympy", "matplotlib"):
         add("Local preview " + name, importlib.util.find_spec(name) is not None,
-            "Optional on Windows. Pinned scientific libraries are in the trusted Docker image.",
+            "Optional for trusted local preview: Setup/16_INSTALL_FOUNDRY_SCIENCE.bat. "
+            "Pinned versions are already in Docker.",
             required=False)
     system_drive = os.environ.get("SystemDrive")
     if system_drive and os.name == "nt":
