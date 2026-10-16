@@ -13,8 +13,8 @@
 | `07_RESTORE_BACKUP.bat` | Restore a user-selected ZIP after confirmation (close Apollo first) |
 | `08_UNINSTALL_REQUIREMENTS.bat` | Remove only Apollo's private Python `.venv` after confirmation |
 | `09_START_SAFE_MODE.bat` | Troubleshoot without loading risky modules |
-| `09_SETUP_FOUNDRY_SANDBOX.bat` | Build the trusted isolated PySide6 Docker test image (requires running Docker Desktop) |
-| `14_INSTALL_DOCKER_DESKTOP.bat` | Optional, explicitly confirmed official Docker Desktop installation using winget; complete WSL 2 / Docker first-run setup manually |
+| `09_SETUP_FOUNDRY_SANDBOX.bat` | Diagnoses Docker engine, optionally starts Docker Desktop, then builds and smoke-tests the isolated PySide6 image with explicit consent; always pauses and logs |
+| `14_INSTALL_DOCKER_DESKTOP.bat` | Diagnoses WSL, virtualisation, disk space and installer crashes; offers user-approved official Docker Desktop install using winget; always pauses and logs |
 | `15_CHECK_FOUNDRY_PREREQUISITES.bat` | Read-only check for Python, PySide6, Ollama coding model, Docker image, WSL and available Windows disk space |
 | `16_INSTALL_FOUNDRY_SCIENCE.bat` | Optional, owner-confirmed SymPy and Matplotlib installation inside Apollo's private virtualenv for trusted local app previews |
 | `10_SETUP_WIZARD.bat` | Open the setup wizard directly |
@@ -30,3 +30,12 @@ The main launch, installer and repair files remain in `apollo_ui/` as **compatib
 **XTTS:** dependency reinstall can be several GB and may need CUDA and FFmpeg. Existing voice profiles and model weights are not automatically erased. If the clean XTTS installer reached 10/10 and failed saving `settings.json`, use `11_FINISH_XTTS_SETUP.bat` after updating the code. It checks the existing model and writes settings without rerunning heavy dependency installs.
 
 **Raspberry Pi 5:** Use `pi/install_pi.sh` from a Linux terminal instead of Windows .bat files. Its headless service has separate requirements and no Windows GUI.
+
+### Docker/Desktop and Foundry sandbox launchers (Windows)
+
+Both launchers call `Docker_Foundry_Setup.ps1`, always remain visible after success/failure/cancellation, print a nonzero exit code for failures, and append local diagnostic transcripts to:
+
+- `%LOCALAPPDATA%\\Apollo\\setup_logs\\foundry_installdocker.log`
+- `%LOCALAPPDATA%\\Apollo\\setup_logs\\foundry_buildimage.log`
+
+They do not uninstall Docker, reset WSL, delete data, modify production Apollo code, or install anything without explicit consent. The Docker installer checks prerequisites and, if needed, uses the official `Docker.DockerDesktop` winget package. Docker Desktop's initial setup and WSL restarts may still require manual interaction. When Docker is ready, the sandbox launcher builds the trusted `apollo-foundry-qt:phase1` image and runs a network-disabled, read-only smoke test. These scripts require Windows PowerShell 5.1. Do not upload local logs publicly because they may include local paths and usernames.
