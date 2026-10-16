@@ -43,14 +43,14 @@ class EvidenceTests(unittest.TestCase):
         profile = summarize_coding_progress([
             row(status="failed", digest=A),
             row(status="passed", digest=A),  # rerunning identical source is NOT a repair
-            row(status="passed", digest=B),  # different revision repairs A
+            row(status="passed", digest=B),  # a clean new revision; A already passed
             row(status="failed", digest=C),  # newer revision breaks previously passing source
             row(status="passed", digest=B),  # reversal repairs C
         ])
         unit = profile["skills"][0]
         self.assertEqual(unit["tested_runs"], 5)
         self.assertEqual(unit["passed_runs"], 3)
-        self.assertEqual(unit["verified_repairs"], 2)
+        self.assertEqual(unit["verified_repairs"], 1)
         self.assertEqual(unit["detected_regressions"], 1)
 
     def test_unverified_attempts_are_not_skill_failures(self):
