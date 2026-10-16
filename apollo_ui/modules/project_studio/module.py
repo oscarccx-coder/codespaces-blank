@@ -1459,6 +1459,14 @@ class Module:
                     auto["testing"] = False
                     auto["sandbox_stage"] = None
                     if status == "passed":
+                        auto["repair_count"] = 0
+                        try:
+                            from apollo_foundry_workspace import create_checkpoint
+                            saved = create_checkpoint(self.store.project_folder(pid), self.base / "storage", pid, label="docker-tests-passed")
+                            feed("Integrator: Checkpoint " + saved["id"])
+                            refresh_details()
+                        except (ValueError, OSError) as exc:
+                            feed("Integrator: Checkpoint not saved: " + str(exc)[:200])
                         feed("Tester: Docker unit tests and GUI startup smoke test passed. "
                              "UI interactions still need human testing.")
                     else:
