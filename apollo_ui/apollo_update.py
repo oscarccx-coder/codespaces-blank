@@ -45,6 +45,20 @@ def canonical_manifest_bytes(manifest):
     return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
+def updater_python(base):
+    """Prefer Apollo's private Python; never relaunch a frozen GUI as a script."""
+    root = Path(base).resolve()
+    private = (root / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+    if private.is_file():
+        return str(private.resolve())
+    if getattr(sys, "frozen", False):
+        raise RuntimeError(
+            "Apollo was launched as an executable but its private Python environment "
+            "is missing. Repair Apollo's .venv before installing a signed update."
+        )
+    return sys.executable
+
+
 def verify_manifest_signature(manifest, public_key_path):
     try:
         from cryptography.hazmat.primitives.serialization import load_pem_public_key
@@ -383,14 +397,37 @@ class UpdateService:
         else:
             stage = self.staged_dir / str(version)
             manifest = json.loads((stage / "manifest.json").read_text(encoding="utf-8"))
+        # The UI may run as a frozen .exe while the updater is a .py script.
+        # Never re-launch the packaged GUI as if it were a Python interpreter.
+        try:
+            python_executable = updater_python(self.base)
+        except RuntimeError as exc:
+            return {"ok": False, "error": str(exc)}
+        updater_script = self.base / "apollo_updater.py"
+        if not updater_script.is_file():
+            return {"ok": False, "error": "Apollo external updater script is missing."}
         args = [
-            sys.executable,
-            str(self.base / "apollo_updater.py"),
+            python_executable,
+            str(updater_script),
             "--target", str(self.base),
             "--stage", str(stage),
             "--wait-pid", str(os.getpid()),
         ]
         if restart:
             args.append("--restart")
-        subprocess.Popen(args, cwd=str(self.base), close_fds=True)
-        return {"ok": True, "version": manifest.get("version"), "installer_started": True}
+        # The GUI closes while the external installer runs. Preserve all
+        # errors and the final JSON result instead of dropping its stdout.
+        log_path = self.logs_dir / f"installer-{uuid.uuid4().hex[:12]}.log"
+        try:
+            with log_path.open("ab") as output:
+                process = subprocess.Popen(
+                    args, cwd=str(self.base), close_fds=True,
+                    stdout=output, stderr=subprocess.STDOUT,
+                )
+        except OSError as exc:
+            return {"ok": False, "installer_started": False,
+                    "error": f"Could not launch external updater: {type(exc).__name__}: {exc}",
+                    "installer_log": str(log_path)}
+        return {"ok": True, "version": manifest.get("version"),
+                "installer_started": True, "installer_pid": process.pid,
+                "installer_log": str(log_path)}
