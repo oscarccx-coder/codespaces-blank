@@ -167,7 +167,7 @@ class Module:
         outer.addWidget(heading)
         summary = QLabel(
             "Plan apps, assign specialists, request changes and check UI-to-code links. "
-            "Static checks and optional isolated Docker tests. No generated code executes, installs, or publishes without your approval."
+            "Static checks and opt-in isolated Docker tests. Continuous sessions may run Docker tests after one approval; local app launch is separate."
         )
         summary.setWordWrap(True)
         outer.addWidget(summary)
@@ -592,10 +592,11 @@ class Module:
             starter_btn.setEnabled(state["project"]["state"] != "approved")
             run_checks_btn.setEnabled(True)
             show_folder_btn.setEnabled(True)
-            sandbox_unit.setEnabled(not active_jobs)
-            sandbox_gui.setEnabled(not active_jobs)
+            sandbox_unit.setEnabled(not active_jobs and not auto["continuous"])
+            sandbox_gui.setEnabled(not active_jobs and not auto["continuous"])
             preview_launch.setEnabled(
-                not active_jobs and preview_process.state() == QProcess.ProcessState.NotRunning
+                not active_jobs and not auto["continuous"]
+                and preview_process.state() == QProcess.ProcessState.NotRunning
             )
             preview_stop.setEnabled(preview_process.state() != QProcess.ProcessState.NotRunning)
             update_session_status()
@@ -961,7 +962,9 @@ class Module:
                 page, "Foundry Team Meeting", "What should the team discuss?",
                 text="Architecture, blockers, test findings and next steps")
             if ok and topic.strip():
-                start_team_meeting(pid, topic.strip())
+                start_team_meeting(pid, topic.strip(),
+                                   auto_continue=(auto["continuous"] and not auto["paused"]
+                                                  and auto["project"] == pid))
 
         def advance_auto():
             """One sequential worker at a time; continuous sessions idle safely.
@@ -1394,6 +1397,12 @@ class Module:
                         feed("Tester: Docker unit tests and GUI startup smoke test passed. "
                              "UI interactions still need human testing.")
                     else:
+                        if status in ("unavailable", "refused"):
+                            auto["paused"] = True
+                            feed("Manager: Docker execution unavailable/refused. "
+                                 "Paused for environment repair, not a source-code rewrite.")
+                            update_session_status()
+                            return
                         auto["repair_count"] += 1
                         feed("Tester: Sandbox " + str(status) + ": " +
                              str(report.get("reason", ""))[:300])
@@ -1424,7 +1433,7 @@ class Module:
             # Only a currently authorized continuous session can start these
             # restricted Docker jobs without an additional per-test dialog.
             if (not auto["continuous"] or auto["project"] != pid
-                    or auto["paused"] or active_jobs):
+                    or not auto["testing"] or auto["paused"] or active_jobs):
                 return
             signals = WorkerSignal()
             signals.finished.connect(sandbox_finished)
@@ -1439,8 +1448,8 @@ class Module:
             pid = project_id()
             if pid is None:
                 return alert("Select an app project first.")
-            if active_jobs:
-                return alert("A worker or sandbox run is already active.")
+            if active_jobs or auto["continuous"]:
+                return alert("A worker or continuous session is already active.")
             what = ("project unit tests" if kind == "unit" else "a three-second GUI startup smoke test")
             if QMessageBox.question(
                 page, "Run Isolated Foundry Sandbox",
@@ -1685,8 +1694,13 @@ class Module:
                     feed("Manager: Change request added to the selected project for review.")
                 quick_request.clear()
                 tabs.setCurrentWidget(flow_tab)
-                start_team_meeting(pid, "Kickoff: architecture, dependencies and acceptance tests",
-                                   auto_continue=True)
+                if auto["continuous"]:
+                    feed("Manager: New change queued; continuous session will pick it up.")
+                    if auto["waiting"] and not auto["paused"]:
+                        QTimer.singleShot(0, advance_auto)
+                else:
+                    start_team_meeting(pid, "Kickoff: architecture, dependencies and acceptance tests",
+                                       auto_continue=True)
             except (OSError, ValueError, KeyError) as exc:
                 alert(exc)
 
