@@ -397,6 +397,10 @@ class Module:
         sandbox_status = QLabel("No sandbox run recorded for this project.")
         sandbox_status.setWordWrap(True)
         sandbox_layout.addWidget(sandbox_status)
+        release_status = QLabel("Release readiness: not verified.")
+        release_status.setObjectName("foundryReleaseReadiness")
+        release_status.setWordWrap(True)
+        sandbox_layout.addWidget(release_status)
         sandbox_report = QPlainTextEdit()
         sandbox_report.setReadOnly(True)
         sandbox_report.setAccessibleName("Isolated Foundry runtime test report")
@@ -692,6 +696,7 @@ class Module:
                 checks_status.setText("Select an app project to see its test results.")
                 checks_report.clear()
                 sandbox_status.setText("Select a project to see sandbox test results.")
+                release_status.setText("Release readiness: not verified.")
                 sandbox_report.clear()
                 result_text.clear()
                 team_transcript.clear()
@@ -770,6 +775,13 @@ class Module:
                     f"{version['created_at'][:19]} | {version['label'][:32]}",
                     version["id"],
                 )
+            readiness = self.store.release_readiness(pid)
+            release_status.setText(
+                ("Current code VERIFIED by Docker unit and GUI startup tests. "
+                 if readiness["ready"] else "Current code NOT VERIFIED. ")
+                + readiness["reason"]
+                + " Manual UI acceptance is still required."
+            )
             recent_sandbox = self.store.sandbox_history(pid, 1)
             if recent_sandbox:
                 recent = recent_sandbox[0]["report"]
@@ -1813,6 +1825,18 @@ class Module:
                    "it does not run, install or publish the app.",
                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
                     return
+                readiness = self.store.release_readiness(pid)
+                if not readiness["ready"]:
+                    if QMessageBox.warning(
+                        page, "Unverified Application",
+                        "Current generated source does NOT have both passing Docker "
+                        "unit and GUI startup checks.\n\n"
+                        + readiness["reason"]
+                        + "\n\nYou can still approve this workflow explicitly, "
+                          "but it is NOT a verified release. Approve anyway?",
+                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+                    ) != QMessageBox.Yes:
+                        return
                 try:
                     self.store.approve_project(pid)
                 except (ValueError, KeyError) as exc:
