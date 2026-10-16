@@ -38,6 +38,14 @@ class Module:
                  "request": {"type": "string"},
                  "task_id": integer,
              }, "required": ["project_id", "request"]}},
+            {"name": "list_discovery_campaigns",
+             "description": "Read the user's bounded self-improvement experiments and statuses. Read-only: cannot approve or run.",
+             "parameters": {"type": "object", "properties": {}}},
+            {"name": "discovery_campaign_status",
+             "description": "Read tested specialist recipes and improvement proposals for one Discovery campaign. No start, deployment or approval.",
+             "parameters": {"type": "object", "properties": {
+                 "campaign_id": {"type": "string"},
+             }, "required": ["campaign_id"]}},
         ]
 
     def run(self, action, arguments):
@@ -50,6 +58,15 @@ class Module:
             return self.store.request_change(
                 args["project_id"], args["request"], args.get("task_id")
             )
+        if action in ("list_discovery_campaigns", "discovery_campaign_status"):
+            from apollo_discovery_campaign import DiscoveryCampaign
+            discovery = DiscoveryCampaign(self.base)
+            try:
+                if action == "list_discovery_campaigns":
+                    return {"campaigns": discovery.list_campaigns()}
+                return discovery.snapshot(args["campaign_id"])
+            finally:
+                discovery.close()
         raise KeyError(action)
 
     def self_test(self):
