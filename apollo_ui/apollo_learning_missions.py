@@ -411,6 +411,18 @@ class MissionStore:
         """
         return self.finalize_stops()
 
+    def record_worker_failure(self, owner, error):
+        """Quarantine a leased job if the worker crashes outside normal tool errors."""
+        with self.lock, self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            rows=self.db.execute(
+                "SELECT id FROM missions WHERE lease_owner=? AND state IN "
+                "('RUNNING','STOP_REQUESTED','PAUSED')", (owner,)
+            ).fetchall()
+            for row in rows:
+                self._finish(row["id"],"BLOCKED",
+                             "Worker failed before saving a valid receipt: "+str(error)[:300])
+
     def reports(self, mid=None):
         with self.lock:
             rows = self.db.execute(
@@ -453,6 +465,7 @@ class MissionService:
         self._wake = threading.Event()
         self._shutdown = threading.Event()
         self.thread = None
+        self.last_worker_error = ""
         self.owner_id = uuid.uuid4().hex
         self.auto_thread = auto_thread
         self.store.recover()
@@ -526,10 +539,14 @@ class MissionService:
         while not self._shutdown.is_set():
             try:
                 self.tick()
-            except Exception:
-                # Do not kill the daemon on one malformed result or disk fault.
-                # Operator can still inspect/stop it; no false completion.
-                pass
+            except Exception as exc:
+                # Unexpected failures must remain visible, not be swallowed
+                # while a mission misleadingly appears to be making progress.
+                self.last_worker_error = f"{type(exc).__name__}: {exc}"[:400]
+                try:
+                    self.store.record_worker_failure(self.owner_id,self.last_worker_error)
+                except (OSError,sqlite3.Error):
+                    pass  # Health status stays visible even if SQLite is unavailable.
             self._wake.wait(1.5)
             self._wake.clear()
 
