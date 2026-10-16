@@ -172,6 +172,16 @@ class LearningMissionTests(unittest.TestCase):
         finally:
             other.store.close()
 
+    def test_unexpected_worker_exception_is_recorded_as_blocked(self):
+        mid=self.create()["id"]
+        self.service.store.pick(owner=self.service.owner_id)
+        self.service.store.record_worker_failure(self.service.owner_id,
+                                                  "malformed source receipt")
+        state=self.service.store.status(mid)
+        self.assertEqual(state["state"],"BLOCKED")
+        self.assertIn("malformed source receipt",state["last_error"])
+        self.assertIn("malformed source receipt",state["report"])
+
     def test_pending_stop_does_not_finalize_before_leased_step_finishes(self):
         mid=self.create()["id"]
         self.service.store.pick(owner=self.service.owner_id)
