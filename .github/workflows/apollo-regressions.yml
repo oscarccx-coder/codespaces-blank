@@ -91,6 +91,13 @@ jobs:
         run: |
           .venv\Scripts\python.exe -c "import sys, PySide6, numpy, psutil; assert sys.prefix != sys.base_prefix"
           .venv\Scripts\python.exe -m pip check
+      - name: Exercise one-click updater self-test without a live installation
+        working-directory: apollo_ui
+        shell: cmd
+        run: |
+          set CI=1
+          call Setup\18_TEST_APOLLO_UPDATER.bat --tests-only
+          if errorlevel 1 exit /b 1
       - name: Smoke test Project Studio and Update Centre with real Qt widgets
         working-directory: apollo_ui
         shell: cmd
