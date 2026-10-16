@@ -73,8 +73,11 @@ def summarize_coding_progress(rows):
         for entry in verified:
             digest = entry["source_digest"]
             if entry["status"] == "passed":
-                if previous_failure is not None and digest != previous_failure:
-                    repairs += 1
+                if previous_failure is not None:
+                    if digest != previous_failure:
+                        repairs += 1
+                    # The failure has now been followed by a successful run.
+                    # Same-source pass is a retry, not a coding repair.
                     previous_failure = None
                 previous_pass = digest
             else:
@@ -102,10 +105,13 @@ def summarize_coding_progress(rows):
         else:
             guidance.append(f"{meta['name']}: {passed} executed checks passed. "
                             f"Keep regression tests for every change.")
+    rank = {name: order for order, name in enumerate(SKILLS)}
     weakest = sorted(skills, key=lambda x: (
-        0 if not x["tested_runs"] else 1,
+        0 if x["latest_verified_status"] in ("failed", "timeout") else
+        1 if not x["tested_runs"] else
+        2 if x["failed_runs"] else 3,
         x["pass_rate_percent"] if x["pass_rate_percent"] is not None else 0,
-        -x["failed_runs"], x["id"],
+        rank[x["id"]],
     ))
     chosen = weakest[0]
     return {
