@@ -119,12 +119,15 @@ class FoundryWindowTests(unittest.TestCase):
         pause = panel.findChild(QPushButton, "foundryContinuousPause")
         resume = panel.findChild(QPushButton, "foundryContinuousResume")
         stop = panel.findChild(QPushButton, "foundryContinuousStop")
+        finish = panel.findChild(QPushButton, "foundryContinuousFinish")
         status = panel.findChild(QLabel, "foundryContinuousStatus")
         self.assertIsNotNone(start)
         self.assertTrue(start.isEnabled())
         self.assertFalse(pause.isEnabled())
         self.assertFalse(resume.isEnabled())
         self.assertFalse(stop.isEnabled())
+        self.assertIsNotNone(finish)
+        self.assertFalse(finish.isEnabled())
         with patch("apollo_foundry_sandbox.availability",
                    return_value={"ok": False, "reason": "Docker missing"}):
             with patch.object(QMessageBox, "warning") as warning:
