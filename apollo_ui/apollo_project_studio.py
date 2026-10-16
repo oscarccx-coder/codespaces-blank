@@ -147,6 +147,8 @@ class StudioStore:
                     report = json.loads(item["report"])
                 except (ValueError, TypeError):
                     report = {}
+                if not isinstance(report, dict):
+                    report = {}
                 test_context.append(
                     f"{item['kind']} status={item['status']} "
                     f"reason={str(report.get('reason', ''))[:300]} "
