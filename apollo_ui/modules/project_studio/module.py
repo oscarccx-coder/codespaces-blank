@@ -466,7 +466,7 @@ class Module:
             "project": None, "remaining": 0, "started": set(), "attempts": {},
             "continuous": False, "paused": False, "testing": False,
             "meeting_after": 5, "since_meeting": 0, "repair_count": 0,
-            "waiting": False, "sandbox_stage": None,
+            "waiting": False, "sandbox_stage": None, "poll_token": 0,
         }
 
         def update_session_status():
@@ -484,14 +484,14 @@ class Module:
             continuous_resume.setEnabled(running and auto["paused"])
             continuous_stop.setEnabled(running)
 
-        def continuous_poll():
-            if not auto["continuous"] or auto["paused"]:
+        def continuous_poll(token):
+            if (not auto["continuous"] or auto["paused"]
+                    or auto["poll_token"] != token):
                 return
             if auto["waiting"] and not active_jobs:
                 auto["waiting"] = False
                 QTimer.singleShot(0, advance_auto)
-            if auto["continuous"] and not auto["paused"]:
-                QTimer.singleShot(30000, continuous_poll)
+            QTimer.singleShot(30000, lambda: continuous_poll(token))
 
         for button, tip in (
             (change_request, "Request a change for this task, or the whole project if no task is selected."),
@@ -910,9 +910,16 @@ class Module:
                 except (ValueError, KeyError, OSError) as exc:
                     feed("Manager: Meeting could not be saved: " + str(exc))
                     should_continue = False
-            if should_continue and not error and pid == project_id():
-                QTimer.singleShot(0, lambda: start_auto(pid))
+            if should_continue and not error:
+                if auto["continuous"]:
+                    if auto["project"] == pid and not auto["paused"]:
+                        QTimer.singleShot(0, advance_auto)
+                elif pid == project_id():
+                    QTimer.singleShot(0, lambda: start_auto(pid))
             else:
+                if auto["continuous"] and auto["project"] == pid and error:
+                    auto["paused"] = True
+                    feed("Manager: Continuous session paused because the team meeting failed.")
                 update_actions()
 
         def start_team_meeting(pid, topic, *, auto_continue=False):
@@ -953,11 +960,14 @@ class Module:
                 start_team_meeting(pid, topic.strip())
 
         def advance_auto():
-            """Draft at most five todo tasks, sequentially. No auto-approval or execution."""
+            """One sequential worker at a time; continuous sessions idle safely.
+
+            Never auto-approve projects or execute code on the host.
+            """
             pid = auto["project"]
-            if pid is None or active_jobs:
+            if pid is None or active_jobs or auto["testing"] or auto["paused"]:
                 return
-            if auto["remaining"] <= 0 or pid != project_id():
+            if not auto["continuous"] and (auto["remaining"] <= 0 or pid != project_id()):
                 auto["project"] = None
                 feed("Manager: Draft cycle paused. Review worker results before continuing.")
                 return
@@ -976,13 +986,27 @@ class Module:
                     2 if t["role"] == "architect" else 3,
                     t["id"]))
                 if not candidates:
-                    auto["project"] = None
-                    feed("Manager: Drafts ready for review. Reviewer and integrator are held until implementation is verified.")
+                    if auto["continuous"]:
+                        if not auto["waiting"]:
+                            feed("Manager: No ready tasks. Waiting for your review or new instructions; session remains active.")
+                        auto["waiting"] = True
+                        update_session_status()
+                    else:
+                        auto["project"] = None
+                        feed("Manager: Drafts ready for review. Reviewer and integrator are held until implementation is verified.")
+                    return
+                if auto["continuous"] and auto["since_meeting"] >= auto["meeting_after"]:
+                    auto["since_meeting"] = 0
+                    feed("Manager: Scheduling automatic team checkpoint before more work.")
+                    start_team_meeting(pid, "Automatic checkpoint: review code, test findings, blockers and next tasks",
+                                       auto_continue=True)
                     return
                 task = candidates[0]
                 model = model_from_config(self.base)
                 auto["started"].add(task["id"])
                 auto["remaining"] -= 1
+                auto["waiting"] = False
+                update_session_status()
                 feed("Manager: Assigning " + task["title"] + " to " + task["role"] + ".")
                 self.store.start_task(task["id"])
                 self.store.record_handoff(pid, "manager", task["role"],
@@ -995,16 +1019,98 @@ class Module:
                     DraftJob(task["id"], self.store.details(pid), model, signal))
                 refresh_details()
             except (OSError, ValueError, KeyError) as exc:
-                auto["project"] = None
+                if auto["continuous"]:
+                    auto["paused"] = True
+                else:
+                    auto["project"] = None
                 feed("Manager: Automatic work paused: " + str(exc))
                 alert("Automatic worker failed: " + str(exc))
+                update_session_status()
 
         def start_auto(pid):
-            if active_jobs:
-                return alert("A worker is already busy.")
+            if active_jobs or auto["continuous"]:
+                return alert("A worker or continuous session is already active.")
             auto.update({"project": pid, "remaining": 5, "started": set(), "attempts": {}})
             feed("Manager: Starting up to five sequential worker drafts. Human review remains required.")
             QTimer.singleShot(0, advance_auto)
+
+        def start_continuous_action():
+            pid = project_id()
+            if pid is None:
+                return alert("Select or create a project first.")
+            if active_jobs or auto["continuous"] or auto["project"] is not None:
+                return alert("Another worker or development session is active.")
+            try:
+                state = self.store.details(pid)
+                if state["project"]["state"] == "approved":
+                    return alert("Reopen the approved project before building more code.")
+                from apollo_foundry_sandbox import availability
+                check = availability("unit")
+                if not check["ok"]:
+                    return alert(
+                        "Docker is not ready: " + check["reason"] +
+                        "\nInstall with Setup/14_INSTALL_DOCKER_DESKTOP.bat, "
+                        "then run Setup/09_SETUP_FOUNDRY_SANDBOX.bat."
+                    )
+            except (OSError, ValueError, KeyError) as exc:
+                return alert("Continuous session cannot start: " + str(exc))
+            if QMessageBox.warning(
+                page, "Authorize Continuous Foundry Session",
+                "Start a continuous coding session for this project?\n\n"
+                "Apollo will hold team meetings, generate and revise source files, "
+                "and automatically execute project tests inside restricted Docker "
+                "containers (network disabled, read-only source snapshot). "
+                "Generated code is untrusted; Docker isolation is not absolute.\n\n"
+                "This permission lasts only until you Stop or close Apollo. "
+                "No generated code runs directly on Windows, no apps are installed, "
+                "and no drafts or projects are approved automatically.\n\n"
+                "Pause/Stop take effect after the current worker or test finishes. "
+                "When there are no ready tasks, the team waits for your input.\n\n"
+                "Start this session?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            ) != QMessageBox.Yes:
+                return
+            auto.update({
+                "project": pid, "remaining": 1000000000, "started": set(),
+                "attempts": {}, "continuous": True, "paused": False,
+                "testing": False, "since_meeting": 0, "repair_count": 0,
+                "waiting": False, "sandbox_stage": None,
+                "poll_token": auto["poll_token"] + 1,
+            })
+            feed("Manager: Continuous development authorized. Docker tests and periodic team meetings enabled.")
+            update_session_status()
+            token = auto["poll_token"]
+            QTimer.singleShot(30000, lambda: continuous_poll(token))
+            start_team_meeting(pid, "Continuous kickoff: deliver runnable code, tests, and review checkpoints",
+                               auto_continue=True)
+
+        def pause_continuous_action():
+            if auto["continuous"]:
+                auto["paused"] = True
+                auto["poll_token"] += 1
+                feed("Owner: Pause requested. No new jobs after the current operation.")
+                update_session_status()
+
+        def resume_continuous_action():
+            if auto["continuous"] and auto["paused"]:
+                auto["paused"] = False
+                auto["poll_token"] += 1
+                token = auto["poll_token"]
+                feed("Owner: Continuous session resumed.")
+                update_session_status()
+                QTimer.singleShot(30000, lambda: continuous_poll(token))
+                if not active_jobs and not auto["testing"]:
+                    QTimer.singleShot(0, advance_auto)
+
+        def stop_continuous_action():
+            if auto["continuous"]:
+                auto.update({
+                    "continuous": False, "paused": False, "project": None,
+                    "waiting": False, "poll_token": auto["poll_token"] + 1,
+                })
+                meeting_queue.update({"pid": None, "auto_continue": False})
+                feed("Owner: Session stopped. Current operation may finish, but no more work will start.")
+                update_session_status()
 
         def retry_generation(tid, problem):
             pid = auto["project"]
