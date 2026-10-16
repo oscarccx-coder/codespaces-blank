@@ -49,6 +49,8 @@ class WindowsMainGitUpdateTests(unittest.TestCase):
         shutil.copyfile(MAIN_BAT, self.author / "apollo_ui" / "Setup" / MAIN_BAT.name)
         shutil.copyfile(SETUP_BAT, self.author / "apollo_ui" / "Setup" / SETUP_BAT.name)
         shutil.copyfile(LEGACY_BAT, self.author / "apollo_ui" / LEGACY_BAT.name)
+        (self.author / ".gitignore").write_text("apollo_ui/storage/\n", encoding="utf-8")
+        (self.author / "apollo_ui" / "config.json").write_text('{"version":"1.0.0"}', encoding="utf-8")
         (self.author / "README.md").write_text("version one\n", encoding="utf-8")
         self._git("-C", str(self.author), "add", ".")
         self._git("-C", str(self.author), "-c", "user.name=Apollo CI",
