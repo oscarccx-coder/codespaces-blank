@@ -166,6 +166,30 @@ class FoundryWindowTests(unittest.TestCase):
         self.assertIn("SandboxJob(pid, kind, self.store, signals)", source)
         self.assertIn('continuous_stop.clicked.connect(stop_continuous_action)', source)
 
+    def test_interpreter_assesses_live_project_and_saves_brief_without_model(self):
+        from PySide6.QtWidgets import QPushButton, QPlainTextEdit, QTabWidget
+        from modules.project_studio.module import Module
+
+        module = Module({"base_dir": self.base})
+        self.addCleanup(module.close)
+        state = module.store.add_project("Starship Bench", "Build a science UI")
+        panel = module.build_ui()
+        self.addCleanup(panel.close)
+        button = panel.findChild(QPushButton, "foundryInterpreterAssess")
+        console = panel.findChild(QPlainTextEdit, "foundryInterpreterBrief")
+        tabs = panel.findChild(QTabWidget)
+        self.assertIsNotNone(button)
+        self.assertIsNotNone(console)
+        self.assertIn("Interpreter", [tabs.tabText(i) for i in range(tabs.count())])
+        with patch("apollo_project_workers._read_model_response") as model:
+            button.click()
+        model.assert_not_called()
+        self.assertIn("Starship Bench", console.toPlainText())
+        self.assertIn("not yet verified", console.toPlainText())
+        self.assertEqual(module.store.latest_project_brief(state["project"]["id"])["purpose"],
+                         "requested")
+        self.assertEqual(tabs.tabText(tabs.currentIndex()), "Interpreter")
+
     def test_local_app_preview_requires_explicit_consent(self):
         from PySide6.QtCore import QProcess
         from PySide6.QtWidgets import QPushButton, QMessageBox, QPlainTextEdit
