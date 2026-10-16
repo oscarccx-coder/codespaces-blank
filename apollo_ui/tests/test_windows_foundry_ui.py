@@ -49,6 +49,7 @@ class FoundryWindowTests(unittest.TestCase):
         with patch.object(QMessageBox, "question", return_value=QMessageBox.No):
             with patch("apollo_foundry_sandbox.subprocess.run") as runner:
                 buttons["Run Tests in Sandbox"].click()
+                buttons["Test UI Buttons"].click()
                 buttons["GUI Launch Smoke Test"].click()
         runner.assert_not_called()
         self.assertEqual(module.store.sandbox_history(state["project"]["id"]), [])
