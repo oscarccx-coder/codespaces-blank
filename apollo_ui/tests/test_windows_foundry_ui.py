@@ -129,7 +129,8 @@ class FoundryWindowTests(unittest.TestCase):
                    return_value={"ok": False, "reason": "Docker missing"}):
             with patch.object(QMessageBox, "warning") as warning:
                 start.click()
-                warning.assert_not_called()
+                self.assertEqual(warning.call_count, 1)
+                self.assertIn("Docker is not ready", warning.call_args.args[2])
         self.assertIn("off", status.text())
         with patch("apollo_foundry_sandbox.availability",
                    return_value={"ok": True, "reason": "ready"}):
