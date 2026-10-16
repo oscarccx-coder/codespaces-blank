@@ -80,6 +80,21 @@ class SandboxRegressions(unittest.TestCase):
         self.assertEqual(len(invocations), 1)
         self.assertEqual(self.store.sandbox_history(self.pid)[0]["status"], "passed")
 
+    def test_release_readiness_matches_actual_source_revision(self):
+        fake = {"returncode": 0, "timeout": False, "overflow": False,
+                "cleanup_ok": None, "output": "Ran 1 test in 0.001s\\n\\nOK"}
+        with patch("apollo_foundry_sandbox.subprocess.run", side_effect=docker_installed):
+            with patch("apollo_foundry_sandbox._execute_bounded", return_value=fake):
+                unit = self.store.run_sandbox_tests(self.pid, "unit", docker_bin="docker")
+                gui = self.store.run_sandbox_tests(self.pid, "gui", docker_bin="docker")
+        self.assertEqual(unit["source_digest"], gui["source_digest"])
+        self.assertTrue(self.store.release_readiness(self.pid)["ready"])
+        (self.folder / "service.py").write_text("class AppService: pass\\n")
+        readiness = self.store.release_readiness(self.pid)
+        self.assertFalse(readiness["ready"])
+        self.assertFalse(readiness["unit"])
+        self.assertFalse(readiness["gui"])
+
     def test_failures_cannot_approve_project_automatically(self):
         fake = {"returncode": 1, "timeout": False, "overflow": False,
                 "cleanup_ok": None, "output": "AssertionError: button not connected"}
