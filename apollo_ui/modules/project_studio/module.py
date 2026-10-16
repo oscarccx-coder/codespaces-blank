@@ -71,6 +71,7 @@ class Module:
             QListWidget, QListWidgetItem, QSplitter, QTabWidget,
             QTreeWidget, QTreeWidgetItem, QPlainTextEdit, QMessageBox,
             QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox, QScrollArea,
+            QComboBox,
         )
 
         class WorkerSignal(QObject):
@@ -401,6 +402,26 @@ class Module:
         sandbox_report.setAccessibleName("Isolated Foundry runtime test report")
         sandbox_layout.addWidget(sandbox_report, 1)
 
+        versions_box = QGroupBox("Working Versions & Rollback")
+        versions_layout = QVBoxLayout(versions_box)
+        versions_layout.addWidget(QLabel(
+            "Hashed snapshots of Foundry-generated files. Restoring never "
+            "deletes later files or overwrites manually edited code."
+        ))
+        versions_controls = QHBoxLayout()
+        checkpoint_list = QComboBox()
+        checkpoint_list.setObjectName("foundryCheckpointList")
+        checkpoint_list.setMinimumWidth(140)
+        checkpoint_save = QPushButton("Save Checkpoint")
+        checkpoint_save.setObjectName("foundryCheckpointSave")
+        checkpoint_restore = QPushButton("Restore Selected")
+        checkpoint_restore.setObjectName("foundryCheckpointRestore")
+        versions_controls.addWidget(checkpoint_list, 1)
+        versions_controls.addWidget(checkpoint_save)
+        versions_controls.addWidget(checkpoint_restore)
+        versions_layout.addLayout(versions_controls)
+        sandbox_layout.addWidget(versions_box)
+
         # Explicit, separate host preview: NEVER part of autonomous worker flow.
         # Docker tests above remain the preferred untrusted-code testing path.
         preview_box = QGroupBox("Interactive Local Preview (Trusted Code Only)")
@@ -519,6 +540,8 @@ class Module:
             (sandbox_unit, "Run project's unittest discovery inside a locked-down Docker container."),
             (sandbox_gui, "Start launch.py in a PySide6 Docker image and check for early startup failure; no GUI interactions are verified."),
             (sandbox_fix, "Queue failures from the last sandbox run as a human-reviewable fix task."),
+            (checkpoint_save, "Snapshot generated code without running it; automatic snapshots are also made after passing Docker checks."),
+            (checkpoint_restore, "Owner-confirmed rollback; preserves newer files and refuses to overwrite manual edits."),
             (continuous_start, "Start an owner-approved session: sequential coding, team meetings and Docker tests; no host execution or automatic approval."),
             (continuous_pause, "Pause new work after the current Ollama/Docker operation finishes."),
             (continuous_resume, "Resume a paused session without repeating setup authorization."),
@@ -611,6 +634,14 @@ class Module:
             )
             preview_stop.setEnabled(preview_process.state() != QProcess.ProcessState.NotRunning)
             update_session_status()
+            checkpoint_save.setEnabled(
+                not active_jobs and not auto["continuous"] and pid is not None
+            )
+            checkpoint_restore.setEnabled(
+                not active_jobs and not auto["continuous"] and pid is not None
+                and checkpoint_list.count() > 0
+                and preview_process.state() == QProcess.ProcessState.NotRunning
+            )
             sandbox_runs = self.store.sandbox_history(pid, 1)
             sandbox_fix.setEnabled(
                 state["project"]["state"] != "approved"
@@ -731,6 +762,13 @@ class Module:
                     "Phase 1 checks Python syntax and declared UI-to-backend signals. "
                     "A green result is not proof that your generated app can launch. "
                     "Use the reference contract format from Foundry documentation."
+                )
+            from apollo_foundry_workspace import list_checkpoints
+            checkpoint_list.clear()
+            for version in list_checkpoints(self.base / "storage", pid):
+                checkpoint_list.addItem(
+                    f"{version['created_at'][:19]} | {version['label'][:32]}",
+                    version["id"],
                 )
             recent_sandbox = self.store.sandbox_history(pid, 1)
             if recent_sandbox:
@@ -1461,6 +1499,51 @@ class Module:
                         QTimer.singleShot(0, advance_auto)
                 update_session_status()
 
+        def save_checkpoint_action():
+            pid = project_id()
+            if pid is None or active_jobs or auto["continuous"]:
+                return alert("Select a project and stop any running session first.")
+            try:
+                from apollo_foundry_workspace import create_checkpoint
+                info = create_checkpoint(
+                    self.store.project_folder(pid), self.base / "storage", pid,
+                    label="owner-manual-unverified",
+                )
+                feed("Versions: Saved owner checkpoint " + info["id"] + ".")
+                refresh_details()
+            except (ValueError, OSError, KeyError) as exc:
+                alert("Checkpoint not saved: " + str(exc))
+
+        def restore_checkpoint_action():
+            pid = project_id()
+            ident = checkpoint_list.currentData()
+            if (pid is None or not ident or active_jobs or auto["continuous"]
+                    or preview_process.state() != QProcess.ProcessState.NotRunning):
+                return alert("Stop the build and preview before restoring a checkpoint.")
+            if QMessageBox.warning(
+                page, "Restore Generated Code",
+                "Restore the selected version of Foundry-generated files?\n\n"
+                "A backup of the current generated files is saved first. "
+                "Manual edits and newer files will not be overwritten or deleted. "
+                "After rollback, rerun the Docker tests; old test results "
+                "do not prove the restored version works.",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            ) != QMessageBox.Yes:
+                return
+            try:
+                from apollo_foundry_workspace import restore_checkpoint
+                result = restore_checkpoint(
+                    self.store.project_folder(pid), self.base / "storage", pid, ident
+                )
+                self.store.record_handoff(
+                    pid, "manager", "integrator",
+                    "Owner restored checkpoint " + ident + "; backup " + result["backup_id"],
+                )
+                feed("Versions: Restored " + ident + ". Rerun Docker tests.")
+                refresh_details()
+            except (ValueError, OSError, KeyError) as exc:
+                alert("Rollback refused: " + str(exc))
+
         def check_docker_action():
             from apollo_foundry_sandbox import availability
             check = availability("unit")
@@ -1801,6 +1884,8 @@ class Module:
         run_checks_btn.clicked.connect(run_static_checks_action)
         fix_checks_btn.clicked.connect(request_check_fix_action)
         show_folder_btn.clicked.connect(open_project_folder_action)
+        checkpoint_save.clicked.connect(save_checkpoint_action)
+        checkpoint_restore.clicked.connect(restore_checkpoint_action)
         docker_check.clicked.connect(check_docker_action)
         sandbox_unit.clicked.connect(lambda: run_sandbox_action("unit"))
         sandbox_gui.clicked.connect(lambda: run_sandbox_action("gui"))
