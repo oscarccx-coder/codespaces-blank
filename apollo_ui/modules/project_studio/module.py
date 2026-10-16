@@ -1634,10 +1634,17 @@ class Module:
             if not ok or not details.strip():
                 return
             try:
-                self.store.report_issue(pid, title, details)
+                issue = self.store.report_issue(pid, title, details)
+                if auto["continuous"] and auto["project"] == pid:
+                    self.store.assign_issue(issue["id"])
+                    auto["since_meeting"] = auto["meeting_after"]
+                    feed("Manager: Issue assigned to Implementer; team will review it at next checkpoint.")
+                    if not auto["paused"] and not active_jobs:
+                        QTimer.singleShot(0, advance_auto)
+                else:
+                    QTimer.singleShot(0, lambda pid=pid, subject=title:
+                        start_team_meeting(pid, "Issue review: " + subject[:150]))
                 refresh_details()
-                QTimer.singleShot(0, lambda pid=pid, subject=title:
-                    start_team_meeting(pid, "Issue review: " + subject[:150]))
             except (ValueError, KeyError) as exc:
                 alert(exc)
 
