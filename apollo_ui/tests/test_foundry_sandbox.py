@@ -63,6 +63,9 @@ class SandboxRegressions(unittest.TestCase):
         gui = _container_args("docker", "apollo-foundry-456", "/tmp/snapshot", "gui")
         self.assertEqual(gui[-4:-1], ["python", "-B", "-c"])
         self.assertIn("launch.py", gui[-1])
+        ui = _container_args("docker", "apollo-foundry-789", "/tmp/snapshot", "ui")
+        self.assertEqual(ui[-4:-1], ["python", "-B", "-c"])
+        self.assertIn("UI INTERACTION PASSED", ui[-1])
 
     def test_code_only_runs_via_docker_and_reports_are_saved(self):
         invocations = []
@@ -86,8 +89,10 @@ class SandboxRegressions(unittest.TestCase):
         with patch("apollo_foundry_sandbox.subprocess.run", side_effect=docker_installed):
             with patch("apollo_foundry_sandbox._execute_bounded", return_value=fake):
                 unit = self.store.run_sandbox_tests(self.pid, "unit", docker_bin="docker")
+                ui = self.store.run_sandbox_tests(self.pid, "ui", docker_bin="docker")
                 gui = self.store.run_sandbox_tests(self.pid, "gui", docker_bin="docker")
         self.assertEqual(unit["source_digest"], gui["source_digest"])
+        self.assertEqual(unit["source_digest"], ui["source_digest"])
         self.assertTrue(self.store.release_readiness(self.pid)["ready"])
         (self.folder / "service.py").write_text("class AppService: pass\\n")
         readiness = self.store.release_readiness(self.pid)
