@@ -297,7 +297,10 @@ class Module:
             result = self.service.launch_installer(restart=True)
             pretty(result)
             if result.get("ok"):
-                progress.setText("Installer launched. Closing Apollo to permit the update and restart.")
+                progress.setText(
+                    "Installer launched. Closing Apollo to permit the update and restart. "
+                    "Result log: " + str(result.get("installer_log") or "not available")
+                )
                 if window is not None:
                     QTimer.singleShot(150, window.close)
                 else:
