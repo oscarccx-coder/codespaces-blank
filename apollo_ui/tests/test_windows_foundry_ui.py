@@ -155,6 +155,10 @@ class FoundryWindowTests(unittest.TestCase):
         import modules.project_studio.module as foundry_ui
         source = inspect.getsource(foundry_ui.Module.build_ui)
         self.assertIn("def start_auto_sandbox(pid, kind):", source)
+        self.assertIn("def auto_plan_finished(parent_id, proposal, error):", source)
+        self.assertIn("self.store.add_subtasks(parent_id, tasks)", source)
+        self.assertIn('auto["sandbox_stage"] = "ui"', source)
+        self.assertIn('start_auto_sandbox(pid, "ui")', source)
         self.assertIn('auto["sandbox_stage"] = "unit"', source)
         self.assertIn('start_auto_sandbox(pid, "gui")', source)
         self.assertIn('auto["paused"] or active_jobs', source)
