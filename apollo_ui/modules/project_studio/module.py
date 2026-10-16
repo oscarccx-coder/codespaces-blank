@@ -498,6 +498,7 @@ class Module:
             "meeting_after": 5, "since_meeting": 0, "repair_count": 0,
             "waiting": False, "sandbox_stage": None, "poll_token": 0,
             "retry_pending": None, "idle_announced": False,
+            "planned": False, "planning": False,
         }
 
         def update_session_status():
@@ -1040,14 +1041,68 @@ class Module:
                                    auto_continue=(auto["continuous"] and not auto["paused"]
                                                   and auto["project"] == pid))
 
+        def auto_plan_finished(parent_id, proposal, error):
+            active_jobs[:] = [item for item in active_jobs
+                              if item[0] != f"auto-plan:{parent_id}"]
+            auto["planning"] = False
+            if not auto["continuous"] or auto["project"] is None:
+                update_actions()
+                return
+            auto["planned"] = True
+            if error:
+                feed("Manager: Automatic task breakdown unavailable: " + error[:250] +
+                     ". Continuing with the existing tasks.")
+            else:
+                try:
+                    tasks = validate_subtask_plan(json.loads(proposal))
+                    created = self.store.add_subtasks(parent_id, tasks)
+                    feed("Manager: Created " + str(len(created)) +
+                         " dependency-aware project tasks under the implementation stage.")
+                    self.store.record_handoff(
+                        auto["project"], "manager", "implementer",
+                        "Continuous session planned project tasks from owner-authorized brief",
+                        parent_id,
+                    )
+                except (ValueError, KeyError, TypeError, OSError) as exc:
+                    feed("Manager: Could not add automatic task plan: " + str(exc)[:240])
+            refresh_details()
+            if not auto["paused"]:
+                QTimer.singleShot(0, advance_auto)
+
+        def start_auto_plan(pid, parent_id):
+            if not auto["continuous"] or auto["paused"] or active_jobs:
+                return
+            signals = WorkerSignal()
+            signals.finished.connect(auto_plan_finished)
+            active_jobs.append((f"auto-plan:{parent_id}", signals))
+            auto["planning"] = True
+            feed("Manager: Breaking the implementation into bounded, dependency-aware coding tasks.")
+            QThreadPool.globalInstance().start(
+                PlanJob(parent_id, self.store.details(pid),
+                        model_from_config(self.base), signals)
+            )
+            update_actions()
+
         def advance_auto():
             """One sequential worker at a time; continuous sessions idle safely.
 
             Never auto-approve projects or execute code on the host.
             """
             pid = auto["project"]
-            if pid is None or active_jobs or auto["testing"] or auto["paused"]:
+            if pid is None or active_jobs or auto["testing"] or auto["paused"] or auto["planning"]:
                 return
+            if auto["continuous"] and not auto["planned"]:
+                auto["planned"] = True
+                state = self.store.details(pid)
+                parents = [
+                    t for t in state["tasks"]
+                    if t["role"] == "implementer" and t["parent_id"] is None
+                    and t["state"] == "todo"
+                    and not any(x["parent_id"] == t["id"] for x in state["tasks"])
+                ]
+                if parents:
+                    start_auto_plan(pid, parents[0]["id"])
+                    return
             if not auto["continuous"] and (auto["remaining"] <= 0 or pid != project_id()):
                 auto["project"] = None
                 feed("Manager: Draft cycle paused. Review worker results before continuing.")
@@ -1058,6 +1113,10 @@ class Module:
                 candidates = [t for t in state["tasks"]
                               if t["state"] == "todo" and t["id"] not in auto["started"]
                               and not t.get("blocked_by")
+                              and not (t["parent_id"] is None and any(
+                                  x["parent_id"] == t["id"] and x["state"] in ("todo", "running")
+                                  for x in state["tasks"]
+                              ))
                               and (t["role"] not in ("reviewer", "integrator", "tester") or any(x["role"] == "implementer" and x["state"] in ("review", "accepted") and "static checks passed" in x["evidence"].lower() for x in state["tasks"]))]
                 # A new project must produce runnable source before cycling
                 # through architecture essays and meeting commentary.
@@ -1160,6 +1219,7 @@ class Module:
                 "testing": False, "since_meeting": 0, "repair_count": 0,
                 "waiting": False, "sandbox_stage": None,
                 "retry_pending": None, "idle_announced": False,
+                "planned": False, "planning": False,
                 "poll_token": auto["poll_token"] + 1,
             })
             feed("Manager: Continuous development authorized. Docker tests and periodic team meetings enabled.")
