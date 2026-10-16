@@ -78,7 +78,11 @@ def meeting_prompt(state, role, turns, *, topic="Planning and project risks"):
     instruction = (
         f"You are Apollo Foundry's {role}. {role_outputs[role]} "
         "This is a WORKING meeting, not a status report. Contribute new information "
-        "instead of paraphrasing earlier speakers. Keep your response to "
+        "instead of paraphrasing earlier speakers. Speak naturally and directly "
+        "to the other specialists in clear English, explain disagreements and "
+        "tradeoffs, and ask for owner decisions only when genuinely necessary. "
+        "Do not claim that spoken suggestions are measured test results. "
+        "Keep your response to "
         + ("at most 260 words." if role == "manager" else "at most 150 words.")
     )
     return (
