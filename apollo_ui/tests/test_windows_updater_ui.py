@@ -61,8 +61,16 @@ class UpdateCentreButtonTests(unittest.TestCase):
                     break
                 time.sleep(0.03)
             self.app.processEvents()
-            self.assertEqual(qprocess.state(), QProcess.ProcessState.NotRunning)
-            self.assertEqual((fixture.install / "README.md").read_text(), "version two\n")
+            from PySide6.QtWidgets import QPlainTextEdit
+            trace = "\n".join(
+                editor.toPlainText()[-2200:] for editor in panel.findChildren(QPlainTextEdit)
+            )
+            trace += "\n" + "\n".join(
+                label.text() for label in panel.findChildren(QLabel)
+            )
+            trace += "\nQProcess: " + qprocess.errorString()
+            self.assertEqual(qprocess.state(), QProcess.ProcessState.NotRunning, trace)
+            self.assertEqual((fixture.install / "README.md").read_text(), "version two\n", trace)
             self.assertGreaterEqual(approved.call_count, 2)
             warned.assert_not_called()
             self.assertTrue(observed_running or (fixture.install / "README.md").read_text() == "version two\n")
