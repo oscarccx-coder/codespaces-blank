@@ -1,0 +1,13 @@
+{
+  "id": "learning_missions",
+  "name": "Learning Missions",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Owner-approved, resumable, bounded public-source research goals and graceful-stop reports.",
+  "ui": {
+    "enabled": true,
+    "title": "Learning Missions",
+    "default_placement": "apps"
+  }
+}
