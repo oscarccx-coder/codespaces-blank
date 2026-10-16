@@ -162,6 +162,7 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
         status.setText(
             f"{running} active; {finalising} finishing; {len(items)} saved missions. "
             "All public source work uses Apollo's existing Training tool."
+            +(("\nWorker error: "+service.last_worker_error) if service.last_worker_error else "")
         )
         details()
 
