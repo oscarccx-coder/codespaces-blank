@@ -61,6 +61,16 @@ class WindowsSetupTests(unittest.TestCase):
         for name in RETIRED_WINDOWS_LAUNCHERS:
             self.assertEqual(str(safe_relative(name)), name)
 
+    def test_docker_desktop_setup_requires_explicit_consent(self):
+        script = read("Setup/14_INSTALL_DOCKER_DESKTOP.bat")
+        self.assertIn("Docker.DockerDesktop", script)
+        self.assertIn("choice /C YN", script)
+        self.assertLess(script.index("choice /C YN"), script.index("winget install"))
+        self.assertIn("09_SETUP_FOUNDRY_SANDBOX.bat", script)
+        self.assertIn("wsl --install", script)
+        self.assertNotIn("\\ncall wsl --install", script)
+        self.assertNotIn("rmdir /S /Q", script)
+
     def test_launch_and_xtts_use_same_python(self):
         launcher = read("start_apollo_ui.bat")
         xtts = read("install_xtts_v2.bat")
