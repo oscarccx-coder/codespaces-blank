@@ -43,3 +43,17 @@ The clean runtime reinstall does not delete:
 
 The shared XTTS model remains under:
 `%LOCALAPPDATA%\Apollo\models\voice\xtts_v2`
+
+## GPU performance verification
+
+On Windows, Apollo's isolated XTTS worker must launch via `apollo_ui/.venv/Scripts/python.exe`, matching the interpreter used by the pinned CUDA-enabled PyTorch installer. Previously using the GUI process's `sys.executable` could silently select a different Python version, or accidentally launch a bundled Apollo executable.
+
+Before reinstalling packages, run `Setup/17_CHECK_XTTS_GPU.bat`. The read-only diagnostic shows the actual worker Python, torch and CUDA build, driver visibility, GPU name and a tiny CUDA operation. It does **not** modify installed models, voices or packages.
+
+In Voice Imprint Lab > Advanced Settings, select **Device = cuda** and save. This prevents auto CPU fallback. The new **Check XTTS GPU / CUDA** button obtains diagnostic results from the isolated worker, in a separate thread from the UI. If CUDA cannot be used, synthesis fails with a useful message rather than pretending to be accelerated.
+
+On a healthy installation, the worker keeps its model and per-speaker conditioning cached across requests. It wraps model inference in `torch.inference_mode()`, reports conditioning and generation duration separately, and forwards the selected synthesis tuning. High CPU use can still come from tokenisation, reference audio decoding and WAV preparation; GPU percentage in Windows Task Manager's default 3D chart does not measure CUDA compute reliably. Inspect the **CUDA / Compute** graph, GPU memory and `nvidia-smi` while generating.
+
+If the GPU is not visible, check the installed driver and CUDA-enabled PyTorch in Apollo's own `.venv`. Only use `Setup/04_REPAIR_VOICE.bat` after examining the diagnostic; that installer replaces PyTorch/Coqui inside Apollo's private environment and may need substantial disk space. Do not reinstall global Python or move model weights just to enable CUDA.
+
+**Verification caveat:** Program-level tests use mock Torch objects. Performance gains require repeated measurements on the actual RTX hardware with identical text, model and audio reference; neither a CUDA check nor a green CI build proves real-world speedup.
