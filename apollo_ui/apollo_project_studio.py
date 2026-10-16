@@ -465,6 +465,25 @@ class StudioStore:
                 self._event(issue["project_id"], issue["assigned_task"], "issue-closed", "Reviewed fix accepted")
             return self.issue(issue_id)
 
+    def worker_scorecard(self, project_id):
+        """Factual worker progress, never model-invented confidence scores."""
+        with self.lock:
+            self._project(project_id)
+            rows = self.conn.execute(
+                "SELECT role,COUNT(*) AS total,"
+                "SUM(CASE WHEN state='accepted' THEN 1 ELSE 0 END) AS accepted,"
+                "SUM(CASE WHEN state='review' THEN 1 ELSE 0 END) AS review,"
+                "SUM(CASE WHEN state='blocked' THEN 1 ELSE 0 END) AS blocked,"
+                "SUM(iteration) AS drafts "
+                "FROM tasks WHERE project_id=? GROUP BY role ORDER BY role",
+                (int(project_id),),
+            ).fetchall()
+            return [
+                {key: row[key] for key in ("role", "total", "accepted", "review",
+                                           "blocked", "drafts")}
+                for row in rows
+            ]
+
     def audit(self, project_id, limit=60):
         with self.lock:
             self._project(project_id)
