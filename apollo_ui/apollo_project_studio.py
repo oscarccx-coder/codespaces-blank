@@ -210,7 +210,13 @@ class StudioStore:
         from apollo_foundry_workspace import read_workspace_context
         with self.lock:
             state = self.details(project_id)
-            state["source_context"] = read_workspace_context(self.project_folder(project_id))
+            active_tasks = [
+                str(task["title"]) + " " + str(task["brief"])
+                for task in state["tasks"] if task["state"] == "running"
+            ]
+            focus = "\n".join(active_tasks)[:2000]
+            state["source_context"] = read_workspace_context(
+                self.project_folder(project_id), focus=focus)
             state["coding_learning_context"] = self.coding_progress()["worker_guidance"]
             return state
 
