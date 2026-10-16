@@ -148,6 +148,29 @@ class CoreSuggestionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "rebase required"):
             self.core.candidate_status(suggestion, folder)
 
+    def test_candidate_must_touch_the_reviewed_file(self):
+        suggestion, folder, _ = self._candidate()
+        other = self.root / "modules" / "example" / "other.py"
+        other.write_text("def other():\n    return 1\n")
+        proposed = folder / "candidate" / "modules" / "example" / "other.py"
+        proposed.write_text("def other():\n    return 2\n")
+        record = {"changes": [{
+            "path": "modules/example/other.py",
+            "original_sha256": sha(other.read_bytes()),
+            "candidate_sha256": sha(proposed.read_bytes()),
+        }]}
+        (folder / "proposal.json").write_text(json.dumps(record))
+        with self.assertRaisesRegex(ValueError, "reviewed suggestion"):
+            self.core.candidate_status(suggestion, folder)
+
+    def test_duplicate_staged_paths_refused(self):
+        suggestion, folder, _ = self._candidate()
+        record = json.loads((folder / "proposal.json").read_text())
+        record["changes"].append(dict(record["changes"][0]))
+        (folder / "proposal.json").write_text(json.dumps(record))
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            self.core.candidate_status(suggestion, folder)
+
     def test_syntax_error_is_not_verified(self):
         suggestion, folder, candidate = self._candidate()
         bad = b"def broken(:\n"
