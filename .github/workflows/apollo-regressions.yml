@@ -87,6 +87,11 @@ jobs:
         run: |
           .venv\Scripts\python.exe -c "import sys, PySide6, numpy, psutil; assert sys.prefix != sys.base_prefix"
           .venv\Scripts\python.exe -m pip check
+      - name: Check XTTS GPU routing without CUDA or model weights
+        working-directory: apollo_ui
+        shell: cmd
+        run: |
+          .venv\Scripts\python.exe -m unittest -v tests.test_xtts_gpu_routing tests.test_xtts_worker_protocol
       - name: Smoke test Project Studio and Update Centre with real Qt widgets
         working-directory: apollo_ui
         shell: cmd
