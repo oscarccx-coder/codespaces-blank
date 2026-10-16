@@ -153,6 +153,37 @@ class LearningMissionTests(unittest.TestCase):
         finally:
             recovered.store.close()
 
+    def test_cross_process_lease_blocks_duplicate_inflight_fetch(self):
+        mid=self.create()["id"]
+        other=MissionService(self.root,executor=fake_web,auto_thread=False)
+        try:
+            claimed=self.service.store.pick(owner=self.service.owner_id)
+            self.assertEqual(claimed["id"],mid)
+            self.assertIsNone(other.store.pick(owner=other.owner_id))
+            with self.assertRaises(PermissionError):
+                other.store.record(mid,"stale query",fake_web("x","learning_missions/file.txt",3),
+                                   owner=other.owner_id)
+            first=self.service.store.record(
+                mid,"original query",fake_web("x","learning_missions/one.txt",3),
+                owner=self.service.owner_id)
+            self.assertEqual(first["completed_steps"],1)
+            self.due(mid)
+            self.assertEqual(other.tick()["completed_steps"],2)
+        finally:
+            other.store.close()
+
+    def test_pending_stop_does_not_finalize_before_leased_step_finishes(self):
+        mid=self.create()["id"]
+        self.service.store.pick(owner=self.service.owner_id)
+        self.service.stop(mid)
+        self.assertEqual(self.service.store.finalize_stops(),[])
+        self.assertEqual(self.service.store.status(mid)["state"],"STOP_REQUESTED")
+        done=self.service.store.record(
+            mid,"finishing current query",fake_web("x","learning_missions/last.txt",3),
+            owner=self.service.owner_id)
+        self.assertEqual(done["state"],"STOPPED")
+        self.assertIn("finishing current query",done["report"])
+
     def test_until_stop_is_bounded_by_utc_daily_budget(self):
         mid=self.create()["id"]
         stamp=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds")
