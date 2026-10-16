@@ -743,6 +743,50 @@ class StudioStore:
                 for row in rows
             ]
 
+    def release_readiness(self, project_id):
+        """Report whether current source has BOTH real, passing Docker checks.
+
+        This is advisory: only the owner may approve a project. A successful
+        GUI smoke test is not proof of visual correctness or usability.
+        """
+        from apollo_foundry_sandbox import project_fingerprint
+        with self.lock:
+            self._project(project_id)
+            folder = self.project_folder(project_id)
+            records = self.conn.execute(
+                "SELECT kind,status,report FROM test_runs WHERE project_id=? "
+                "AND kind IN ('docker-unit','docker-gui') ORDER BY id DESC LIMIT 60",
+                (int(project_id),),
+            ).fetchall()
+        try:
+            digest = project_fingerprint(folder)
+        except (ValueError, OSError) as exc:
+            return {"ready": False, "reason": "Source cannot be inspected: " + str(exc)[:250],
+                    "unit": False, "gui": False}
+        checks = {"docker-unit": False, "docker-gui": False}
+        # The newest result for a particular source and test kind wins. A
+        # later failed rerun must invalidate an earlier passing run.
+        seen = set()
+        for item in records:
+            try:
+                report = json.loads(item["report"])
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(report, dict) or report.get("source_digest") != digest:
+                continue
+            if item["kind"] not in seen:
+                checks[item["kind"]] = item["status"] == "passed"
+                seen.add(item["kind"])
+        unit, gui = checks["docker-unit"], checks["docker-gui"]
+        return {
+            "ready": unit and gui, "unit": unit, "gui": gui,
+            "source_digest": digest,
+            "reason": ("Current source passed Docker unit tests and GUI startup smoke."
+                       if unit and gui else
+                       "Current source needs passing Docker unit and GUI startup checks. "
+                       "Previous results may be stale or failed."),
+        }
+
     def request_change(self, project_id, instructions, task_id=None):
         """Queue 'change this' as a reviewable issue and worker task only."""
         instructions = clean_text(instructions, 5000, name="Requested change")
