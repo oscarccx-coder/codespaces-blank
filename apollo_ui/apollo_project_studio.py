@@ -89,6 +89,14 @@ class StudioStore:
             created_at TEXT NOT NULL,
             FOREIGN KEY(project_id) REFERENCES projects(id)
         );
+        CREATE TABLE IF NOT EXISTS project_briefings(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL, purpose TEXT NOT NULL,
+            report TEXT NOT NULL, created_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_foundry_project_briefings
+            ON project_briefings(project_id, id);
         CREATE TABLE IF NOT EXISTS meetings(
             id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL,
             topic TEXT NOT NULL, turns TEXT NOT NULL, decisions TEXT NOT NULL,
@@ -195,6 +203,60 @@ class StudioStore:
             return {"project": project, "tasks": tasks, "issues": issues,
                     "meeting_context": meeting["decisions"] if meeting else "",
                     "test_context": "\n".join(test_context)[:2200]}
+
+    def brief_project(self, project_id, *, purpose="requested", active_operations=0,
+                      save=False):
+        """Read the actual project state and provide an evidence-grounded debrief.
+
+        An explicit UI debrief can save a small dated snapshot. Chat callers
+        may use save=False to receive a read-only, current interpretation.
+        No generated project code is executed and no model is contacted.
+        """
+        from apollo_foundry_checks import scan_project
+        from apollo_foundry_interpreter import assess_project
+        purpose = clean_text(purpose, 60, name="Briefing purpose")
+        with self.lock:
+            self._project(project_id)
+            state = self.details(project_id)
+            folder = self.project_folder(project_id)
+            try:
+                inspected = scan_project(folder)
+            except (OSError, ValueError, UnicodeError) as exc:
+                inspected = {
+                    "status": "unavailable", "files_inspected": 0,
+                    "reason": f"Could not inspect project: {type(exc).__name__}",
+                }
+            readiness = self.release_readiness(project_id)
+            report = assess_project(
+                state, inspected, readiness,
+                self.sandbox_history(project_id, limit=30),
+                self.meetings(project_id, limit=1),
+                self.audit(project_id, limit=30),
+                active_operations=active_operations,
+            )
+            report["static_files_inspected"] = int(inspected.get("files_inspected", 0))
+            report["purpose"] = purpose
+            if save:
+                with self.conn:
+                    self.conn.execute(
+                        "INSERT INTO project_briefings(project_id,purpose,report,created_at) "
+                        "VALUES(?,?,?,?)",
+                        (int(project_id), purpose,
+                         json.dumps(report, ensure_ascii=False), utcnow()),
+                    )
+                    self._event(int(project_id), None, "interpreter",
+                                "Evidence-based project briefing saved: " + purpose)
+            return report
+
+    def latest_project_brief(self, project_id):
+        """Return a dated historical snapshot, never pretend it is current."""
+        with self.lock:
+            self._project(project_id)
+            row = self.conn.execute(
+                "SELECT report FROM project_briefings WHERE project_id=? "
+                "ORDER BY id DESC LIMIT 1", (int(project_id),)
+            ).fetchone()
+            return json.loads(row["report"]) if row else None
 
     def worker_state(self, project_id):
         """Load bounded, real generated source for a model worker on demand."""
