@@ -38,6 +38,14 @@ class Module:
                  "request": {"type": "string"},
                  "task_id": integer,
              }, "required": ["project_id", "request"]}},
+            {"name": "list_discovery_campaigns",
+             "description": "Read the user's bounded self-improvement experiments and statuses. Read-only: cannot approve or run.",
+             "parameters": {"type": "object", "properties": {}}},
+            {"name": "discovery_campaign_status",
+             "description": "Read tested specialist recipes and improvement proposals for one Discovery campaign. No start, deployment or approval.",
+             "parameters": {"type": "object", "properties": {
+                 "campaign_id": {"type": "string"},
+             }, "required": ["campaign_id"]}},
         ]
 
     def run(self, action, arguments):
@@ -50,6 +58,15 @@ class Module:
             return self.store.request_change(
                 args["project_id"], args["request"], args.get("task_id")
             )
+        if action in ("list_discovery_campaigns", "discovery_campaign_status"):
+            from apollo_discovery_campaign import DiscoveryCampaign
+            discovery = DiscoveryCampaign(self.base)
+            try:
+                if action == "list_discovery_campaigns":
+                    return {"campaigns": discovery.list_campaigns()}
+                return discovery.snapshot(args["campaign_id"])
+            finally:
+                discovery.close()
         raise KeyError(action)
 
     def self_test(self):
@@ -294,6 +311,38 @@ class Module:
         team_transcript.setPlaceholderText("Choose a project, then hold a team meeting.")
         flow_layout.addWidget(team_transcript, 1)
         tabs.addTab(flow_tab, "Workflow & Meetings")
+
+        # Discovery Alliance is isolated from the ordinary project-worker
+        # scheduler: candidates can only answer fixed reasoning questions.
+        # Nothing is applied to Apollo core or promoted automatically.
+        from modules.project_studio.discovery_view import build_discovery_panel
+
+        def discovery_to_foundry_proposal(summary):
+            pid = project_id()
+            if pid is None:
+                QMessageBox.information(
+                    page, "Discovery review", "Select a Foundry project before queuing a proposal."
+                )
+                return
+            note = (
+                "DISCOVERY EXPERIMENT REVIEW REQUEST - not a verified production upgrade.\n"
+                + str(summary)[:1750] +
+                "\nIndependent holdout and safety/regression review required before any promotion. "
+                "Only prepare a draft; do not modify Apollo core automatically."
+            )
+            try:
+                self.store.request_change(pid, note)
+                feed("Discovery: Review-only proposal queued for the selected Foundry project.")
+                refresh_details()
+                tabs.setCurrentWidget(tasks_tab)
+            except (ValueError, OSError, KeyError) as exc:
+                QMessageBox.warning(page, "Discovery review", str(exc)[:650])
+
+        discovery_tab = build_discovery_panel(
+            self.base, tabs, on_proposal=discovery_to_foundry_proposal
+        )
+        tabs.addTab(discovery_tab, "Discovery Alliance")
+
 
         tasks_tab = QWidget()
         tasks_layout = QVBoxLayout(tasks_tab)
