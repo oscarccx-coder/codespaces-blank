@@ -161,10 +161,10 @@ class LearningMissionTests(unittest.TestCase):
             self.assertEqual(claimed["id"],mid)
             self.assertIsNone(other.store.pick(owner=other.owner_id))
             with self.assertRaises(PermissionError):
-                other.store.record(mid,"stale query",fake_web("x","learning_missions/file.txt",3),
+                other.store.record(mid,"stale query",fake_web("x","learning_missions/mission_1_step_1_file.txt",3),
                                    owner=other.owner_id)
             first=self.service.store.record(
-                mid,"original query",fake_web("x","learning_missions/one.txt",3),
+                mid,"original query",fake_web("x","learning_missions/mission_1_step_1_one.txt",3),
                 owner=self.service.owner_id)
             self.assertEqual(first["completed_steps"],1)
             self.due(mid)
@@ -179,7 +179,7 @@ class LearningMissionTests(unittest.TestCase):
         self.assertEqual(self.service.store.finalize_stops(),[])
         self.assertEqual(self.service.store.status(mid)["state"],"STOP_REQUESTED")
         done=self.service.store.record(
-            mid,"finishing current query",fake_web("x","learning_missions/last.txt",3),
+            mid,"finishing current query",fake_web("x","learning_missions/mission_1_step_1_last.txt",3),
             owner=self.service.owner_id)
         self.assertEqual(done["state"],"STOPPED")
         self.assertIn("finishing current query",done["report"])
