@@ -106,6 +106,53 @@ class FoundryWindowTests(unittest.TestCase):
             source.index('self.store.record_handoff(pid, "manager", task["role"]')
         )
 
+    def test_continuous_controls_refuse_missing_docker_and_declined_consent(self):
+        from PySide6.QtWidgets import QPushButton, QMessageBox, QLabel
+        from modules.project_studio.module import Module
+
+        module = Module({"base_dir": self.base})
+        self.addCleanup(module.close)
+        project = module.store.add_project("Build and test", "Create a calculator")
+        panel = module.build_ui()
+        self.addCleanup(panel.close)
+        start = panel.findChild(QPushButton, "foundryContinuousStart")
+        pause = panel.findChild(QPushButton, "foundryContinuousPause")
+        resume = panel.findChild(QPushButton, "foundryContinuousResume")
+        stop = panel.findChild(QPushButton, "foundryContinuousStop")
+        status = panel.findChild(QLabel, "foundryContinuousStatus")
+        self.assertIsNotNone(start)
+        self.assertTrue(start.isEnabled())
+        self.assertFalse(pause.isEnabled())
+        self.assertFalse(resume.isEnabled())
+        self.assertFalse(stop.isEnabled())
+        with patch("apollo_foundry_sandbox.availability",
+                   return_value={"ok": False, "reason": "Docker missing"}):
+            with patch.object(QMessageBox, "warning") as warning:
+                start.click()
+                warning.assert_not_called()
+        self.assertIn("off", status.text())
+        with patch("apollo_foundry_sandbox.availability",
+                   return_value={"ok": True, "reason": "ready"}):
+            with patch.object(QMessageBox, "warning",
+                              return_value=QMessageBox.StandardButton.No) as warning:
+                start.click()
+                self.assertEqual(warning.call_count, 1)
+                self.assertIn("Docker", warning.call_args.args[2])
+        self.assertEqual(module.store.meetings(project["project"]["id"]), [])
+        self.assertFalse(pause.isEnabled())
+        self.assertFalse(stop.isEnabled())
+
+    def test_continuous_pipeline_wires_isolated_tests_and_pause_guard(self):
+        import inspect
+        import modules.project_studio.module as foundry_ui
+        source = inspect.getsource(foundry_ui.Module.build_ui)
+        self.assertIn("def start_auto_sandbox(pid, kind):", source)
+        self.assertIn('auto["sandbox_stage"] = "unit"', source)
+        self.assertIn('start_auto_sandbox(pid, "gui")', source)
+        self.assertIn('auto["paused"] or active_jobs', source)
+        self.assertIn("SandboxJob(pid, kind, self.store, signals)", source)
+        self.assertIn('continuous_stop.clicked.connect(stop_continuous_action)', source)
+
     def test_local_app_preview_requires_explicit_consent(self):
         from PySide6.QtCore import QProcess
         from PySide6.QtWidgets import QPushButton, QMessageBox, QPlainTextEdit
