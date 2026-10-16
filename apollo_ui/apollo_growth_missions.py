@@ -287,6 +287,38 @@ class GrowthMissionStore:
                 self._event(item["id"], "paused", "New chat-driven work disabled")
         return self.snapshot()
 
+    def resume(self, *, owner_confirmed=False):
+        if owner_confirmed is not True:
+            raise PermissionError("Resuming growth work requires an explicit owner command.")
+        item = self._latest()
+        if not item or not item["project_id"]:
+            raise ValueError("No existing Foundry growth project to continue.")
+        if item["state"] not in ("BLOCKED", "PAUSED", "READY_TO_DRAFT"):
+            raise ValueError("Current work is awaiting owner review or is already running.")
+        from apollo_project_studio import StudioStore
+        studio = StudioStore(self.root)
+        try:
+            project = studio.details(item["project_id"])
+            target = next((t for t in project["tasks"]
+                           if t["role"] == "implementer" and t["parent_id"] is None), None)
+            if target and target["state"] == "running":
+                raise RuntimeError("A prior worker is still running; wait for completion before retry.")
+            if target and target["state"] == "blocked":
+                studio.reopen_task(target["id"], "Owner explicitly requested another bounded draft.")
+            if target and target["state"] in ("review", "accepted"):
+                raise PermissionError(
+                    "A draft is already awaiting review. Open Foundry for tests and approval."
+                )
+            with self.db:
+                self.db.execute(
+                    "UPDATE missions SET state='READY_TO_DRAFT',error='',updated_at=? WHERE id=?",
+                    (utc(), item["id"]),
+                )
+                self._event(item["id"], "owner_resumed", "One more bounded implementer attempt")
+        finally:
+            studio.close()
+        return self.snapshot()
+
     def run_one_step(self, *, owner_confirmed=False, model=None, draft=None):
         """One authorized bounded coding step, never an indefinite daemon.
 
@@ -301,7 +333,7 @@ class GrowthMissionStore:
         if item["state"] not in ("READY_TO_DRAFT", "BLOCKED", "PAUSED"):
             raise ValueError("No ready coding step. Check mission status and Foundry reviews.")
         if item["state"] == "PAUSED":
-            raise PermissionError("Mission is paused. Explicitly resume in Foundry or retry with the continue command.")
+            raise PermissionError("Mission is paused; use 'continue Apollo project' to authorise one step.")
         from apollo_project_studio import StudioStore
         from apollo_foundry_artifacts import save_bundle
         from apollo_project_workers import draft_for_task, model_from_config
@@ -380,7 +412,7 @@ class GrowthMissionStore:
 
     def report(self):
         state = self.snapshot()
-        if not state["exists"] if "exists" in state else False:
+        if state.get("exists") is False:
             return state["message"]
         title = state["title"]
         message = (
