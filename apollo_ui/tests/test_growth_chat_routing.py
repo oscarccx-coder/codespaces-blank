@@ -23,7 +23,7 @@ def router_class():
         "_last_user_text", "_resolved_user_request", "_is_retry_phrase",
         "_is_meaningful_prior_request", "_previous_meaningful_user_request",
         "_pile_query_from_text", "_explicit_pile_directive",
-        "_run_growth_advice", "_select_tools",
+        "_run_growth_advice", "_growth_root", "_run_growth_mission", "_select_tools",
     }
     methods = [node for node in original.body
                if isinstance(node, ast.FunctionDef) and node.name in want]
@@ -36,6 +36,8 @@ def router_class():
     scope = {
         "re": re, "explicit_pile_command": explicit_pile_command,
         "wants_growth_advice": wants_growth_advice, "growth_advice": growth_advice,
+        "GrowthMissionStore": __import__("apollo_growth_missions").GrowthMissionStore,
+        "growth_mission_intent": __import__("apollo_growth_missions").intent,
     }
     exec(compile(code, str(WORKERS), "exec"), scope)
     return scope["Router"]
