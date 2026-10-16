@@ -1,0 +1,13 @@
+{
+  "id": "research_library",
+  "name": "Research Library",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Review saved Apollo research sources, reports and owner-gated improvement proposals.",
+  "ui": {
+    "enabled": true,
+    "title": "Research Library",
+    "default_placement": "apps"
+  }
+}
