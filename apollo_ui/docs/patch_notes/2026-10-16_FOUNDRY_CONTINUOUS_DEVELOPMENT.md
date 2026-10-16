@@ -30,3 +30,8 @@ If all available tasks have produced drafts, Foundry stays **WAITING**, checking
 - Continuous operation only runs while Apollo's Foundry UI is open and active. There is no unattended service and no cross-restart execution.
 
 The **I'm Happy / Review** action asks for confirmation, stops the continuous session and opens the task-review view. It never bypasses individual task acceptance or project approval.
+
+## Team feedback improvements
+- Foundry → **4. Sandbox → Check Docker** verifies that Docker and the trusted image are available without downloading anything.
+- Worker drafts and automatic team meetings now receive bounded summaries of the most recent recorded Docker test failures, including the real error output, instead of relying only on speculative diagnoses.
+- Meeting prompts retain the original project brief even when an unresolved issue is being discussed.
