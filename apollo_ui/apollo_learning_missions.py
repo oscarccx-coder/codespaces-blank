@@ -370,10 +370,14 @@ class MissionStore:
         ])
         if error:
             lines.append("Blocker: "+error)
+            if item["last_error"]:
+                lines.append("Underlying failure: "+item["last_error"])
         report = "\n".join(lines)[:30000]
+        details = (error + ("; last failure: "+item["last_error"] if item["last_error"] else "")
+                   if error else item["last_error"])[:600]
         self.db.execute(
             "UPDATE missions SET state=?,autorun=0,report=?,last_error=?,updated_at=? WHERE id=?",
-            (state,report,error[:600] if error else item["last_error"],utc(),mid),
+            (state,report,details,utc(),mid),
         )
         self._event(mid,"finalized",state+": "+str(error)[:300])
 
