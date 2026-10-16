@@ -18,6 +18,18 @@ def parse_owner_command(text):
         return {"action":"list"}
     if re.fullmatch(r"stop\s+all\s+(?:apollo\s+)?learning missions[.!]?",value,re.I):
         return {"action":"stop_all"}
+    if re.fullmatch(
+        r"(?:apollo[, ]+)?(?:you can stop now|stop researching now|"
+        r"finish (?:up )?(?:the )?research and stop)[.!]?",value,re.I
+    ):
+        return {"action":"stop_current"}
+    request=re.fullmatch(
+        r"(?:apollo[, ]+)?(?:start|begin)\s+(?:a\s+)?(?:learning|research)\s+mission\s+"
+        r"(?:about|on|for|:)\s*(.{5,220})",
+        value,re.I
+    )
+    if request:
+        return {"action":"needs_web_consent","topic":request.group(1)[:180]}
     match=re.fullmatch(
         r"(stop|pause|resume|status|report|progress)\s+(?:apollo\s+)?(?:learning|research)\s+mission\s+#?(\d{1,6})[?.!]?",
         value,re.I,
@@ -61,8 +73,23 @@ def handle_command(text, module):
         return None
     if action["action"]=="invalid":
         return action["reason"]
+    if action["action"]=="needs_web_consent":
+        return (
+            "I can set that learning goal up, but I need you to authorise PUBLIC "
+            "web research first. Use: **start public research mission about "
+            +action["topic"]+" until I say stop**. You can also authorise a "
+            "fixed-cycle mission in the Learning Missions app."
+        )
     if module is None:
         return "Learning Missions app is not available. Enable it in Settings > Apps."
+    if action["action"]=="stop_current":
+        running=[m for m in module.owner_action("list")
+                 if m["state"] in ("RUNNING","STOP_REQUESTED","PAUSED")]
+        if not running:
+            return "There is no active learning mission to stop."
+        if len(running)>1:
+            return "More than one learning mission is active. Specify **stop learning mission ID**. Current IDs: "+", ".join(str(m["id"]) for m in running)
+        action={"action":"stop","mission_id":running[0]["id"]}
     name=action["action"]
     try:
         result=module.owner_action(name,**{k:v for k,v in action.items() if k!="action"})
