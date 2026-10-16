@@ -57,7 +57,8 @@ class Module:
             data = self.store.add_project("Check", "Synthetic, local validation")
             assert len(data["tasks"]) == 5
             assert all(t["state"] == "todo" for t in data["tasks"])
-        return "Foundry tracks project drafts and queued changes. No auto-execution or approvals."
+        return ("Foundry stages project-local source and owner-authorized Docker tests. "
+                "No automatic Windows execution, Apollo-core edits or project approvals.")
 
     def close(self):
         self.store.close()
