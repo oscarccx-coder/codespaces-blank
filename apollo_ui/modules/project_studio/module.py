@@ -27,6 +27,18 @@ class Module:
         # Drafting, approving, closing issues, and all code changes remain UI-controlled.
         integer = {"type": "integer"}
         return [
+            {"name": "create_app_project",
+             "description": "Create a private app project from the owner's chat request. "
+                            "Queues reviewable work only; does not generate, execute or install code.",
+             "parameters": {"type": "object", "properties": {
+                 "title": {"type": "string"}, "brief": {"type": "string"},
+             }, "required": ["title", "brief"]}},
+            {"name": "app_project_files",
+             "description": "List Foundry-owned code files and edit status for one app project; "
+                            "never reads unrelated user files or source contents.",
+             "parameters": {"type": "object", "properties": {
+                 "project_id": integer,
+             }, "required": ["project_id"]}},
             {"name": "list_app_projects", "description": "Read user-created app development projects.",
              "parameters": {"type": "object", "properties": {}}},
             {"name": "app_project_status", "description": "Read tasks, subtasks and issues for one project.",
@@ -42,6 +54,16 @@ class Module:
 
     def run(self, action, arguments):
         args = arguments or {}
+        if action == "create_app_project":
+            project = self.store.add_project(args["title"], args["brief"])
+            return {"project": project["project"],
+                    "tasks": project["tasks"],
+                    "note": "App workspace and review tasks created. Open Foundry to author, test and approve source."}
+        if action == "app_project_files":
+            from apollo_foundry_workspace import list_generated_files
+            folder = self.store.project_folder(args["project_id"])
+            return {"project_id": int(args["project_id"]),
+                    "files": list_generated_files(folder)}
         if action == "list_app_projects":
             return {"projects": self.store.list_projects()}
         if action == "app_project_status":
