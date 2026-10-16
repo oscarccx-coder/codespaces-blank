@@ -1,9 +1,10 @@
 """Human-controlled Apollo Foundry frontend for Phase 1 coding.
 
-Workers generate drafts in a bounded background thread; only the owner can
-accept tasks, close issues or approve projects. No draft is ever executed.
+Workers never execute drafts. The owner can explicitly launch a reviewed app
+in a separate, UNSANDBOXED local process after static checks and warnings.
 """
 import json
+import sys
 from pathlib import Path
 
 from apollo_project_studio import StudioStore
@@ -62,7 +63,7 @@ class Module:
         self.store.close()
 
     def build_ui(self, parent=None, ui_context=None):
-        from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal, QTimer
+        from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal, QTimer, QProcess
         from apollo_foundry_diagram import ApolloTeamFlow, flow_snapshot
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGridLayout,
@@ -378,6 +379,40 @@ class Module:
         sandbox_report.setReadOnly(True)
         sandbox_report.setAccessibleName("Isolated Foundry runtime test report")
         sandbox_layout.addWidget(sandbox_report, 1)
+
+        # Explicit, separate host preview: NEVER part of autonomous worker flow.
+        # Docker tests above remain the preferred untrusted-code testing path.
+        preview_box = QGroupBox("Interactive Local Preview (Trusted Code Only)")
+        preview_layout = QVBoxLayout(preview_box)
+        preview_warning = QLabel(
+            "WARNING: Launching a generated app on Windows is NOT sandboxed. "
+            "The program can access your files and network with your user permissions. "
+            "Review its source and run Docker tests first. Nothing starts automatically."
+        )
+        preview_warning.setWordWrap(True)
+        preview_layout.addWidget(preview_warning)
+        preview_controls = QHBoxLayout()
+        preview_launch = QPushButton("Launch App Window (Local)")
+        preview_launch.setObjectName("foundryLocalPreviewLaunch")
+        preview_stop = QPushButton("Stop App")
+        preview_stop.setObjectName("foundryLocalPreviewStop")
+        preview_stop.setEnabled(False)
+        preview_controls.addWidget(preview_launch)
+        preview_controls.addWidget(preview_stop)
+        preview_layout.addLayout(preview_controls)
+        preview_status = QLabel("No app preview running.")
+        preview_status.setWordWrap(True)
+        preview_layout.addWidget(preview_status)
+        preview_output = QPlainTextEdit()
+        preview_output.setObjectName("foundryLocalPreviewOutput")
+        preview_output.setReadOnly(True)
+        preview_output.setMaximumHeight(140)
+        preview_output.setAccessibleName("Generated app preview output")
+        preview_layout.addWidget(preview_output)
+        sandbox_layout.addWidget(preview_box)
+        preview_process = QProcess(page)
+        preview_process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        preview_state = {"pid": None}
         tabs.addTab(sandbox_tab, "4. Sandbox")
 
         history_tab = QWidget()
@@ -427,6 +462,8 @@ class Module:
             (sandbox_unit, "Run project's unittest discovery inside a locked-down Docker container."),
             (sandbox_gui, "Start launch.py in a PySide6 Docker image and check for early startup failure; no GUI interactions are verified."),
             (sandbox_fix, "Queue failures from the last sandbox run as a human-reviewable fix task."),
+            (preview_launch, "Open the generated app in a separate Windows window, only after explicit informed consent. NOT sandboxed."),
+            (preview_stop, "Stop the local preview process; Apollo itself stays open."),
         ):
             button.setToolTip(tip)
 
@@ -484,7 +521,7 @@ class Module:
                                 rework_task, retry_task, report_bug, assign_fix, resolve_bug,
                                 approve_project, reopen_project, recover_workers,
                                 starter_btn, run_checks_btn, fix_checks_btn, show_folder_btn,
-                                sandbox_unit, sandbox_gui, sandbox_fix):
+                                sandbox_unit, sandbox_gui, sandbox_fix, preview_launch):
                     control.setEnabled(False)
                 return
             state = project_state if project_state is not None else self.store.details(pid)
@@ -505,6 +542,10 @@ class Module:
             show_folder_btn.setEnabled(True)
             sandbox_unit.setEnabled(not active_jobs)
             sandbox_gui.setEnabled(not active_jobs)
+            preview_launch.setEnabled(
+                not active_jobs and preview_process.state() == QProcess.ProcessState.NotRunning
+            )
+            preview_stop.setEnabled(preview_process.state() != QProcess.ProcessState.NotRunning)
             sandbox_runs = self.store.sandbox_history(pid, 1)
             sandbox_fix.setEnabled(
                 state["project"]["state"] != "approved"
@@ -1161,6 +1202,76 @@ class Module:
             )
             QThreadPool.globalInstance().start(SandboxJob(pid, kind, self.store, signals))
             update_actions()
+
+        def preview_output_ready():
+            data = bytes(preview_process.readAllStandardOutput()).decode(
+                "utf-8", errors="replace"
+            )
+            if data:
+                # Bound console history to avoid unlimited RAM usage.
+                preview_output.appendPlainText(data[:8000].rstrip())
+                if len(preview_output.toPlainText()) > 16000:
+                    preview_output.setPlainText(preview_output.toPlainText()[-12000:])
+
+        def preview_finished(code, _status):
+            preview_output_ready()
+            preview_status.setText(
+                f"App preview exited (code {code}). "
+                "Review console output; use Report Issue to send problems to Foundry."
+            )
+            preview_state["pid"] = None
+            update_actions()
+
+        def preview_error(_error):
+            preview_status.setText("Local preview failed: " + preview_process.errorString())
+            update_actions()
+
+        def launch_local_preview_action():
+            pid = project_id()
+            if pid is None:
+                return alert("Select a project to preview.")
+            if active_jobs:
+                return alert("Wait for the current worker or sandbox test to finish.")
+            if preview_process.state() != QProcess.ProcessState.NotRunning:
+                return alert("Stop the existing app preview first.")
+            try:
+                from apollo_foundry_preview import prepare_local_preview
+                target = prepare_local_preview(self.store.project_folder(pid))
+            except (ValueError, OSError, UnicodeError, KeyError) as exc:
+                return alert("Cannot launch app: " + str(exc))
+            if QMessageBox.warning(
+                page, "UNSANDBOXED Windows App Preview",
+                "This launches GENERATED Python code directly on your PC.\n\n"
+                "It is NOT isolated. It can read, modify or delete files, "
+                "use your network, and act with your Windows user permissions.\n\n"
+                "Only proceed if you have reviewed the source and trust it. "
+                "Prefer Run Tests in Sandbox first.\n\n"
+                "Launch this app locally now?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            ) != QMessageBox.Yes:
+                return
+            preview_state["pid"] = pid
+            preview_output.clear()
+            preview_status.setText(
+                "Starting app in a separate Windows window (UNSANDBOXED)..."
+            )
+            preview_process.setWorkingDirectory(str(target.parent))
+            # No shell, no command-line arguments supplied by generated code.
+            # -B avoids bytecode files; it is NOT a security boundary.
+            preview_process.start(sys.executable, ["-B", str(target)])
+            tabs.setCurrentWidget(sandbox_tab)
+            update_actions()
+
+        def stop_local_preview_action():
+            if preview_process.state() != QProcess.ProcessState.NotRunning:
+                preview_status.setText("Stopping app preview...")
+                preview_process.kill()
+
+        preview_process.readyReadStandardOutput.connect(preview_output_ready)
+        preview_process.finished.connect(preview_finished)
+        preview_process.errorOccurred.connect(preview_error)
+        preview_launch.clicked.connect(launch_local_preview_action)
+        preview_stop.clicked.connect(stop_local_preview_action)
 
         def sandbox_fix_action():
             pid = project_id()
