@@ -899,7 +899,10 @@ class Module:
             if error:
                 feed("Manager: Team meeting failed: " + error[:340])
                 meeting_status.setText("Meeting failed. No group decisions saved.")
-                auto["project"] = None
+                if auto["continuous"] and auto["project"] == pid:
+                    auto["paused"] = True
+                else:
+                    auto["project"] = None
             else:
                 try:
                     self.store.save_meeting(pid, report)
@@ -1129,7 +1132,10 @@ class Module:
                     tid, state, model_from_config(self.base), signal,
                     repair=problem, research=with_research))
             except (ValueError, KeyError, OSError) as exc:
-                auto["project"] = None
+                if auto["continuous"]:
+                    auto["paused"] = True
+                else:
+                    auto["project"] = None
                 self.store.fail_task(tid, str(exc)[:2200])
                 feed("Manager: Repair halted: " + str(exc))
                 refresh_details()
@@ -1165,7 +1171,10 @@ class Module:
                         return
                 if error:
                     feed("Worker: Task " + str(tid) + " blocked after retries: " + error[:380])
-                    auto["project"] = None
+                    if auto["continuous"]:
+                        auto["paused"] = True
+                    else:
+                        auto["project"] = None
                     self.store.fail_task(tid, error[:2300])
                     alert("Worker stopped safely. Review the failure and generated files.\n\n" + error[:850])
                     if task["project_id"] == project_id():
@@ -1176,14 +1185,26 @@ class Module:
                     self.store.submit_task(tid, draft[:14000], evidence)
                     self.store.record_handoff(task["project_id"], task["role"], "manager",
                                               "Draft submitted for review: " + task["title"][:115], tid)
+                    if auto["continuous"] and auto["project"] == task["project_id"]:
+                        auto["since_meeting"] += 1
+                        if task["role"] == "implementer":
+                            auto["testing"] = True
+                            auto["sandbox_stage"] = "unit"
+                            feed("Tester: Automatic Docker unit and GUI startup checks queued.")
+                            QTimer.singleShot(0, lambda pid=task["project_id"]:
+                                              start_auto_sandbox(pid, "unit"))
             except (ValueError, KeyError, OSError) as exc:
-                auto["project"] = None
+                if auto["continuous"]:
+                    auto["paused"] = True
+                else:
+                    auto["project"] = None
                 alert("Worker result could not be saved: " + str(exc))
             finally:
                 active_jobs[:] = [x for x in active_jobs if x[0] != tid]
                 refresh_details()
-                if auto["project"] is not None and not pending_retry:
+                if auto["project"] is not None and not pending_retry and not auto["testing"]:
                     QTimer.singleShot(0, advance_auto)
+                update_session_status()
 
         def draft_action():
             tid, pid = task_id(), project_id()
