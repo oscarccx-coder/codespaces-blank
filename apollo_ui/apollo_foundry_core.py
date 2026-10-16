@@ -286,11 +286,15 @@ class ApolloCoreSuggestions:
             raise ValueError("Candidate source folder unavailable.")
         reports = []
         total = 0
+        seen_paths = set()
         for change in changes:
             if not isinstance(change, dict):
                 raise ValueError("Invalid candidate entry.")
             relative = _source_relative(change.get("path"))
             name = relative.as_posix()
+            if name in seen_paths:
+                raise ValueError("Duplicate file in staged proposal: " + name)
+            seen_paths.add(name)
             original = _inside(self.base, relative)
             proposed = _inside(candidate_root.resolve(), relative)
             if not proposed.is_file() or proposed.stat().st_size > MAX_SOURCE_BYTES:
@@ -306,12 +310,16 @@ class ApolloCoreSuggestions:
             current = _digest(original.read_bytes()) if original.is_file() else None
             if current != expected_original:
                 raise ValueError("Original source changed; rebase required: " + name)
+            if name == item["path"] and current != item["source_sha256"]:
+                raise ValueError("Suggestion evidence is stale; rescan and review.")
             try:
                 ast.parse(data.decode("utf-8"), filename=name)
                 status = "syntax_pass"
             except (SyntaxError, UnicodeError) as exc:
                 status = "syntax_failed"
             reports.append({"path": name, "status": status, "sha256": _digest(data)})
+        if item["path"] not in seen_paths:
+            raise ValueError("Candidate does not change the reviewed suggestion's source file.")
         return {
             "suggestion_id": suggestion_id,
             "candidate_files": reports,
