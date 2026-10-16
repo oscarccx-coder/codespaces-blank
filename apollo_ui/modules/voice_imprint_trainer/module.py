@@ -166,6 +166,11 @@ class Module:
                 "parameters": {"type": "object", "properties": {}},
             },
             {
+                "name": "xtts_gpu_status",
+                "description": "Diagnose the real CUDA status of Apollo's isolated XTTS worker interpreter without loading the speech model.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+            {
                 "name": "unload_xtts_worker",
                 "description": "Stop the isolated XTTS worker and free its CPU/GPU memory. It will restart on the next neural speech request.",
                 "parameters": {"type": "object", "properties": {}},
@@ -1711,6 +1716,7 @@ class Module:
             "generating": self._xtts_worker_request_lock.locked(),
             "cancel_requested": self._xtts_worker_cancelled.is_set(),
             "last_error": self._xtts_worker_last_error,
+            "python_executable": str(proc.args[0]) if running and getattr(proc, "args", None) else "",
             "log": str((self.base / "storage" / "logs" / "xtts_worker.log").resolve()),
         }
 
@@ -1737,6 +1743,20 @@ class Module:
                 "returncode": proc.poll(),
             })
 
+    def _xtts_python_executable(self):
+        """Use the interpreter targeted by the XTTS installer, never an unrelated Python."""
+        if sys.platform == "win32":
+            dedicated = self.base / ".venv" / "Scripts" / "python.exe"
+            if not dedicated.is_file():
+                raise RuntimeError(
+                    "Apollo XTTS requires its private .venv\\Scripts\\python.exe. "
+                    "Run Setup/01_INSTALL_APOLLO.bat and then Setup/04_REPAIR_VOICE.bat. "
+                    "Refusing to start the worker under an unrelated system Python."
+                )
+            return str(dedicated.resolve())
+        dedicated = self.base / ".venv" / "bin" / "python"
+        return str(dedicated.resolve()) if dedicated.is_file() else sys.executable
+
     def _start_xtts_worker(self):
         proc = self._xtts_worker_process
         if proc is not None and proc.poll() is None:
@@ -1757,6 +1777,8 @@ class Module:
         self._xtts_worker_log_handle = open(log_path, "a", encoding="utf-8", buffering=1)
 
         env = os.environ.copy()
+        env.pop("PYTHONHOME", None)
+        env.pop("PYTHONPATH", None)
         env["PYTHONUNBUFFERED"] = "1"
         env["TOKENIZERS_PARALLELISM"] = "false"
         settings = self._settings()
@@ -1771,7 +1793,7 @@ class Module:
             creationflags |= getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
 
         proc = subprocess.Popen(
-            [sys.executable, "-u", str(worker)],
+            [self._xtts_python_executable(), "-u", str(worker)],
             cwd=str(self.base),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -2251,6 +2273,11 @@ class Module:
                 "backend": "xtts_local_worker",
                 "process_isolated": True,
                 "device": result.get("device", "unknown"),
+                "cuda_available": bool(result.get("cuda_available")),
+                "cpu_fallback": bool(result.get("cpu_fallback")),
+                "performance_warning": str(result.get("warning", "")),
+                "conditioning_seconds": result.get("conditioning_seconds"),
+                "generation_seconds": result.get("generation_seconds"),
                 "language": language,
                 "characters": len(text),
                 "chunks": int(result.get("chunks", 1) or 1),
@@ -2401,6 +2428,10 @@ class Module:
 
         if action == "xtts_worker_status":
             return self._xtts_worker_status()
+
+        if action == "xtts_gpu_status":
+            response = self._xtts_worker_request({"op": "cuda_status"}, timeout=90)
+            return dict(response.get("result") or {})
 
         if action == "unload_xtts_worker":
             stopped = self._stop_xtts_worker(False)
@@ -2799,6 +2830,8 @@ class Module:
         find_backend = QPushButton("Find Installed XTTS")
         save_backend = QPushButton("Use This XTTS Folder")
         backend_status = QPushButton("Check Voice + Engine Readiness")
+        gpu_status_button = QPushButton("Check XTTS GPU / CUDA")
+        gpu_status_button.setToolTip("Inspect PyTorch CUDA from the actual XTTS worker Python process.")
         backend_form.addRow(engine_note)
         backend_form.addRow("XTTS model folder", model_host)
         backend_form.addRow("Device", device)
@@ -2807,6 +2840,7 @@ class Module:
         backend_form.addRow(find_backend)
         backend_form.addRow(save_backend)
         backend_form.addRow(backend_status)
+        backend_form.addRow(gpu_status_button)
         troubleshoot_voice = QPushButton("Troubleshoot XTTS")
         backend_form.addRow(troubleshoot_voice)
         worker_status_label = QLabel("XTTS worker: stopped")
@@ -3001,8 +3035,13 @@ class Module:
             finished = Signal(object)
             failed = Signal(str)
 
+        class GpuStatusSignals(QObject):
+            finished = Signal(object)
+            failed = Signal(str)
+
         training_signals = TrainingSignals(page)
         synthesis_signals = SynthesisSignals(page)
+        gpu_status_signals = GpuStatusSignals(page)
         synthesis_running = {"value": False}
         training_started_monotonic = {"value": None}
 
@@ -3511,6 +3550,39 @@ class Module:
         def do_backend_status():
             show(self.run("voice_readiness", {"profile_id": selected_id()}))
 
+        def do_gpu_status():
+            if not gpu_status_button.isEnabled():
+                return
+            gpu_status_button.setEnabled(False)
+            output.setPlainText("Checking actual XTTS worker Python and CUDA. No model synthesis will run.")
+
+            def check():
+                try:
+                    gpu_status_signals.finished.emit(self.run("xtts_gpu_status", {}))
+                except Exception as exc:
+                    gpu_status_signals.failed.emit(f"{type(exc).__name__}: {exc}")
+
+            threading.Thread(target=check, name="ApolloXTTSGPUCheck", daemon=True).start()
+
+        def gpu_status_finished(report):
+            gpu_status_button.setEnabled(True)
+            show(report)
+            if not report.get("cuda_available"):
+                QMessageBox.warning(
+                    page, "XTTS GPU unavailable",
+                    "The XTTS worker cannot use CUDA. Check its Python interpreter, "
+                    "CUDA-enabled PyTorch and NVIDIA driver. Select Device = CUDA "
+                    "to prevent silent CPU fallback.",
+                )
+
+        def gpu_status_failed(reason):
+            gpu_status_button.setEnabled(True)
+            output.setPlainText("XTTS GPU diagnostic failed:\n" + str(reason))
+            QMessageBox.warning(page, "XTTS GPU diagnostic", str(reason)[:700])
+
+        gpu_status_signals.finished.connect(gpu_status_finished)
+        gpu_status_signals.failed.connect(gpu_status_failed)
+
         def diagnose_xtts():
             from apollo_setup_core import xtts_diagnostic
             report = xtts_diagnostic(self.base)
@@ -3680,6 +3752,7 @@ class Module:
         find_backend.clicked.connect(do_find_backend)
         save_backend.clicked.connect(do_backend_save)
         backend_status.clicked.connect(do_backend_status)
+        gpu_status_button.clicked.connect(do_gpu_status)
         unload_worker_button.clicked.connect(lambda: (show(self.run("unload_xtts_worker", {})), update_worker_label()))
         reference_button.clicked.connect(do_play_reference)
         synth_button.clicked.connect(lambda: do_synth(False))
