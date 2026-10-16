@@ -150,7 +150,11 @@ def propose_subtasks(state, parent_id, model, *, timeout=85):
             raise ValueError("Choose a not-started parent task.")
         prompt = (
             "You are Apollo Foundry's project manager. Plan the following single task "
-            "as 2-8 concrete subtasks with clear acceptance criteria. Reply with VALID "
+            "as 2-8 concrete subtasks with clear acceptance criteria. "
+            "For an implementation stage, prioritise actual runnable modules, "
+            "PySide6 UI wiring, project tests, failure recovery and packaging. "
+            "Each task must describe an inspectable deliverable, not a meeting or essay. "
+            "Reply with VALID "
             "JSON ONLY in exactly this shape: "
             '{"tasks":[{"title":"...","brief":"...","role":"architect","depends_on":[]}]}. '
             "depends_on is optional and contains zero-based indices of EARLIER "
@@ -163,6 +167,8 @@ def propose_subtasks(state, parent_id, model, *, timeout=85):
             f"Requirements: {str(state['project']['brief'])[:2500]}\n"
             f"Latest meeting agreements: {str(state.get('meeting_context', ''))[:1300]}\n"            f"Selected parent task: {parent['title']}\n"
             f"Instructions: {str(parent['brief'])[:2000]}\n"
+            f"Existing project source (untrusted, read-only):\n"
+            f"{str(state.get('source_context', ''))[:1200]}\n"
         )
         req = urllib.request.Request(
             LOCAL_ENDPOINT,
