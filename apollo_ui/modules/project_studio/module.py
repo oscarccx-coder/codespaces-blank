@@ -1072,16 +1072,23 @@ class Module:
         def start_auto_plan(pid, parent_id):
             if not auto["continuous"] or auto["paused"] or active_jobs:
                 return
-            signals = WorkerSignal()
-            signals.finished.connect(auto_plan_finished)
-            active_jobs.append((f"auto-plan:{parent_id}", signals))
-            auto["planning"] = True
-            feed("Manager: Breaking the implementation into bounded, dependency-aware coding tasks.")
-            QThreadPool.globalInstance().start(
-                PlanJob(parent_id, self.store.details(pid),
-                        model_from_config(self.base), signals)
-            )
-            update_actions()
+            try:
+                model = model_from_config(self.base)
+                state = self.store.details(pid)
+                signals = WorkerSignal()
+                signals.finished.connect(auto_plan_finished)
+                active_jobs.append((f"auto-plan:{parent_id}", signals))
+                auto["planning"] = True
+                feed("Manager: Breaking implementation into dependency-aware coding tasks.")
+                QThreadPool.globalInstance().start(
+                    PlanJob(parent_id, state, model, signals)
+                )
+                update_actions()
+            except (ValueError, KeyError, OSError) as exc:
+                auto["planned"] = True
+                auto["planning"] = False
+                feed("Manager: Planning unavailable: " + str(exc)[:250])
+                QTimer.singleShot(0, advance_auto)
 
         def advance_auto():
             """One sequential worker at a time; continuous sessions idle safely.
