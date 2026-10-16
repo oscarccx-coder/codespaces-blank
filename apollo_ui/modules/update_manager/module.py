@@ -407,9 +407,14 @@ class Module:
                 return
             git_process.setWorkingDirectory(str(checkout))
             git_process.setProgram("cmd.exe")
-            # Launch through CALL so CMD returns to Qt and paths with spaces work.
-            # The --no-pause argument keeps this subprocess non-interactive.
-            git_process.setArguments(["/d", "/s", "/c", f'call "{script}" --no-pause'])
+            # QProcess quotes every normal argument for CreateProcessW. That
+            # extra quoting breaks cmd.exe /c when the BAT path has spaces.
+            # Native arguments express exactly: /d /s /c ""path" --no-pause"
+            # Windows forbids literal quotes in filesystem path components.
+            git_process.setArguments([])
+            git_process.setNativeArguments(
+                '/d /s /c ""' + str(script) + '" --no-pause"'
+            )
             git_process.start()
             if not git_process.waitForStarted(1500):
                 set_busy(False)
