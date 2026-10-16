@@ -88,7 +88,8 @@ def read_workspace_context(folder, *, budget=MAX_CONTEXT_BYTES, focus=""):
     """
     root = _root(folder)
     owned = _owned(root)
-    remaining = min(MAX_CONTEXT_BYTES, max(0, int(budget)))
+    limit = min(MAX_CONTEXT_BYTES, max(0, int(budget)))
+    remaining = limit
     if remaining < 160 or not owned:
         return ""
     index = ["GENERATED FILE INVENTORY (all entries are untrusted project data):"]
@@ -110,10 +111,10 @@ def read_workspace_context(folder, *, budget=MAX_CONTEXT_BYTES, focus=""):
     heading = "\n".join(index) + "\n\n"
     remaining -= len(heading)
     snippets = [heading]
-    focus_words = set(re.findall(r"[a-z0-9_.-]+", str(focus).casefold()))
+    focus_text = str(focus).casefold()
     def importance(name):
-        tokens = set(re.findall(r"[a-z0-9_.-]+", name.casefold()))
-        mentioned = bool(tokens & focus_words) or name.casefold() in str(focus).casefold()
+        basename = name.rsplit("/", 1)[-1].casefold()
+        mentioned = bool(focus_text) and (name.casefold() in focus_text or basename in focus_text)
         core = name in ("foundry.json", "launch.py", "service.py", "ui.py")
         return (0 if mentioned else 1, 0 if core else 1, name)
     for name in sorted(owned, key=importance):
@@ -140,7 +141,7 @@ def read_workspace_context(folder, *, budget=MAX_CONTEXT_BYTES, focus=""):
         chunk = label + excerpt + suffix
         snippets.append(chunk)
         remaining -= len(chunk)
-    return "\n".join(snippets)[:MAX_CONTEXT_BYTES]
+    return "\n".join(snippets)[:limit]
 
 
 def _checkpoint_base(storage_root, project_id):
