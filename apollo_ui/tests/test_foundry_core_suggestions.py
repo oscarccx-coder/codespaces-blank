@@ -60,6 +60,48 @@ class CoreSuggestionTests(unittest.TestCase):
             ident, request_review=False
         )["status"], "dismissed")
 
+    def test_proactive_quality_and_missing_self_test_findings(self):
+        self.source.write_text(
+            "class Module:\n"
+            "    def run(self):\n"
+            "        try:\n"
+            "            return 1\n"
+            "        except:\n"
+            "            return None\n",
+            encoding="utf-8",
+        )
+        report = self.core.scan()
+        self.assertEqual(report["new_suggestions"], 2)
+        kinds = {item["kind"] for item in self.core.list()}
+        self.assertEqual(kinds, {"quality", "testing"})
+
+    def test_ai_idea_only_queues_never_changes_core(self):
+        original = self.source.read_bytes()
+        args = (
+            "Improve calculation error handling",
+            "The module returns a constant and lacks input validation; "
+            "consider explicit validation and a regression test.",
+            "modules/example/module.py",
+        )
+        first = self.core.propose(*args)
+        second = self.core.propose(*args)
+        self.assertTrue(first["new"])
+        self.assertFalse(second["new"])
+        self.assertFalse(first["pushed"])
+        self.assertFalse(first["applied"])
+        self.assertEqual(self.source.read_bytes(), original)
+        self.assertEqual(first["suggestion"]["status"], "suggested")
+
+    def test_ai_idea_rejects_unverified_file_or_vague_rationale(self):
+        with self.assertRaises(ValueError):
+            self.core.propose("Fix bug", "Unknown", "modules/example/module.py")
+        with self.assertRaises(ValueError):
+            self.core.propose(
+                "Improve error handling",
+                "There is a clear issue that deserves a closer look.",
+                "storage/private.py",
+            )
+
     def test_bad_paths_rejected(self):
         for name in ("../secret.py", "/tmp/evil.py", "storage/private.py",
                      ".git/hooks.py", "modules/../../evil.py", "modules\\evil.py",
