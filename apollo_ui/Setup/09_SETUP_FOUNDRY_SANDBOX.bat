@@ -70,7 +70,7 @@ if not defined DOCKER_EXE (
 set "INFO_FILE=%TEMP%\Apollo_Foundry_Docker_Info_%RANDOM%_%RANDOM%.txt"
 set "DOCKER_OS="
 echo [CHECK] Looking for a running Docker Linux engine...
-"%DOCKER_EXE%" info --format "{{.OSType}}" >"%INFO_FILE%" 2>&1
+call "%DOCKER_EXE%" info --format "{{.OSType}}" >"%INFO_FILE%" 2>&1
 if errorlevel 1 (
   echo [ERROR] Docker CLI exists, but the Docker engine is unavailable.
   echo [FIX] Start Docker Desktop, complete WSL 2 setup, and wait for the engine.
@@ -92,7 +92,7 @@ if /I not "%DOCKER_OS%"=="linux" (
 echo [OK] Docker Linux engine is running.
 
 if "%CHECK_ONLY%"=="1" (
-  "%DOCKER_EXE%" image inspect apollo-foundry-qt:phase1 >nul 2>&1
+  call "%DOCKER_EXE%" image inspect apollo-foundry-qt:phase1 >nul 2>&1
   if errorlevel 1 (
     echo [CHECK] Docker runs, but Apollo's sandbox image is not built.
     echo [NEXT] Double-click this batch file normally to build the image.
@@ -122,14 +122,14 @@ echo [BUILD] Docker will download the approved dependencies if needed.
 echo [BUILD] This can take time. Docker output follows below.
 echo.
 >>"%SETUP_LOG%" echo Docker build approved by user at %DATE% %TIME%.
-"%DOCKER_EXE%" build --progress=plain --pull -t apollo-foundry-qt:phase1 -f "%CD%\foundry_sandbox\Dockerfile" "%CD%\foundry_sandbox"
+call "%DOCKER_EXE%" build --progress=plain --pull -t apollo-foundry-qt:phase1 -f "%CD%\foundry_sandbox\Dockerfile" "%CD%\foundry_sandbox"
 if errorlevel 1 (
   echo [ERROR] Docker image build failed. Read the Docker errors above.
   echo [FIX] Check Internet access, available disk space and Docker status.
   >>"%SETUP_LOG%" echo ERROR: Docker image build failed.
   exit /b 6
 )
-"%DOCKER_EXE%" image inspect apollo-foundry-qt:phase1 >nul 2>&1
+call "%DOCKER_EXE%" image inspect apollo-foundry-qt:phase1 >nul 2>&1
 if errorlevel 1 (
   echo [ERROR] Build exited successfully but the image is missing.
   >>"%SETUP_LOG%" echo ERROR: Built image missing.
