@@ -655,18 +655,15 @@ class StudioStore:
             # Refuse partial overwrites and user-created symlinks.
             if any((folder / name).exists() or (folder / name).is_symlink() for name in sample):
                 raise FileExistsError("Starter UI files already exist. Existing project code was not changed.")
-            created = []
-            try:
-                for name, content in sample.items():
-                    dest = folder / name
-                    dest.parent.mkdir(parents=True, exist_ok=True)
-                    with dest.open("x", encoding="utf-8", newline="\n") as output:
-                        output.write(content)
-                    created.append(dest)
-            except OSError:
-                for dest in created:
-                    dest.unlink(missing_ok=True)
-                raise
+            # Use the same guarded writer as model-generated app files. Without
+            # this manifest the starter was visible but could NEVER be improved
+            # by Foundry workers: its files were treated as unowned user edits.
+            from apollo_foundry_artifacts import save_bundle
+            save_bundle(folder, {
+                "files": [{"path": name, "content": content}
+                          for name, content in sample.items()],
+                "summary": "Owner-requested trusted editable starter application",
+            })
             with self.conn:
                 self._event(project["id"], None, "starter-created",
                             "Added trusted sample UI, backend, click-through test and launcher; nothing executed")
