@@ -205,6 +205,11 @@ class LearningMissionTests(unittest.TestCase):
         self.assertEqual(expected["action"],"start")
         self.assertEqual(expected["mode"],"until_stop")
         self.assertEqual(expected["goal"],"local LLM memory")
+        long_phrase=parse_owner_command(
+            "start public research mission about local LLM reasoning until I say you can stop now"
+        )
+        self.assertEqual(long_phrase["goal"],"local LLM reasoning")
+        self.assertEqual(long_phrase["mode"],"until_stop")
         fixed=parse_owner_command(
             "begin online learning mission about improving factual retrieval for 6 batches")
         self.assertEqual((fixed["mode"],fixed["steps"]),("fixed",6))
