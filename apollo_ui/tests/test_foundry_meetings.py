@@ -51,9 +51,25 @@ class FoundryMeetingsTests(unittest.TestCase):
         self.store.request_change(self.pid, "No React, Python PySide6 desktop app only.")
         state = self.store.details(self.pid)
         self.assertIn("No React", current_requirements(state))
+        self.assertIn("Use PySide6 to simulate plates", current_requirements(state))
         prompt = meeting_prompt(state, "architect", [], topic="Architecture")
         self.assertIn("AUTHORITATIVE", prompt)
         self.assertIn("No React", prompt)
+
+    def test_meeting_reads_actual_recent_docker_test_evidence(self):
+        report = {"reason": "GUI failed to start", "output": "ModuleNotFoundError: sympy"}
+        with self.store.conn:
+            self.store.conn.execute(
+                "INSERT INTO test_runs(project_id,status,kind,report,created_at) "
+                "VALUES(?,?,?,?,?)",
+                (self.pid, "failed", "docker-gui", json.dumps(report),
+                 "2026-10-16T00:00:00+00:00"),
+            )
+        state = self.store.details(self.pid)
+        self.assertIn("ModuleNotFoundError", state["test_context"])
+        prompt = meeting_prompt(state, "tester", [], topic="Diagnose")
+        self.assertIn("docker-gui status=failed", prompt)
+        self.assertIn("GUI failed to start", prompt)
 
     def test_specialists_have_distinct_actionable_deliverables(self):
         state = self.store.details(self.pid)
