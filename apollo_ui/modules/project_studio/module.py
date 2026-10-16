@@ -485,14 +485,17 @@ class Module:
             continuous_resume.setEnabled(running and auto["paused"])
             continuous_stop.setEnabled(running)
 
-        def continuous_poll(token):
-            if (not auto["continuous"] or auto["paused"]
-                    or auto["poll_token"] != token):
+        poll_timer = QTimer(page)
+        poll_timer.setInterval(30000)
+
+        def continuous_poll():
+            if not auto["continuous"] or auto["paused"]:
                 return
             if auto["waiting"] and not active_jobs:
                 auto["waiting"] = False
                 QTimer.singleShot(0, advance_auto)
-            QTimer.singleShot(30000, lambda: continuous_poll(token))
+
+        poll_timer.timeout.connect(continuous_poll)
 
         for button, tip in (
             (change_request, "Request a change for this task, or the whole project if no task is selected."),
@@ -1087,8 +1090,7 @@ class Module:
             })
             feed("Manager: Continuous development authorized. Docker tests and periodic team meetings enabled.")
             update_session_status()
-            token = auto["poll_token"]
-            QTimer.singleShot(30000, lambda: continuous_poll(token))
+            poll_timer.start()
             start_team_meeting(pid, "Continuous kickoff: deliver runnable code, tests, and review checkpoints",
                                auto_continue=True)
 
@@ -1096,6 +1098,7 @@ class Module:
             if auto["continuous"]:
                 auto["paused"] = True
                 auto["poll_token"] += 1
+                poll_timer.stop()
                 feed("Owner: Pause requested. No new jobs after the current operation.")
                 update_session_status()
 
@@ -1103,10 +1106,9 @@ class Module:
             if auto["continuous"] and auto["paused"]:
                 auto["paused"] = False
                 auto["poll_token"] += 1
-                token = auto["poll_token"]
                 feed("Owner: Continuous session resumed.")
                 update_session_status()
-                QTimer.singleShot(30000, lambda: continuous_poll(token))
+                poll_timer.start()
                 if not active_jobs and auto["retry_pending"]:
                     tid, problem = auto["retry_pending"]
                     auto["retry_pending"] = None
@@ -1124,6 +1126,7 @@ class Module:
                     "waiting": False, "poll_token": auto["poll_token"] + 1,
                 })
                 meeting_queue.update({"pid": None, "auto_continue": False})
+                poll_timer.stop()
                 if auto["retry_pending"]:
                     tid, problem = auto["retry_pending"]
                     auto["retry_pending"] = None
