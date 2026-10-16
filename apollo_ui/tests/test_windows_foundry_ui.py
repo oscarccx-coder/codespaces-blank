@@ -54,6 +54,47 @@ class FoundryWindowTests(unittest.TestCase):
         runner.assert_not_called()
         self.assertEqual(module.store.sandbox_history(state["project"]["id"]), [])
 
+    def test_apollo_core_tab_scans_and_reviews_without_running_code(self):
+        from PySide6.QtWidgets import (
+            QTabWidget, QPushButton, QTableWidget, QInputDialog,
+        )
+        from modules.project_studio.module import Module
+
+        source = self.base / "modules" / "example"
+        source.mkdir(parents=True)
+        (source / "module.py").write_text(
+            "# TODO: add proper error handling\n"
+            "class Module:\n"
+            "    def self_test(self):\n"
+            "        return True\n",
+            encoding="utf-8",
+        )
+        module = Module({"base_dir": self.base})
+        self.addCleanup(module.close)
+        panel = module.build_ui()
+        self.addCleanup(panel.close)
+        tabs = panel.findChild(QTabWidget)
+        self.assertIn("Apollo Core", [
+            tabs.tabText(i) for i in range(tabs.count())
+        ])
+        table = panel.findChild(QTableWidget, "foundryCoreSuggestions")
+        scan = panel.findChild(QPushButton, "foundryCoreScan")
+        review = panel.findChild(QPushButton, "foundryCoreReview")
+        self.assertIsNotNone(table)
+        self.assertIsNotNone(scan)
+        self.assertIsNotNone(review)
+        self.assertEqual(table.rowCount(), 0)
+        scan.click()
+        self.assertEqual(table.rowCount(), 1)
+        table.selectRow(0)
+        with patch.object(QInputDialog, "getMultiLineText",
+                          return_value=("Please review this TODO.", True)):
+            review.click()
+        self.assertEqual(module.core_suggestions.list()[0]["status"],
+                         "review_requested")
+        self.assertIn("TODO", (source / "module.py").read_text())
+        self.assertFalse((self.base / ".git").exists())
+
     def test_workflow_diagram_and_team_meeting_controls(self):
         from PySide6.QtWidgets import QTabWidget, QPushButton, QInputDialog
         from apollo_foundry_diagram import ApolloTeamFlow, flow_snapshot

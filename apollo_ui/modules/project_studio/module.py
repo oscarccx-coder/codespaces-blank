@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from apollo_project_studio import StudioStore
+from apollo_foundry_core import ApolloCoreSuggestions
 from apollo_foundry_artifacts import save_bundle
 from apollo_foundry_meetings import hold_meeting
 from apollo_project_workers import (
@@ -21,12 +22,26 @@ class Module:
         context = context or {}
         self.base = Path(context.get("base_dir", ".")).resolve()
         self.store = StudioStore(self.base, memory=bool(context.get("validation")))
+        self.core_suggestions = ApolloCoreSuggestions(self.base)
 
     def tools(self):
         # AI can read projects and queue a non-executing change request only.
         # Drafting, approving, closing issues, and all code changes remain UI-controlled.
         integer = {"type": "integer"}
         return [
+            {"name": "scan_apollo_core_suggestions",
+             "description": "Read-only scan of Apollo source for evidence-backed TODO, FIXME and syntax suggestions. Never changes core, executes code or pushes to Git.",
+             "parameters": {"type": "object", "properties": {}}},
+            {"name": "list_apollo_core_suggestions",
+             "description": "List local Apollo-core improvement suggestions and their review states. No source changes.",
+             "parameters": {"type": "object", "properties": {}}},
+            {"name": "propose_apollo_core_improvement",
+             "description": "Suggest an evidence-based Apollo improvement tied to a real Python source file. Queues only; never edits, tests, approves, installs, pushes or merges.",
+             "parameters": {"type": "object", "properties": {
+                 "title": {"type": "string"},
+                 "rationale": {"type": "string"},
+                 "source_path": {"type": "string"},
+             }, "required": ["title", "rationale", "source_path"]}},
             {"name": "list_app_projects", "description": "Read user-created app development projects.",
              "parameters": {"type": "object", "properties": {}}},
             {"name": "app_project_status", "description": "Read tasks, subtasks and issues for one project.",
@@ -42,6 +57,14 @@ class Module:
 
     def run(self, action, arguments):
         args = arguments or {}
+        if action == "scan_apollo_core_suggestions":
+            return self.core_suggestions.scan()
+        if action == "list_apollo_core_suggestions":
+            return {"suggestions": self.core_suggestions.list()}
+        if action == "propose_apollo_core_improvement":
+            return self.core_suggestions.propose(
+                args["title"], args["rationale"], args["source_path"]
+            )
         if action == "list_app_projects":
             return {"projects": self.store.list_projects()}
         if action == "app_project_status":
@@ -332,6 +355,52 @@ class Module:
         result_text.setPlaceholderText("Select a task to see its instructions, draft and review feedback.")
         tasks_layout.addWidget(result_text, 1)
         tabs.addTab(tasks_tab, "1. Build")
+
+        core_tab = QWidget()
+        core_layout = QVBoxLayout(core_tab)
+        core_intro = QLabel(
+            "Apollo Core Engineering: scan for real improvement opportunities, "
+            "review each suggestion and inspect isolated candidates. "
+            "No generated core changes, Git pushes, merges or installs are allowed here."
+        )
+        core_intro.setWordWrap(True)
+        core_layout.addWidget(core_intro)
+        core_buttons = QHBoxLayout()
+        core_scan = QPushButton("Inspect Apollo & Suggest")
+        core_scan.setObjectName("foundryCoreScan")
+        core_refresh = QPushButton("Refresh Suggestions")
+        core_propose = QPushButton("+ Suggest an Improvement")
+        core_propose.setObjectName("foundryCorePropose")
+        core_review = QPushButton("Request Review")
+        core_review.setObjectName("foundryCoreReview")
+        core_dismiss = QPushButton("Dismiss")
+        core_verify = QPushButton("Inspect Staged Candidate")
+        core_verify.setObjectName("foundryCoreVerify")
+        for button in (core_scan, core_refresh, core_propose, core_review, core_dismiss, core_verify):
+            core_buttons.addWidget(button)
+        core_layout.addLayout(core_buttons)
+        core_table = QTableWidget(0, 4)
+        core_table.setObjectName("foundryCoreSuggestions")
+        core_table.setHorizontalHeaderLabels(["Finding", "File", "Line", "Review"])
+        core_table.setSelectionBehavior(QTableWidget.SelectRows)
+        core_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        core_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        core_layout.addWidget(core_table, 1)
+        core_detail = QPlainTextEdit()
+        core_detail.setObjectName("foundryCoreEvidence")
+        core_detail.setReadOnly(True)
+        core_detail.setPlaceholderText(
+            "Select a suggestion to see the source hash and review status."
+        )
+        core_layout.addWidget(core_detail, 1)
+        core_gate = QLabel(
+            "RELEASE GATE: syntax checks alone do not verify an Apollo upgrade. "
+            "An isolated Git branch, passing independent CI, your diff review "
+            "and explicit approval are required before any push or merge."
+        )
+        core_gate.setWordWrap(True)
+        core_layout.addWidget(core_gate)
+        tabs.addTab(core_tab, "Apollo Core")
 
         bugs_tab = QWidget()
         bugs_layout = QVBoxLayout(bugs_tab)
@@ -1862,6 +1931,137 @@ class Module:
             except (ValueError, KeyError) as exc:
                 alert(exc)
 
+        def selected_core_suggestion():
+            row = core_table.currentRow()
+            if row < 0:
+                return None
+            cell = core_table.item(row, 0)
+            return cell.data(Qt.UserRole) if cell is not None else None
+
+        def refresh_core_suggestions():
+            selected = selected_core_suggestion()
+            try:
+                items = self.core_suggestions.list()
+            except (ValueError, OSError) as exc:
+                core_detail.setPlainText("Suggestion store unavailable: " + str(exc))
+                return
+            core_table.setRowCount(len(items))
+            for row, item in enumerate(items):
+                for col, value in enumerate((
+                    item["title"], item["path"], str(item["line"]), item["status"]
+                )):
+                    cell = QTableWidgetItem(value)
+                    if col == 0:
+                        cell.setData(Qt.UserRole, item["id"])
+                    core_table.setItem(row, col, cell)
+                if item["id"] == selected:
+                    core_table.selectRow(row)
+            show_core_suggestion()
+
+        def show_core_suggestion():
+            ident = selected_core_suggestion()
+            item = next((x for x in self.core_suggestions.list()
+                         if x["id"] == ident), None)
+            if item is None:
+                core_detail.setPlainText(
+                    "No suggestion selected. Scan Apollo to find TODO/FIXME "
+                    "markers and syntax errors. These are candidates for investigation, "
+                    "not verified bugs."
+                )
+                return
+            core_detail.setPlainText(
+                "FINDING: " + item["title"] + "\\n"
+                "SOURCE: " + item["path"] + ":" + str(item["line"]) + "\\n"
+                "KIND: " + item["kind"] + "\\n"
+                "STATUS: " + item["status"] + "\\n"
+                "SOURCE SHA-256: " + item["source_sha256"] + "\\n"
+                "OWNER NOTES: " + item.get("notes", "") + "\\n"
+                "RATIONALE: " + item.get("rationale", "Automatic code-quality finding.") + "\\n\\n"
+                "No core file was modified. Static inspection does not "
+                "verify a fix, and this screen cannot push or merge code."
+            )
+
+        def scan_core_action():
+            try:
+                report = self.core_suggestions.scan()
+                refresh_core_suggestions()
+                feed("Apollo Core: Inspected " + str(report["scanned_files"]) +
+                     " files; " + str(report["new_suggestions"]) +
+                     " new suggestions. No code changed.")
+            except (ValueError, OSError) as exc:
+                alert("Apollo Core scan unavailable: " + str(exc))
+
+        def core_propose_action():
+            title, ok = QInputDialog.getText(
+                page, "Suggest an Apollo Improvement", "Improvement title:"
+            )
+            if not ok or not title.strip():
+                return
+            source, ok = QInputDialog.getText(
+                page, "Apollo Source Evidence",
+                "Source file relative to apollo_ui (e.g. modules/project_studio/module.py):",
+            )
+            if not ok or not source.strip():
+                return
+            rationale, ok = QInputDialog.getMultiLineText(
+                page, "Why Improve This?", "Describe the observed problem and expected benefit:"
+            )
+            if not ok or not rationale.strip():
+                return
+            try:
+                self.core_suggestions.propose(title, rationale, source.strip())
+                refresh_core_suggestions()
+                feed("Apollo Core: Improvement suggestion queued; nothing changed.")
+            except (ValueError, OSError) as exc:
+                alert("Could not record suggestion: " + str(exc))
+
+        def core_review_action(request_review):
+            ident = selected_core_suggestion()
+            if ident is None:
+                return alert("Select an Apollo-core suggestion first.")
+            if request_review:
+                notes, ok = QInputDialog.getMultiLineText(
+                    page, "Request Apollo Core Review",
+                    "What should the engineering team investigate? "
+                    "No code is applied or pushed.",
+                )
+                if not ok:
+                    return
+            else:
+                notes = "Owner dismissed this suggestion."
+            try:
+                self.core_suggestions.set_review(
+                    ident, request_review=request_review, notes=notes
+                )
+                refresh_core_suggestions()
+                feed("Apollo Core: Suggestion " + ident + (
+                    " queued for owner-controlled review." if request_review
+                    else " dismissed."
+                ))
+            except (ValueError, KeyError, OSError) as exc:
+                alert(exc)
+
+        def inspect_core_candidate_action():
+            ident = selected_core_suggestion()
+            if ident is None:
+                return alert("Select a suggestion first.")
+            folder, ok = QInputDialog.getText(
+                page, "Inspect Isolated Candidate",
+                "Path to an existing staged self-improvement proposal folder:",
+            )
+            if not ok or not folder.strip():
+                return
+            try:
+                result = self.core_suggestions.candidate_status(ident, folder.strip())
+                core_detail.setPlainText(
+                    json.dumps(result, indent=2) +
+                    "\\n\\nNo code executed, pushed, installed, applied or merged. "
+                    "Passing syntax checks are NOT independent CI verification."
+                )
+                feed("Apollo Core: Candidate inspected without applying code.")
+            except (ValueError, KeyError, OSError, TypeError) as exc:
+                alert("Candidate verification refused: " + str(exc))
+
         def open_project_folder_action():
             pid = project_id()
             if pid is None:
@@ -2002,6 +2202,14 @@ class Module:
         continuous_resume.clicked.connect(resume_continuous_action)
         continuous_stop.clicked.connect(stop_continuous_action)
         continuous_finish.clicked.connect(finish_continuous_action)
+        core_scan.clicked.connect(scan_core_action)
+        core_refresh.clicked.connect(refresh_core_suggestions)
+        core_propose.clicked.connect(core_propose_action)
+        core_review.clicked.connect(lambda: core_review_action(True))
+        core_dismiss.clicked.connect(lambda: core_review_action(False))
+        core_verify.clicked.connect(inspect_core_candidate_action)
+        core_table.itemSelectionChanged.connect(show_core_suggestion)
+        refresh_core_suggestions()
         quick_start.clicked.connect(quick_start_action)
         team_meeting_btn.clicked.connect(manual_team_meeting)
         new_project.clicked.connect(add_project_action)
