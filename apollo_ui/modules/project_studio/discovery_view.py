@@ -97,7 +97,8 @@ def build_discovery_panel(base, parent=None, on_proposal=None):
     details.setPlaceholderText("Campaign lineage, results and review-only proposals will appear here.")
     layout.addWidget(details, 1)
 
-    active = {"auto": False, "busy": False, "closed": False, "signals": None}
+    active = {"auto": False, "busy": False, "closed": False, "signals": None,
+              "selected_id": None}
 
     def store_call(method, *args, **kwargs):
         store = DiscoveryCampaign(base)
@@ -111,6 +112,7 @@ def build_discovery_panel(base, parent=None, on_proposal=None):
 
     def view_snapshot():
         ident = selected_id()
+        active["selected_id"] = ident
         if not ident:
             status.setText("No Discovery campaign selected.")
             details.clear()
@@ -319,7 +321,7 @@ def build_discovery_panel(base, parent=None, on_proposal=None):
     def on_destroyed(*_args):
         active["auto"] = False
         active["closed"] = True
-        ident = selected_id()
+        ident = active["selected_id"]
         if ident:
             try:
                 if store_call("snapshot", ident)["state"] == "RUNNING":
