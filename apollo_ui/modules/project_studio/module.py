@@ -467,6 +467,7 @@ class Module:
             "continuous": False, "paused": False, "testing": False,
             "meeting_after": 5, "since_meeting": 0, "repair_count": 0,
             "waiting": False, "sandbox_stage": None, "poll_token": 0,
+            "retry_pending": None,
         }
 
         def update_session_status():
@@ -1078,6 +1079,7 @@ class Module:
                 "attempts": {}, "continuous": True, "paused": False,
                 "testing": False, "since_meeting": 0, "repair_count": 0,
                 "waiting": False, "sandbox_stage": None,
+                "retry_pending": None,
                 "poll_token": auto["poll_token"] + 1,
             })
             feed("Manager: Continuous development authorized. Docker tests and periodic team meetings enabled.")
@@ -1102,8 +1104,13 @@ class Module:
                 feed("Owner: Continuous session resumed.")
                 update_session_status()
                 QTimer.singleShot(30000, lambda: continuous_poll(token))
-                if not active_jobs and auto["testing"] and auto["sandbox_stage"] == "gui":
-                    QTimer.singleShot(0, lambda: start_auto_sandbox(auto["project"], "gui"))
+                if not active_jobs and auto["retry_pending"]:
+                    tid, problem = auto["retry_pending"]
+                    auto["retry_pending"] = None
+                    QTimer.singleShot(0, lambda: retry_generation(tid, problem))
+                elif not active_jobs and auto["testing"] and auto["sandbox_stage"] in ("unit", "gui"):
+                    kind = auto["sandbox_stage"]
+                    QTimer.singleShot(0, lambda: start_auto_sandbox(auto["project"], kind))
                 elif not active_jobs and not auto["testing"]:
                     QTimer.singleShot(0, advance_auto)
 
@@ -1114,13 +1121,29 @@ class Module:
                     "waiting": False, "poll_token": auto["poll_token"] + 1,
                 })
                 meeting_queue.update({"pid": None, "auto_continue": False})
+                if auto["retry_pending"]:
+                    tid, problem = auto["retry_pending"]
+                    auto["retry_pending"] = None
+                    try:
+                        self.store.fail_task(tid, "Session stopped before retry: " + problem[:1800])
+                    except (ValueError, KeyError):
+                        pass
                 feed("Owner: Session stopped. Current operation may finish, but no more work will start.")
                 update_session_status()
 
         def retry_generation(tid, problem):
             pid = auto["project"]
             if pid is None:
+                try:
+                    self.store.fail_task(tid, "Session stopped before retry: " + problem[:1800])
+                except (ValueError, KeyError):
+                    pass
                 return
+            if auto["paused"]:
+                auto["retry_pending"] = (tid, problem)
+                feed("Manager: Repair retry deferred until Resume.")
+                return
+            auto["retry_pending"] = None
             try:
                 state = self.store.details(pid)
                 signal = WorkerSignal()
