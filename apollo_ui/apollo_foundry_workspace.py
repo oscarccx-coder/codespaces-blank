@@ -14,7 +14,7 @@ import re
 import secrets
 import tempfile
 
-from apollo_foundry_artifacts import MANIFEST, _relative
+from apollo_foundry_artifacts import MANIFEST, MAX_FILE_BYTES, _relative
 
 MAX_CONTEXT_BYTES = 11000
 MAX_CHECKPOINT_FILES = 80
