@@ -790,7 +790,7 @@ class Module:
                 )
             readiness = self.store.release_readiness(pid)
             release_status.setText(
-                ("Current code VERIFIED by Docker unit and GUI startup tests. "
+                ("Current code CHECKED by Docker unit, UI interaction and startup tests. "
                  if readiness["ready"] else "Current code NOT VERIFIED. ")
                 + readiness["reason"]
                 + " Manual UI acceptance is still required."
