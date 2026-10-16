@@ -158,6 +158,14 @@ class StudioStore:
                     "meeting_context": meeting["decisions"] if meeting else "",
                     "test_context": "\n".join(test_context)[:2200]}
 
+    def worker_state(self, project_id):
+        """Load bounded, real generated source for a model worker on demand."""
+        from apollo_foundry_workspace import read_workspace_context
+        with self.lock:
+            state = self.details(project_id)
+            state["source_context"] = read_workspace_context(self.project_folder(project_id))
+            return state
+
     def _event(self, project_id, task_id, kind, detail):
         self.conn.execute(
             "INSERT INTO events(project_id,task_id,kind,detail,created_at) VALUES(?,?,?,?,?)",
