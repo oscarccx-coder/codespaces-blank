@@ -49,7 +49,7 @@ def assess_project(state, static_report, readiness, sandbox_runs, meetings, audi
     open_issues = [
         {"id": int(issue["id"]), "title": _clean(issue.get("title"))}
         for issue in issues if issue.get("state") != "closed"
-    ][:12]
+    ]
     tests = []
     current_source = readiness.get("source_digest")
     current_valid = isinstance(current_source, str) and len(current_source) == 64
@@ -158,7 +158,8 @@ def assess_project(state, static_report, readiness, sandbox_runs, meetings, audi
         "project_state": _clean(project.get("state"), 40),
         "task_counts": {**counts, "total": total},
         "role_counts": role_counts,
-        "open_issues": open_issues,
+        "open_issues": open_issues[:12],
+        "open_issue_count": len(open_issues),
         "blocked_tasks": blocked_tasks[:12],
         "awaiting_review": pending[:12],
         "static_status": static_status,
