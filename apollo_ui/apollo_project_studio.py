@@ -222,14 +222,14 @@ class StudioStore:
                 self._project(project_id)
                 records = self.conn.execute(
                     "SELECT kind,status,source_digest FROM coding_evaluations "
-                    "WHERE project_id=? ORDER BY id ASC LIMIT 4000", (int(project_id),)
+                    "WHERE project_id=? ORDER BY id DESC LIMIT 4000", (int(project_id),)
                 ).fetchall()
             else:
                 records = self.conn.execute(
                     "SELECT kind,status,source_digest FROM coding_evaluations "
-                    "ORDER BY id ASC LIMIT 4000"
+                    "ORDER BY id DESC LIMIT 4000"
                 ).fetchall()
-            result = summarize_coding_progress(records)
+            result = summarize_coding_progress(reversed(records))
             result["scope"] = "project" if project_id is not None else "all-projects"
             return result
 
