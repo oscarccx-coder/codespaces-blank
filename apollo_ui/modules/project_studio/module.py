@@ -465,6 +465,12 @@ class Module:
 
         history_tab = QWidget()
         history_layout = QVBoxLayout(history_tab)
+        history_layout.addWidget(QLabel("Worker Scorecard (recorded task outcomes, not AI self-ratings)"))
+        worker_scorecard = QPlainTextEdit()
+        worker_scorecard.setObjectName("foundryWorkerScorecard")
+        worker_scorecard.setReadOnly(True)
+        worker_scorecard.setMaximumHeight(150)
+        history_layout.addWidget(worker_scorecard)
         timeline = QPlainTextEdit()
         timeline.setReadOnly(True)
         history_layout.addWidget(timeline)
@@ -706,6 +712,7 @@ class Module:
                 sandbox_report.clear()
                 result_text.clear()
                 team_transcript.clear()
+                worker_scorecard.clear()
                 meeting_status.setText("No project selected.")
                 team_flow.update_flow(flow_snapshot({"tasks": []}))
                 team_meeting_btn.setEnabled(False)
@@ -842,6 +849,13 @@ class Module:
                     issue_table.setItem(i, j, QTableWidgetItem(value))
                 if issue["id"] == previous_issue:
                     issue_table.selectRow(i)
+            scores = self.store.worker_scorecard(pid)
+            worker_scorecard.setPlainText("\n".join(
+                f"{s['role'].title():12} Tasks {s['total']:2}  "
+                f"Drafts {s['drafts']:2}  Review {s['review']:2}  "
+                f"Accepted {s['accepted']:2}  Blocked {s['blocked']:2}"
+                for s in scores
+            ) or "No worker tasks recorded.")
             timeline.setPlainText("\n".join(
                 f"{e['created_at']}  {e['kind']}  {e['detail']}"
                 for e in events[:60]
