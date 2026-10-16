@@ -68,6 +68,17 @@ class DependencyTests(unittest.TestCase):
                  "depends_on": [0]},
             ])
 
+    def test_worker_scorecard_counts_real_drafts_and_reviews(self):
+        initial = self.store.worker_scorecard(self.pid)
+        self.assertEqual(sum(item["drafts"] for item in initial), 0)
+        task = self.state["tasks"][1]
+        self.store.start_task(task["id"])
+        self.store.submit_task(task["id"], "Working code proposal", "Draft evidence")
+        result = {row["role"]: row for row in self.store.worker_scorecard(self.pid)}
+        self.assertEqual(result["implementer"]["drafts"], 1)
+        self.assertEqual(result["implementer"]["review"], 1)
+        self.assertEqual(result["implementer"]["accepted"], 0)
+
     def test_old_manager_plan_shape_still_works(self):
         plan = validate_subtask_plan({"tasks": [
             {"title": "A", "brief": "Do A", "role": "architect"},
