@@ -120,3 +120,37 @@ the Ollama model and Docker Desktop on the owner's own Windows computer.
   factual per-role drafts, reviews, acceptances and blocked tasks.
 - Explicit dependency installation approval, vulnerability audits and
   reproducible application packaging.
+
+## Apollo Core Engineering: suggestions before changes
+
+Foundry now exposes a separate **Apollo Core** tab and three bounded AI tools:
+
+- `scan_apollo_core_suggestions`: inspect known Python source directories
+  for TODO/FIXME markers, syntax errors, bare except handlers, unusually long
+  functions and modules without self-tests. This is heuristic evidence, not
+  a declaration that the source is defective.
+- `list_apollo_core_suggestions`: inspect the persisted review queue.
+- `propose_apollo_core_improvement`: add an idea linked to an existing,
+  hash-recorded Python source file and a concrete rationale. The model
+  cannot approve its own proposal.
+
+The owner can also enter suggestions manually, request review, dismiss
+findings and inspect an already staged candidate in the existing
+`workspace/self_improvement` folder. Candidate inspection verifies that
+the original file is unchanged, the proposed content matches its SHA-256,
+and the proposed Python parses. It never executes or installs the candidate.
+
+**Non-negotiable release policy:** the Apollo Core screen does not provide
+Git push, merge, branch deletion, installation or live-core write operations.
+Static checks never set `ci_verified`, `runtime_verified`,
+`owner_approved`, `push_allowed` or `merge_allowed` to true. Before
+anything reaches Apollo's main codebase, a separate trusted workflow must
+prepare an isolated branch, run independent tests and CI, present the diff
+and evidence, obtain the owner's explicit approval, and check that the
+reviewed revision hash has not changed. An approved suggestion is not
+equivalent to an approved release.
+
+This is the **suggestion and verification foundation**, not an autonomous
+Apollo-core coding or publishing pipeline. Full branch staging, trusted
+CI evidence ingestion, diff review and user-authorised merge remain
+separate milestones. No claim of a completed core release is made.
