@@ -1102,7 +1102,9 @@ class Module:
                 feed("Owner: Continuous session resumed.")
                 update_session_status()
                 QTimer.singleShot(30000, lambda: continuous_poll(token))
-                if not active_jobs and not auto["testing"]:
+                if not active_jobs and auto["testing"] and auto["sandbox_stage"] == "gui":
+                    QTimer.singleShot(0, lambda: start_auto_sandbox(auto["project"], "gui"))
+                elif not active_jobs and not auto["testing"]:
                     QTimer.singleShot(0, advance_auto)
 
         def stop_continuous_action():
@@ -1353,6 +1355,62 @@ class Module:
                     )
             refresh_details()
             tabs.setCurrentWidget(sandbox_tab)
+            if auto["continuous"] and auto["project"] == pid:
+                if error:
+                    report = {"status": "failed", "reason": error[:600], "output": ""}
+                status = report.get("status")
+                if status == "passed" and auto["sandbox_stage"] == "unit":
+                    auto["sandbox_stage"] = "gui"
+                    feed("Tester: Unit tests passed; GUI startup smoke test is next.")
+                    if not auto["paused"]:
+                        QTimer.singleShot(0, lambda: start_auto_sandbox(pid, "gui"))
+                else:
+                    auto["testing"] = False
+                    auto["sandbox_stage"] = None
+                    if status == "passed":
+                        feed("Tester: Docker unit tests and GUI startup smoke test passed. "
+                             "UI interactions still need human testing.")
+                    else:
+                        auto["repair_count"] += 1
+                        feed("Tester: Sandbox " + str(status) + ": " +
+                             str(report.get("reason", ""))[:300])
+                        if auto["repair_count"] <= 3:
+                            note = (
+                                "Automatic Docker test " + str(status) + ".\n"
+                                "Cause: " + str(report.get("reason", ""))[:600] + "\n"
+                                "Output:\n" + str(report.get("output", ""))[-2400:] +
+                                "\nFix the generated code or add missing tests/launcher. "
+                                "Provide a real regression test. Do not claim tests passed."
+                            )
+                            try:
+                                self.store.request_change(pid, note)
+                                feed("Manager: Queued an implementation repair task from real Docker output.")
+                                if auto["repair_count"] >= 2:
+                                    auto["since_meeting"] = auto["meeting_after"]
+                            except (ValueError, KeyError, OSError) as exc:
+                                auto["paused"] = True
+                                feed("Manager: Could not queue fix; paused: " + str(exc))
+                        else:
+                            auto["paused"] = True
+                            feed("Manager: Paused after three automatic sandbox repairs. Human review needed.")
+                    if not auto["paused"]:
+                        QTimer.singleShot(0, advance_auto)
+                update_session_status()
+
+        def start_auto_sandbox(pid, kind):
+            # Only a currently authorized continuous session can start these
+            # restricted Docker jobs without an additional per-test dialog.
+            if (not auto["continuous"] or auto["project"] != pid
+                    or auto["paused"] or active_jobs):
+                return
+            signals = WorkerSignal()
+            signals.finished.connect(sandbox_finished)
+            active_jobs.append((f"sandbox:{pid}", signals))
+            auto["sandbox_stage"] = kind
+            feed("Tester: Running automatic isolated Docker " + kind + " test.")
+            QThreadPool.globalInstance().start(
+                SandboxJob(pid, kind, self.store, signals))
+            update_actions()
 
         def run_sandbox_action(kind):
             pid = project_id()
@@ -1609,6 +1667,10 @@ class Module:
             except (OSError, ValueError, KeyError) as exc:
                 alert(exc)
 
+        continuous_start.clicked.connect(start_continuous_action)
+        continuous_pause.clicked.connect(pause_continuous_action)
+        continuous_resume.clicked.connect(resume_continuous_action)
+        continuous_stop.clicked.connect(stop_continuous_action)
         quick_start.clicked.connect(quick_start_action)
         team_meeting_btn.clicked.connect(manual_team_meeting)
         new_project.clicked.connect(add_project_action)
