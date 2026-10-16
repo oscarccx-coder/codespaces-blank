@@ -64,6 +64,10 @@ def assess_project(state, static_report, readiness, sandbox_runs, meetings, audi
         ] if current_valid else []
         latest = matching[0] if matching else None
         observed = latest.get("status", "not-tested") if latest else "not-tested"
+        if observed == "passed" and not passed:
+            # A test cannot be presented as passing unless the canonical
+            # release-readiness gate endorses this *current* source revision.
+            observed = "unverified"
         tests.append({
             "id": kind, "label": label, "status": "passed" if passed else observed,
             "current_source": bool(latest),
