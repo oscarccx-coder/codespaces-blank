@@ -17,6 +17,18 @@ function Confirm-Action([string] $Prompt) {
     $answer = Read-Host ($Prompt + ' [Y/N]')
     return $answer -match '^(?i:y|yes)$'
 }
+function Invoke-Native([string] $File, [string[]] $Arguments) {
+    # PowerShell 5.1 can turn a native program's stderr into a terminating
+    # NativeCommandError when ErrorActionPreference is Stop.
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $File @Arguments 2>&1 | ForEach-Object { Write-Host "$_" }
+        return [int]$LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+}
 function Find-DockerCli {
     $command = Get-Command docker.exe -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
@@ -59,7 +71,8 @@ function Show-Requirements {
         }
     } catch { Say ('[INFO] Could not inspect system firmware: ' + $_.Exception.Message) }
     try {
-        $free = (Get-PSDrive -Name $env:SystemDrive.TrimEnd(':') -ErrorAction Stop).Free
+        $driveName = $env:SystemDrive.TrimEnd(':')
+        $free = (Get-PSDrive -Name $driveName -ErrorAction Stop).Free
         Say ('Free space on ' + $env:SystemDrive + ': ' + [math]::Round($free / 1GB, 1) + ' GiB')
         if ($free -lt 10GB) {
             Say '[WARNING] Low system-drive space. Docker Desktop and WSL use C: by default.'
@@ -152,8 +165,7 @@ function Install-Desktop {
     $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
     if ($winget) {
         Say ('Running winget from: ' + $winget.Source)
-        & $winget.Source install --id Docker.DockerDesktop --exact --source winget --accept-package-agreements --accept-source-agreements 2>&1 | Out-Host
-        $code = $LASTEXITCODE
+        $code = Invoke-Native $winget.Source @('install','--id','Docker.DockerDesktop','--exact','--source','winget','--accept-package-agreements','--accept-source-agreements')
         Say ('WinGet installer exit code: ' + $code)
     } else {
         Say '[ERROR] WinGet is missing. Use the official download link above.'
@@ -198,6 +210,16 @@ function Build-FoundryImage {
         Say 'Open Docker Desktop and switch to Linux containers / WSL 2.'
         return 1
     }
+    # Refuse remote Docker endpoints so project snapshots remain on the user's PC.
+    if ($env:DOCKER_HOST -and $env:DOCKER_HOST -notmatch '^npipe://') {
+        Say '[ERROR] Remote DOCKER_HOST is not authorised for Foundry sandbox tests.'
+        return 1
+    }
+    $endpoint = (& $docker context inspect --format '{{.Endpoints.docker.Host}}' 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $endpoint -notmatch '^npipe://') {
+        Say ('[ERROR] Docker context must use a local Windows named pipe. Found: ' + $endpoint)
+        return 1
+    }
     $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
     $context = Join-Path $root 'foundry_sandbox'
     $dockerfile = Join-Path $context 'Dockerfile'
@@ -212,8 +234,7 @@ function Build-FoundryImage {
         Say '[INFO] Build cancelled. No changes made.'
         return 0
     }
-    & $docker build --pull --progress=plain -t 'apollo-foundry-qt:phase1' -f $dockerfile $context 2>&1 | Out-Host
-    $code = $LASTEXITCODE
+    $code = Invoke-Native $docker @('build','--pull','--progress=plain','-t','apollo-foundry-qt:phase1','-f',$dockerfile,$context)
     if ($code -ne 0) {
         Say ('[ERROR] Docker image build failed, exit code ' + $code)
         return 1
@@ -224,8 +245,8 @@ function Build-FoundryImage {
         return 1
     }
     Say 'Running read-only, offline smoke test inside the new container...'
-    & $docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges:true --pids-limit=64 --cpus=1 --memory=768m --pull=never --tmpfs '/tmp:rw,nosuid,nodev,size=64m' -e MPLCONFIGDIR=/tmp/matplotlib 'apollo-foundry-qt:phase1' python -c 'import PySide6, numpy, sympy, matplotlib; print("APOLLO_SANDBOX_READY")' 2>&1 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
+    $code = Invoke-Native $docker @('run','--rm','--network=none','--read-only','--cap-drop=ALL','--security-opt=no-new-privileges:true','--pids-limit=64','--cpus=1','--memory=768m','--pull=never','--tmpfs','/tmp:rw,nosuid,nodev,size=64m','-e','MPLCONFIGDIR=/tmp/matplotlib','apollo-foundry-qt:phase1','python','-c','import PySide6, numpy, sympy, matplotlib; print("APOLLO_SANDBOX_READY")')
+    if ($code -ne 0) {
         Say '[ERROR] Offline image smoke test failed. Image is NOT verified.'
         return 1
     }
