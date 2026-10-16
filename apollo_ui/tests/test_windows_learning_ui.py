@@ -40,7 +40,7 @@ class LearningMissionsQtTests(unittest.TestCase):
         consent=next(w for w in window.findChildren(QCheckBox))
         name.setText("Reasoning model research")
         goals.setPlainText("Study evaluation methodologies for local LLMs")
-        with patch.object(QMessageBox,"question",return_value=QMessageBox.Yes):
+        with patch.object(QMessageBox,"warning",return_value=QMessageBox.Ok):
             create.click()
         self.assertEqual(self.service.store.list(),[])
         consent.setChecked(True)
@@ -63,10 +63,10 @@ class LearningMissionsQtTests(unittest.TestCase):
                                interval_seconds=120,owner_confirmed=True)["id"]
         control=mission_view(self.service,kind="control")
         library=mission_view(self.service,kind="library")
-        self.assertTrue(any(str(mid) in b.text()
+        self.assertTrue(any(str(mid) in b.item(i).text()
                             for b in control.findChildren(__import__(
-                                "PySide6.QtWidgets",fromlist=["QListWidgetItem"]).QListWidget)
-                            for i in range(b.count()) if str(mid) in b.item(i).text()))
+                                "PySide6.QtWidgets",fromlist=["QListWidget"]).QListWidget)
+                            for i in range(b.count())))
         self.assertIn("Research Library",
                       " ".join(w.text() for w in library.findChildren(
                           __import__("PySide6.QtWidgets",fromlist=["QLabel"]).QLabel)))
