@@ -25,6 +25,11 @@ on Windows without an explicit separate owner action.
 8. Leave adequate free disk space on the Windows system drive. Docker/WSL
    images may occupy C: even if Apollo itself is installed on F:.
 
+For owner-reviewed, UNSANDBOXED local Windows preview of scientific apps,
+you may separately run `Setup/16_INSTALL_FOUNDRY_SCIENCE.bat` to install
+SymPy and Matplotlib in Apollo's existing private virtualenv. It is not
+required for Docker testing and is never run by autonomous workers.
+
 The trusted Docker image includes pinned Python 3.13, PySide6, NumPy, SymPy
 and Matplotlib. These are for scientific, calculator, graphing and general
 Python UI projects. Extra third-party dependencies are not installed by the
