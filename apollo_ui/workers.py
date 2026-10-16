@@ -3015,6 +3015,20 @@ class ChatTask(QRunnable):
         return results, terminal_success, duplicate_detected
 
     def _run_with_modules(self):
+        # Only the newest real user message can authorise a learning mission.
+        # The model cannot start research by emitting tool JSON or pretending
+        # to have permission. Chat and apps share the same persistent service.
+        from apollo_learning_mission_chat import handle_command, parse_owner_command
+        intent = parse_owner_command(self._last_user_text())
+        if intent is not None:
+            record = (self.module_manager.get_module("learning_missions")
+                      if self.module_manager is not None else None)
+            instance = (record.get("instance") if record and record.get("enabled") else None)
+            direct = handle_command(self._last_user_text(), instance)
+            if direct is not None:
+                self.signals.chunk.emit(direct)
+                return direct
+
         # Explicit module-build requests from Chat, Coding Workspace, Workshop or
         # Self-Improvement Workshop enter Module Factory mode deterministically. This
         # prevents the local model from narrating fake tool calls instead of writing
