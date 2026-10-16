@@ -240,6 +240,10 @@ class ChatTask(QRunnable):
         if action is None:
             return None
         mode, choice = action
+        if self.module_manager is None or getattr(self.module_manager, "base_dir", None) is None:
+            result = "Apollo's Foundry workspace is unavailable; no growth project was started."
+            self.signals.chunk.emit(result)
+            return result
         mission = GrowthMissionStore(self._growth_root())
         try:
             if mode == "begin":
@@ -314,6 +318,8 @@ class ChatTask(QRunnable):
         # A real selectable project offer is persisted. Permission is still
         # REQUIRED in the user's next command before any work is started.
         try:
+            if self.module_manager is None or getattr(self.module_manager, "base_dir", None) is None:
+                raise RuntimeError("Foundry workspace unavailable")
             mission = GrowthMissionStore(self._growth_root())
             try:
                 offer = mission.offer()
