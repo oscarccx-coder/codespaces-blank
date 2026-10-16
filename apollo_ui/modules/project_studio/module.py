@@ -1342,6 +1342,10 @@ class Module:
             try:
                 self.store.review_task(tid, approved, feedback)
                 feed("Review: " + ("Accepted " if approved else "Changes requested for ") + "task " + str(tid) + ".")
+                if not approved and auto["continuous"]:
+                    auto["started"].discard(tid)
+                    if not auto["paused"] and not active_jobs:
+                        QTimer.singleShot(0, advance_auto)
                 refresh_details()
             except (ValueError, KeyError) as exc:
                 alert(exc)
@@ -1355,6 +1359,10 @@ class Module:
                 return
             try:
                 self.store.reopen_task(tid, reason)
+                if auto["continuous"]:
+                    auto["started"].discard(tid)
+                    if not auto["paused"] and not active_jobs:
+                        QTimer.singleShot(0, advance_auto)
                 refresh_details()
             except (ValueError, KeyError) as exc:
                 alert(exc)
