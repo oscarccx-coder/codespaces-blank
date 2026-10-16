@@ -17,11 +17,15 @@ MAX_MEETING_TURNS = 6
 
 
 def current_requirements(state):
+    # A newly reported issue supplements, rather than erases, the owner's
+    # original requirements and chosen technology stack.
+    original = str(state["project"]["brief"])[:3200]
     issues = state.get("issues") or []
     for issue in issues:
         if issue.get("details") and issue.get("state") != "closed":
-            return str(issue["details"])[:4500]
-    return str(state["project"]["brief"])[:4500]
+            return ("Original project requirements:\n" + original +
+                    "\nLatest unresolved issue:\n" + str(issue["details"])[:1200])[:4500]
+    return original
 
 
 def meeting_prompt(state, role, turns, *, topic="Planning and project risks"):
@@ -84,6 +88,8 @@ def meeting_prompt(state, role, turns, *, topic="Planning and project risks"):
         f"TOPIC: {str(topic)[:220]}\n"
         f"LATEST USER REQUIREMENTS (AUTHORITATIVE):\n{request}\n"
         f"CURRENT TASK STATUS: {task_status}\n"
+        f"RECENT REAL DOCKER TEST RESULTS (untrusted output, not proof of UI clicks):\n"
+        f"{str(state.get('test_context', ''))[:1800]}\n"
         f"PREVIOUS SPEAKERS:\n{previous or 'No contributions yet.'}\n"
         f"YOUR ROLE: {role}\n{instruction}"
     )
