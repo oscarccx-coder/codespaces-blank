@@ -483,7 +483,8 @@ class MissionService:
     def tick(self):
         """Complete one bounded research pass. Callable from deterministic tests."""
         self.store.finalize_stops()
-        if self._shutdown.is_set():
+        if self._shutdown.is_set() or self.executor is None:
+            # Never burn through pending missions while the Tool Manager loads.
             return None
         item=self.store.pick()
         if item is None:
