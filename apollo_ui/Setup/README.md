@@ -6,7 +6,7 @@
 |---|---|
 | `01_INSTALL_APOLLO.bat` | Install/repair core requirements, then open setup |
 | `02_START_APOLLO.bat` | Launch Apollo |
-| `03_UPDATE_APOLLO.bat` | Pull code changes in a clean Git checkout only |
+| `03_UPDATE_APOLLO.bat` | Safely fast-forward a clean local Git checkout from `origin/main` only; `--check` is read-only |
 | `04_REPAIR_VOICE.bat` | Install/repair optional XTTS Python runtime |
 | `05_DIAGNOSE.bat` | Check Ollama, XTTS model files, packages and isolated XTTS imports |
 | `06_BACKUP.bat` | Create a local, unencrypted data backup ZIP |
@@ -17,6 +17,7 @@
 | `14_INSTALL_DOCKER_DESKTOP.bat` | Optional, explicitly confirmed official Docker Desktop installation using winget; complete WSL 2 / Docker first-run setup manually |
 | `15_CHECK_FOUNDRY_PREREQUISITES.bat` | Read-only check for Python, PySide6, Ollama coding model, Docker image, WSL and available Windows disk space |
 | `17_CHECK_XTTS_GPU.bat` | Read-only XTTS GPU diagnostic for Apollo's own Python, PyTorch CUDA availability and RTX CUDA execution |
+| `18_TEST_APOLLO_UPDATER.bat` | **Read-only installer self-test:** verify main-branch Git preflight and execute disposable offline Git/Ed25519 signed-update/rollback regressions in Apollo's private Python environment |
 | `16_INSTALL_FOUNDRY_SCIENCE.bat` | Optional, owner-confirmed SymPy and Matplotlib installation inside Apollo's private virtualenv for trusted local app previews |
 | `10_SETUP_WIZARD.bat` | Open the setup wizard directly |
 | `12_SETUP_RELEASE_SIGNING.bat` | Generate/reuse a persistent signing identity OFFLINE, display its public fingerprint, and guide first secure release setup (no automatic GitHub secret upload or key trust) |
@@ -53,3 +54,5 @@ Adjust the Apollo location to your installation. Keep the Command Prompt open to
 If you see **Docker CLI found but engine unavailable**, open Docker Desktop and check the WSL 2/backend status, virtualization and available disk space. If you see **not running Linux containers**, change Docker Desktop's container mode. If `winget` is missing, use Docker's official Windows installer, then run the sandbox image setup separately.
 
 The noninteractive Windows CI smoke tests mock Docker; they **never install Docker or pull/build a live image**. A real installation still requires testing on the owner's PC.
+
+**Updater self-test:** Double-click `18_TEST_APOLLO_UPDATER.bat`. It does **not** pull, install, upgrade models, create external accounts or change live Apollo code. It prints a check result, then runs offline signed-release and disposable Git regression tests using private Python. Failure logs are preserved under `%TEMP%\Apollo_Updater_Self_Test.log`. If the folder isn't a clean `main` Git checkout, the preflight correctly reports a warning. Fix checkout issues before attempting a real source update. CI uses `--tests-only` because pull request checkouts intentionally have detached HEAD.

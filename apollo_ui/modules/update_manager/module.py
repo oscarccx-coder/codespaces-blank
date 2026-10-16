@@ -297,7 +297,10 @@ class Module:
             result = self.service.launch_installer(restart=True)
             pretty(result)
             if result.get("ok"):
-                progress.setText("Installer launched. Closing Apollo to permit the update and restart.")
+                progress.setText(
+                    "Installer launched. Closing Apollo to permit the update and restart. "
+                    "Result log: " + str(result.get("installer_log") or "not available")
+                )
                 if window is not None:
                     QTimer.singleShot(150, window.close)
                 else:
@@ -404,7 +407,14 @@ class Module:
                 return
             git_process.setWorkingDirectory(str(checkout))
             git_process.setProgram("cmd.exe")
-            git_process.setArguments(["/d", "/c", str(script)])
+            # QProcess quotes every normal argument for CreateProcessW. That
+            # extra quoting breaks cmd.exe /c when the BAT path has spaces.
+            # Native arguments express exactly: /d /s /c ""path" --no-pause"
+            # Windows forbids literal quotes in filesystem path components.
+            git_process.setArguments([])
+            git_process.setNativeArguments(
+                '/d /s /c ""' + str(script) + '" --no-pause"'
+            )
             git_process.start()
             if not git_process.waitForStarted(1500):
                 set_busy(False)
@@ -449,7 +459,7 @@ class Module:
                         raise FileNotFoundError(str(launcher))
                     if window is None:
                         raise RuntimeError("Apollo main window is unavailable.")
-                    subprocess.Popen(["cmd.exe", "/c", str(launcher)], cwd=str(self.base),
+                    subprocess.Popen(["cmd.exe", "/d", "/s", "/c", f'call "{launcher}"'], cwd=str(self.base),
                                      creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
                     QTimer.singleShot(200, window.close)
                 except (OSError, RuntimeError) as exc:

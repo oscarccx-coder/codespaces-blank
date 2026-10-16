@@ -9,7 +9,7 @@ import sys
 import time
 
 from apollo_storage import StorageLayout
-from apollo_update import sha256_file, verify_manifest_signature
+from apollo_update import sha256_file, verify_manifest_signature, updater_python
 
 
 PROTECTED_TOP_LEVEL = {"storage", "workspace", "pending_modules", "config.json", "Audio", "models", "venv", ".venv", ".venv-pi", ".git"}
@@ -186,11 +186,6 @@ def apply_update(target, stage, restart=False, wait_pid=None):
             "health": health.stdout[-4000:],
         }, indent=2) + "\n", encoding="utf-8")
 
-        if restart:
-            launcher = target / "launch_apollo.pyw"
-            subprocess.Popen([sys.executable, str(launcher)], cwd=str(target), close_fds=True)
-        return {"ok": True, "version": version, "backup": str(backup)}
-
     except Exception as exc:
         rollback_errors = []
         for rel_text in transaction["created"]:
@@ -222,6 +217,27 @@ def apply_update(target, stage, restart=False, wait_pid=None):
             "transaction": transaction, "backup": str(backup),
         }, indent=2) + "\n", encoding="utf-8")
         return {"ok": False, "stage": "rollback", "error": f"{type(exc).__name__}: {exc}", "restored": not rollback_errors, "rollback_errors": rollback_errors}
+
+    # The signed source is already installed and health-checked. Relaunching
+    # the UI is a SEPARATE best-effort action, never a reason to restore code.
+    result = {"ok": True, "version": version, "backup": str(backup),
+              "restart_started": False}
+    if restart:
+        try:
+            launcher = target / "launch_apollo.pyw"
+            if not launcher.is_file():
+                raise FileNotFoundError(f"Apollo launcher not found: {launcher}")
+            python_executable = updater_python(target)
+            subprocess.Popen(
+                [python_executable, str(launcher)], cwd=str(target), close_fds=True,
+            )
+            result["restart_started"] = True
+        except (OSError, RuntimeError) as exc:
+            result["restart_error"] = (
+                f"Update installed successfully, but Apollo did not restart: "
+                f"{type(exc).__name__}: {exc}. Start Apollo manually."
+            )
+    return result
 
 
 if __name__ == "__main__":
