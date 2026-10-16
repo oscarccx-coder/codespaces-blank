@@ -31,6 +31,11 @@ class Module:
              "parameters": {"type": "object", "properties": {}}},
             {"name": "app_project_status", "description": "Read tasks, subtasks and issues for one project.",
              "parameters": {"type": "object", "properties": {"project_id": integer}, "required": ["project_id"]}},
+            {"name": "app_project_brief",
+             "description": "Have Foundry's Interpreter assess a whole project in plain language: task progress, actual code and Docker test evidence, blockers, worker discussion and decisions needed. Read-only and no generated code execution.",
+             "parameters": {"type": "object", "properties": {
+                 "project_id": integer,
+             }, "required": ["project_id"]}},
             {"name": "queue_app_change",
              "description": "Queue a requested project change as a reviewable task. Requires exact project ID. Never edits or runs code.",
              "parameters": {"type": "object", "properties": {
@@ -46,6 +51,8 @@ class Module:
             return {"projects": self.store.list_projects()}
         if action == "app_project_status":
             return self.store.details(args["project_id"])
+        if action == "app_project_brief":
+            return self.store.brief_project(args["project_id"], save=False)
         if action == "queue_app_change":
             return self.store.request_change(
                 args["project_id"], args["request"], args.get("task_id")
@@ -476,6 +483,28 @@ class Module:
         timeline.setReadOnly(True)
         history_layout.addWidget(timeline)
         tabs.addTab(history_tab, "History")
+
+        # The Interpreter reads real project records rather than trusting a
+        # model-generated closing statement. It cannot execute or approve code.
+        interpreter_tab = QWidget()
+        interpreter_layout = QVBoxLayout(interpreter_tab)
+        interpreter_intro = QLabel(
+            "Interpreter: explains the whole project, real test evidence, team discussions "
+            "and what requires your decision. Works offline without an LLM.")
+        interpreter_intro.setWordWrap(True)
+        interpreter_layout.addWidget(interpreter_intro)
+        interpreter_generate = QPushButton("Assess Project & Brief Me")
+        interpreter_generate.setObjectName("foundryInterpreterAssess")
+        interpreter_layout.addWidget(interpreter_generate)
+        interpreter_text = QPlainTextEdit()
+        interpreter_text.setObjectName("foundryInterpreterBrief")
+        interpreter_text.setReadOnly(True)
+        interpreter_text.setAccessibleName("Plain-language project assessment, evidence and decisions")
+        interpreter_text.setPlaceholderText(
+            "Select a project and request a brief. Stopping a continuous session "
+            "also generates a dated briefing.")
+        interpreter_layout.addWidget(interpreter_text, 1)
+        tabs.addTab(interpreter_tab, "Interpreter")
         tabs.tabBar().moveTab(tabs.indexOf(flow_tab), 0)
         tabs.tabBar().moveTab(tabs.indexOf(tasks_tab), 1)
         tabs.tabBar().moveTab(tabs.indexOf(checks_tab), 2)
@@ -509,6 +538,23 @@ class Module:
             "retry_pending": None, "idle_announced": False,
             "planned": False, "planning": False,
         }
+
+        def generate_interpreter_brief(pid, *, purpose="requested"):
+            if pid is None:
+                return
+            from apollo_foundry_interpreter import format_brief
+            try:
+                report = self.store.brief_project(
+                    pid, purpose=purpose, active_operations=len(active_jobs),
+                    save=True)
+                interpreter_text.setPlainText(format_brief(report))
+                tabs.setCurrentWidget(interpreter_tab)
+                feed("Interpreter: Project assessed from stored tasks, live static "
+                     "checks and source-matched Docker evidence. Human review remains required.")
+            except (OSError, ValueError, KeyError, UnicodeError) as exc:
+                feed("Interpreter: Could not complete a trustworthy brief: " +
+                     str(exc)[:220])
+                alert("Interpreter unavailable: " + str(exc)[:250])
 
         def update_session_status():
             if not auto["continuous"]:
@@ -714,6 +760,8 @@ class Module:
                 result_text.clear()
                 team_transcript.clear()
                 worker_scorecard.clear()
+                interpreter_text.clear()
+                interpreter_generate.setEnabled(False)
                 meeting_status.setText("No project selected.")
                 team_flow.update_flow(flow_snapshot({"tasks": []}))
                 team_meeting_btn.setEnabled(False)
@@ -723,6 +771,17 @@ class Module:
                 return
             state = self.store.details(pid)
             project = state["project"]
+            interpreter_generate.setEnabled(True)
+            latest_brief = self.store.latest_project_brief(pid)
+            if latest_brief:
+                from apollo_foundry_interpreter import format_brief
+                interpreter_text.setPlainText(
+                    "Saved snapshot from " + str(latest_brief["created_at"]) +
+                    " (press Assess to refresh live evidence).\n\n" +
+                    format_brief(latest_brief))
+            else:
+                interpreter_text.setPlainText(
+                    "No Interpreter briefing saved. Use Assess Project & Brief Me.")
             metrics = project_metrics(state)
             project_heading.setText(f"{project['title']}  ·  {project['state'].title()}")
             path_label.setText("Saved locally: workspace/app_development/" + project["folder"])
@@ -1283,6 +1342,7 @@ class Module:
 
         def stop_continuous_action():
             if auto["continuous"]:
+                stopped_project = auto["project"]
                 auto.update({
                     "continuous": False, "paused": False, "project": None,
                     "waiting": False, "poll_token": auto["poll_token"] + 1,
@@ -1298,6 +1358,9 @@ class Module:
                         pass
                 feed("Owner: Session stopped. Current operation may finish, but no more work will start.")
                 update_session_status()
+                # This is a snapshot: if a job is still running the report
+                # explicitly flags it and can be refreshed when the job ends.
+                generate_interpreter_brief(stopped_project, purpose="session-stopped")
 
         def retry_generation(tid, problem):
             pid = auto["project"]
@@ -1994,9 +2057,11 @@ class Module:
             ) != QMessageBox.Yes:
                 return
             stop_continuous_action()
-            tabs.setCurrentWidget(tasks_tab)
-            feed("Owner: Ready to review. Approve individual drafts only after inspecting their evidence.")
+            tabs.setCurrentWidget(interpreter_tab)
+            feed("Owner: Interpreter briefing is ready. Review evidence before approving any draft.")
 
+        interpreter_generate.clicked.connect(
+            lambda: generate_interpreter_brief(project_id()))
         continuous_start.clicked.connect(start_continuous_action)
         continuous_pause.clicked.connect(pause_continuous_action)
         continuous_resume.clicked.connect(resume_continuous_action)
