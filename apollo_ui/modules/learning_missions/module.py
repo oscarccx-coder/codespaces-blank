@@ -74,8 +74,12 @@ class Module:
                             manager=self._manager())
 
     def close(self):
+        # Disabling/unloading Learning Missions must stop scheduling new web
+        # research even if Mission Control or Research Library remain loaded.
+        # In-flight fetches may finish; saved RUNNING consent is re-evaluated
+        # on the next explicitly enabled launch. Closing does NOT mark STOPPED.
+        self.service.shutdown()
         if self.validation:
-            self.service.shutdown()
             self.service.store.close()
             if self.service._temp:
                 self.service._temp.cleanup()
