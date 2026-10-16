@@ -231,6 +231,22 @@ class Module:
         quick_actions.addWidget(QLabel("Select a project to add a change, or create a new one."))
         right_layout.addLayout(quick_actions)
         right_layout.addWidget(research_toggle)
+        session_controls = QHBoxLayout()
+        continuous_start = QPushButton("Start Continuous Build")
+        continuous_start.setObjectName("foundryContinuousStart")
+        continuous_pause = QPushButton("Pause")
+        continuous_pause.setObjectName("foundryContinuousPause")
+        continuous_resume = QPushButton("Resume")
+        continuous_resume.setObjectName("foundryContinuousResume")
+        continuous_stop = QPushButton("Stop")
+        continuous_stop.setObjectName("foundryContinuousStop")
+        for control in (continuous_start, continuous_pause, continuous_resume, continuous_stop):
+            session_controls.addWidget(control)
+        right_layout.addLayout(session_controls)
+        session_status = QLabel("Continuous mode: off. Docker tests require one explicit session approval.")
+        session_status.setObjectName("foundryContinuousStatus")
+        session_status.setWordWrap(True)
+        right_layout.addWidget(session_status)
         worker_feed = QPlainTextEdit()
         worker_feed.setReadOnly(True)
         worker_feed.setMaximumHeight(230)
@@ -446,7 +462,37 @@ class Module:
 
         active_jobs = []
         meeting_queue = {"pid": None, "auto_continue": False}
-        auto = {"project": None, "remaining": 0, "started": set(), "attempts": {}}
+        auto = {
+            "project": None, "remaining": 0, "started": set(), "attempts": {},
+            "continuous": False, "paused": False, "testing": False,
+            "meeting_after": 5, "since_meeting": 0, "repair_count": 0,
+            "waiting": False, "sandbox_stage": None,
+        }
+
+        def update_session_status():
+            if not auto["continuous"]:
+                session_status.setText("Continuous mode: off. No background work is scheduled.")
+            elif auto["paused"]:
+                session_status.setText("Continuous mode: PAUSED. Current operation may finish; no new work will start.")
+            elif auto["waiting"]:
+                session_status.setText("Continuous mode: WAITING for new tasks or your review. Session remains active.")
+            else:
+                session_status.setText("Continuous mode: RUNNING. Automatic Docker tests and team meetings enabled.")
+            running = auto["continuous"]
+            continuous_start.setEnabled(not running and not active_jobs)
+            continuous_pause.setEnabled(running and not auto["paused"])
+            continuous_resume.setEnabled(running and auto["paused"])
+            continuous_stop.setEnabled(running)
+
+        def continuous_poll():
+            if not auto["continuous"] or auto["paused"]:
+                return
+            if auto["waiting"] and not active_jobs:
+                auto["waiting"] = False
+                QTimer.singleShot(0, advance_auto)
+            if auto["continuous"] and not auto["paused"]:
+                QTimer.singleShot(30000, continuous_poll)
+
         for button, tip in (
             (change_request, "Request a change for this task, or the whole project if no task is selected."),
             (plan_subtasks, "Ask the local AI manager to propose editable subtasks. Nothing is queued until you approve."),
@@ -462,6 +508,10 @@ class Module:
             (sandbox_unit, "Run project's unittest discovery inside a locked-down Docker container."),
             (sandbox_gui, "Start launch.py in a PySide6 Docker image and check for early startup failure; no GUI interactions are verified."),
             (sandbox_fix, "Queue failures from the last sandbox run as a human-reviewable fix task."),
+            (continuous_start, "Start an owner-approved session: sequential coding, team meetings and Docker tests; no host execution or automatic approval."),
+            (continuous_pause, "Pause new work after the current Ollama/Docker operation finishes."),
+            (continuous_resume, "Resume a paused session without repeating setup authorization."),
+            (continuous_stop, "Stop the session after its current operation; keep project files and test history."),
             (preview_launch, "Open the generated app in a separate Windows window, only after explicit informed consent. NOT sandboxed."),
             (preview_stop, "Stop the local preview process; Apollo itself stays open."),
         ):
@@ -523,6 +573,7 @@ class Module:
                                 starter_btn, run_checks_btn, fix_checks_btn, show_folder_btn,
                                 sandbox_unit, sandbox_gui, sandbox_fix, preview_launch):
                     control.setEnabled(False)
+                update_session_status()
                 return
             state = project_state if project_state is not None else self.store.details(pid)
             selected_task = next((t for t in state["tasks"] if t["id"] == task_id()), None)
@@ -546,6 +597,7 @@ class Module:
                 not active_jobs and preview_process.state() == QProcess.ProcessState.NotRunning
             )
             preview_stop.setEnabled(preview_process.state() != QProcess.ProcessState.NotRunning)
+            update_session_status()
             sandbox_runs = self.store.sandbox_history(pid, 1)
             sandbox_fix.setEnabled(
                 state["project"]["state"] != "approved"
