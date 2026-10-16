@@ -17,7 +17,7 @@ import time
 
 PYTHON_IMAGE = "python:3.13-slim"
 QT_IMAGE = "apollo-foundry-qt:phase1"
-SANDBOX_KINDS = {"unit": QT_IMAGE, "gui": QT_IMAGE}
+SANDBOX_KINDS = {"unit": QT_IMAGE, "ui": QT_IMAGE, "gui": QT_IMAGE}
 MAX_FILE_COUNT = 100
 MAX_FILE_BYTES = 512 * 1024
 MAX_TOTAL_BYTES = 5 * 1024 * 1024
@@ -25,7 +25,7 @@ ALLOWED_EXTENSIONS = {".py", ".json", ".toml", ".txt", ".md", ".yaml", ".yml", "
 SKIP_DIRS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", "node_modules", ".mypy_cache", "storage", "secrets"}
 OUTPUT_LIMIT = 15000
 MAX_LOG_BYTES = 256 * 1024
-RUN_TIMEOUTS = {"unit": 45, "gui": 18}
+RUN_TIMEOUTS = {"unit": 45, "ui": 25, "gui": 18}
 
 # Only launch.py from the private project snapshot is started, by the Docker image.
 # A process that remains alive for 3 seconds passes the *startup survival*
@@ -52,6 +52,53 @@ finally:
             p.communicate()
 """
 
+
+# Executed ONLY as python -c INSIDE the locked-down Docker container.
+# Tests actual Qt signals -> handlers -> backend calls from foundry.json.
+_UI_INTERACTION = r"""
+import importlib, json, sys
+from pathlib import Path
+from PySide6.QtWidgets import QApplication
+contract = json.loads(Path('foundry.json').read_text(encoding='utf-8'))
+ui = contract['ui']
+bindings = ui['bindings']
+if not bindings:
+    raise AssertionError('No UI interactions declared in foundry.json')
+app = QApplication.instance() or QApplication([])
+for binding in bindings:
+    if binding['signal'] not in ('clicked', 'triggered', 'returnPressed'):
+        raise AssertionError('Unsupported automatic signal: ' + binding['signal'])
+    backend_module = importlib.import_module(Path(binding['backend_file']).stem)
+    backend = getattr(backend_module, binding['backend_class'])()
+    method = binding['backend_method']
+    original = getattr(backend, method)
+    calls = []
+    def spy(*args, _original=original, _calls=calls, **kwargs):
+        _calls.append((args, kwargs))
+        return _original(*args, **kwargs)
+    setattr(backend, method, spy)
+    ui_module = importlib.import_module(Path(ui['file']).stem)
+    window = getattr(ui_module, ui['class'])(backend)
+    try:
+        window.show()
+        app.processEvents()
+        if getattr(window, binding['backend_attribute']) is not backend:
+            raise AssertionError('UI did not attach the injected backend')
+        widget = getattr(window, binding['widget'])
+        if binding['signal'] == 'clicked' and hasattr(widget, 'click'):
+            widget.click()
+        else:
+            getattr(widget, binding['signal']).emit()
+        app.processEvents()
+        if not calls:
+            raise AssertionError('UI interaction did not call backend: ' + method)
+        print('UI INTERACTION PASSED:', binding['widget'], binding['signal'], method)
+    finally:
+        window.close()
+if not bindings:
+    raise AssertionError('No interactions checked')
+print('UI INTERACTION COUNT:', len(bindings))
+"""
 
 class SandboxUnavailable(RuntimeError):
     pass
@@ -165,6 +212,8 @@ def _container_args(binary, container_name, snapshot, kind):
     ]
     if kind == "unit":
         args.extend(["python", "-B", "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"])
+    elif kind == "ui":
+        args.extend(["python", "-B", "-c", _UI_INTERACTION])
     else:
         args.extend(["python", "-B", "-c", _GUI_SMOKE])
     return args
@@ -258,6 +307,9 @@ def run_sandbox(project_folder, kind, *, docker_bin=None):
         return {**base, "status": "incomplete", "reason": "Add a tests/ folder with test_*.py files."}
     if kind == "unit" and not any((src / "tests").rglob("test_*.py")):
         return {**base, "status": "incomplete", "reason": "No tests/test_*.py files found; refusing false-green zero-test run."}
+    if kind == "ui" and not (src / "foundry.json").is_file():
+        return {**base, "status": "incomplete",
+                "reason": "Add foundry.json with declared UI/backend signal bindings."}
     if kind == "gui" and not (src / "launch.py").is_file():
         return {**base, "status": "incomplete", "reason": "Add launch.py to start the app GUI."}
 
@@ -289,6 +341,7 @@ def run_sandbox(project_folder, kind, *, docker_bin=None):
             return {
                 **base, "status": status, "reason": reason,
                 "source_digest": source_digest,
+                "passed_ui_interactions": kind == "ui" and status == "passed",
                 "executed_project_code": code not in (125, 126, 127)
                 and (code is not None or proc["timeout"] or proc["overflow"]),
                 "output": proc["output"],
