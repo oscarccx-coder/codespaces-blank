@@ -30,3 +30,25 @@ The main launch, installer and repair files remain in `apollo_ui/` as **compatib
 **XTTS:** dependency reinstall can be several GB and may need CUDA and FFmpeg. Existing voice profiles and model weights are not automatically erased. If the clean XTTS installer reached 10/10 and failed saving `settings.json`, use `11_FINISH_XTTS_SETUP.bat` after updating the code. It checks the existing model and writes settings without rerunning heavy dependency installs.
 
 **Raspberry Pi 5:** Use `pi/install_pi.sh` from a Linux terminal instead of Windows .bat files. Its headless service has separate requirements and no Windows GUI.
+
+## Docker and Foundry sandbox installers that disappear on double-click
+
+The Docker Desktop installer (\`14_INSTALL_DOCKER_DESKTOP.bat\`) and the Foundry sandbox image setup (\`09_SETUP_FOUNDRY_SANDBOX.bat\`) now display a final result and **wait for a keypress** even when an error occurs. Neither should close immediately on a missing Docker CLI, an unavailable engine or a failed image build.
+
+Run \`14_INSTALL_DOCKER_DESKTOP.bat\` first if Docker is not installed. It asks before invoking the official \`winget install\` command. After Docker Desktop is installed, finish first-run setup, start its engine and select Linux containers. Then run \`09_SETUP_FOUNDRY_SANDBOX.bat\` and approve the initial test-image build. Installing Docker Desktop alone does not build Apollo's test image.
+
+Both batches support a read-only \`--check\` argument for diagnostics (no install/build/approval prompts), plus \`--no-pause\` for already-attached terminals. The sandbox check additionally verifies that \`apollo-foundry-qt:phase1\` is present.
+
+For an error that occurs *before* a window can display, use Command Prompt rather than double-clicking:
+
+\`\`\`bat
+cd /d "F:\Apollo\apollo 1\apollo_ui"
+call "Setup\14_INSTALL_DOCKER_DESKTOP.bat"
+call "Setup\09_SETUP_FOUNDRY_SANDBOX.bat"
+\`\`\`
+
+Adjust the Apollo location to your installation. Keep the Command Prompt open to read actual Docker and \`winget\` errors. Local summary logs are written to \`%TEMP%\Apollo_Docker_Desktop_Setup.log\` and \`%TEMP%\Apollo_Foundry_Sandbox_Setup.log\`.
+
+If you see **Docker CLI found but engine unavailable**, open Docker Desktop and check the WSL 2/backend status, virtualization and available disk space. If you see **not running Linux containers**, change Docker Desktop's container mode. If \`winget\` is missing, use Docker's official Windows installer, then run the sandbox image setup separately.
+
+The noninteractive Windows CI smoke tests mock Docker; they **never install Docker or pull/build a live image**. A real installation still requires testing on the owner's PC.
