@@ -89,6 +89,15 @@ class StudioStore:
             created_at TEXT NOT NULL,
             FOREIGN KEY(project_id) REFERENCES projects(id)
         );
+        CREATE TABLE IF NOT EXISTS coding_evaluations(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL, kind TEXT NOT NULL,
+            status TEXT NOT NULL, source_digest TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_foundry_coding_progress
+            ON coding_evaluations(project_id, id);
         CREATE TABLE IF NOT EXISTS meetings(
             id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL,
             topic TEXT NOT NULL, turns TEXT NOT NULL, decisions TEXT NOT NULL,
@@ -202,7 +211,27 @@ class StudioStore:
         with self.lock:
             state = self.details(project_id)
             state["source_context"] = read_workspace_context(self.project_folder(project_id))
+            state["coding_learning_context"] = self.coding_progress()["worker_guidance"]
             return state
+
+    def coding_progress(self, project_id=None):
+        """Read only structured Docker evaluation evidence; use across app projects."""
+        from apollo_foundry_learning import summarize_coding_progress
+        with self.lock:
+            if project_id is not None:
+                self._project(project_id)
+                records = self.conn.execute(
+                    "SELECT kind,status,source_digest FROM coding_evaluations "
+                    "WHERE project_id=? ORDER BY id ASC LIMIT 4000", (int(project_id),)
+                ).fetchall()
+            else:
+                records = self.conn.execute(
+                    "SELECT kind,status,source_digest FROM coding_evaluations "
+                    "ORDER BY id ASC LIMIT 4000"
+                ).fetchall()
+            result = summarize_coding_progress(records)
+            result["scope"] = "project" if project_id is not None else "all-projects"
+            return result
 
     def _event(self, project_id, task_id, kind, detail):
         self.conn.execute(
@@ -734,6 +763,14 @@ class StudioStore:
                 "INSERT INTO test_runs(project_id,status,kind,report,created_at) VALUES(?,?,?,?,?)",
                 (project["id"], report["status"], report["kind"],
                  json.dumps(report, ensure_ascii=False), utcnow()),
+            )
+            from apollo_foundry_learning import evidence_row
+            observed = evidence_row(report)
+            self.conn.execute(
+                "INSERT INTO coding_evaluations(project_id,kind,status,source_digest,created_at) "
+                "VALUES(?,?,?,?,?)",
+                (project["id"], observed["kind"], observed["status"],
+                 observed["source_digest"], utcnow())
             )
             self._event(project["id"], None, "sandbox",
                         f"Docker {kind} test: {report['status']} (report saved)")
