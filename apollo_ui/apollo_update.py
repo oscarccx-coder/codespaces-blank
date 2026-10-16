@@ -415,10 +415,19 @@ class UpdateService:
         ]
         if restart:
             args.append("--restart")
+        # The GUI closes while the external installer runs. Preserve all
+        # errors and the final JSON result instead of dropping its stdout.
+        log_path = self.logs_dir / f"installer-{uuid.uuid4().hex[:12]}.log"
         try:
-            process = subprocess.Popen(args, cwd=str(self.base), close_fds=True)
+            with log_path.open("ab") as output:
+                process = subprocess.Popen(
+                    args, cwd=str(self.base), close_fds=True,
+                    stdout=output, stderr=subprocess.STDOUT,
+                )
         except OSError as exc:
             return {"ok": False, "installer_started": False,
-                    "error": f"Could not launch external updater: {type(exc).__name__}: {exc}"}
+                    "error": f"Could not launch external updater: {type(exc).__name__}: {exc}",
+                    "installer_log": str(log_path)}
         return {"ok": True, "version": manifest.get("version"),
-                "installer_started": True, "installer_pid": process.pid}
+                "installer_started": True, "installer_pid": process.pid,
+                "installer_log": str(log_path)}
