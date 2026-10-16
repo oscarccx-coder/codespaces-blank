@@ -20,3 +20,12 @@
 - Python/PySide6 is the runnable app format today. Generic JavaScript/HTML/electron project support would require separate test images and controls.
 - Continuous agents still stop when the Apollo UI exits. Durable cross-restart missions remain separate engineering work.
 - Remote CI is required before merging and actual Ollama/Docker Desktop testing on the Windows workstation remains necessary.
+
+## Coding intelligence progression
+- A new read-only coding skill summary uses the real SQLite records created after Foundry Docker tests. Results only qualify as checked if the code actually executed and the report includes a valid source SHA-256 fingerprint.
+- Skills currently measured: Python unit-test correctness, PySide6 UI-to-backend signal wiring, and Qt startup stability. Failed, timed-out and unavailable runs are not silently treated as successes.
+- Repairs count only when a subsequent passing result uses **different** source from an immediately preceding failure of that check. Retesting unchanged code does not demonstrate a coding improvement.
+- Across projects, Foundry suggests the next targeted programming exercise and shares bounded, deterministic skill feedback with local Ollama implementer prompts. Generated project source and raw test logs are not placed into the skill ledger.
+- Chat can call \`app_coding_progress\` to view evidence, or \`create_coding_practice\` to create a reviewable application practice project. The latter queues tasks; it does **not** run code or launch an autonomous mission.
+- Foundry's History tab displays the evidence-based coding skill scorecard and next exercise.
+- These changes implement **workflow learning** through testing, memory and practice selection. They do not update Ollama model weights or establish a general increase in intelligence. Fine-tuning will require an approved dataset, held-out benchmarks, suitable hardware and reproducible evaluation.
