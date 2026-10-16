@@ -61,6 +61,15 @@ class WindowsSetupTests(unittest.TestCase):
         for name in RETIRED_WINDOWS_LAUNCHERS:
             self.assertEqual(str(safe_relative(name)), name)
 
+    def test_optional_foundry_science_installs_only_in_venv_after_consent(self):
+        script = read("Setup/16_INSTALL_FOUNDRY_SCIENCE.bat")
+        self.assertIn("choice /C YN", script)
+        self.assertIn(".venv", script)
+        self.assertIn("sys.prefix != sys.base_prefix", script)
+        self.assertLess(script.index("choice /C YN"), script.index("-m pip install"))
+        self.assertIn("--only-binary=:all:", script)
+        self.assertNotIn("pip install --user", script)
+
     def test_foundry_preflight_is_read_only_and_uses_venv(self):
         script = read("Setup/15_CHECK_FOUNDRY_PREREQUISITES.bat")
         self.assertIn(".venv\\Scripts\\python.exe", script)
