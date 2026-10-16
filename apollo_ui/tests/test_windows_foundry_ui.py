@@ -93,32 +93,18 @@ class FoundryWindowTests(unittest.TestCase):
         view.repaint()
 
     def test_auto_build_prioritizes_implementation_source(self):
-        from PySide6.QtWidgets import QPushButton
-        from modules.project_studio.module import Module
-        from apollo_project_workers import model_from_config
+        # Inspect the actual UI scheduling closure without starting a model,
+        # process or Qt background worker.
+        import inspect
+        import modules.project_studio.module as foundry_ui
 
-        module = Module({"base_dir": self.base})
-        self.addCleanup(module.close)
-        state = module.store.add_project("Working calculator", "Create a runnable Python calculator")
-        pid = state["project"]["id"]
-        panel = module.build_ui()
-        self.addCleanup(panel.close)
-        buttons = {button.text(): button for button in panel.findChildren(QPushButton)}
-        # The auto-build scheduler must start the implementer, not write
-        # another architecture essay. Fake only the local model/threadpool.
-        from unittest.mock import MagicMock
-        with patch("modules.project_studio.module.QThreadPool.globalInstance") as pool:
-            buttons["Plan My Project"].setEnabled(False)  # no external model call
-            # Exercise the source priority through static contract to avoid
-            # calling Qt closures or launching the background worker.
-            import inspect
-            import modules.project_studio.module as foundry_ui
-            source = inspect.getsource(foundry_ui.Module.build_ui)
-            self.assertIn('1 if t["role"] == "implementer"', source)
-            self.assertIn('self.store.start_task(task["id"])', source)
-            self.assertLess(source.index('self.store.start_task(task["id"])'),
-                            source.index('self.store.record_handoff(pid, "manager", task["role"]'))
-            pool.assert_not_called()
+        source = inspect.getsource(foundry_ui.Module.build_ui)
+        self.assertIn('1 if t["role"] == "implementer"', source)
+        self.assertIn('self.store.start_task(task["id"])', source)
+        self.assertLess(
+            source.index('self.store.start_task(task["id"])'),
+            source.index('self.store.record_handoff(pid, "manager", task["role"]')
+        )
 
     def test_local_app_preview_requires_explicit_consent(self):
         from PySide6.QtCore import QProcess
