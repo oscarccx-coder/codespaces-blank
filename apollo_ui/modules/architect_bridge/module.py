@@ -214,10 +214,12 @@ class Module:
         """GUI-only owner action; never expose as an LLM tool."""
         if not approved:
             raise PermissionError("Owner confirmation is required.")
+        # Check draft state before credentials: an already submitted report
+        # must never look resubmittable, even when the token is absent.
+        preview = self.preview(report_id)
         token = os.environ.get("APOLLO_GITHUB_TOKEN", "").strip()
         if not token:
             raise RuntimeError("APOLLO_GITHUB_TOKEN not configured. Draft remains local.")
-        preview = self.preview(report_id)
         body = preview["body"] if body_override is None else clean(body_override, 13500, minimum=60)
         check_public_text(preview["title"] + "\n" + body)
         with self.lock:
