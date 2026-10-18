@@ -2372,6 +2372,13 @@ class ApolloWindow(QMainWindow):
             "create module",
             "add a module",
             "add module",
+            "self-improvement",
+            "self improvement",
+            "improve yourself",
+            "improve apollo",
+            "upgrade apollo",
+            "architect bridge",
+            "architect report",
         )
 
         return any(phrase in lower for phrase in action_phrases)
@@ -3377,6 +3384,23 @@ class ApolloWindow(QMainWindow):
             "Modules page is always required."
         )
         system += personality_instruction(self.config.get("sarcasm_level", 1))
+        if any(phrase in text.lower() for phrase in (
+            "self-improvement", "self improvement", "improve yourself",
+            "improve apollo", "upgrade apollo", "architect bridge",
+            "architect report",
+        )):
+            system += (
+                "\n\nFor Apollo's own self-improvement: consult the "
+                "architect_bridge__architect_directive capability for the full "
+                "ZSS Laboratories goals and evidence rules. When there is "
+                "a concrete improvement and supporting evidence, use "
+                "architect_bridge__architect_propose to save a LOCAL draft "
+                "for owner review. Never claim that a report was published, "
+                "an external AI was contacted, or code was modified unless "
+                "the corresponding real action succeeded. Only the owner "
+                "may approve sending a public GitHub issue, merging or "
+                "deploying changes."
+            )
         if self.pending_learning_events:
             system += (
                 "\n\nApollo's integrated learning layer already completed these "
