@@ -1,0 +1,13 @@
+{
+  "id": "architect_bridge",
+  "name": "Architect Bridge",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Owner-reviewed Apollo self-improvement directive, local proposals, opt-in GitHub issue exchange, and untrusted reply viewer.",
+  "ui": {
+    "enabled": true,
+    "title": "Architect Bridge",
+    "default_placement": "apps"
+  }
+}
