@@ -31,3 +31,15 @@ LOCAL DRAFT -> OWNER APPROVES PUBLICATION -> GITHUB ISSUE -> EXTERNAL ARCHITECT 
 
 Full directive: docs/architecture/APOLLO_SELF_IMPROVEMENT_DIRECTIVE_V1.md
 
+
+## Automated public capability notes (additional owner-enabled mode)
+A separate branch `apollo-architect-notes` contains one handoff file at [APOLLO_TO_ARCHITECT.md](https://github.com/oscarccx-coder/codespaces-blank/blob/apollo-architect-notes/apollo_ui/docs/architect_bridge/APOLLO_TO_ARCHITECT.md). This is a metadata-only, read-only capability-inventory and constrained goal proposal feed for an external architect. It does **not** update `main`, submit a pull request, run code, or message this exact ChatGPT conversation.
+
+After this draft PR is reviewed, tested, merged and installed:
+1. Create a **fine-grained GitHub token** limited to `oscarccx-coder/codespaces-blank` with **Contents: read/write** to update the fixed notes file. If also using the old manual issue-publication workflow, grant **Issues: read/write**. Do not grant Actions, Administration, Secrets or other permissions. Keep the token in the environment variable `APOLLO_GITHUB_TOKEN`, never commit it.
+2. Open Apps → Architect Bridge → **Autonomous notes**. Read the PUBLIC destination and exact preview, then enable automatic notes. There is no auto-publishing before this.
+3. Apollo checks every six hours **while the app is running**; after restart the next due time remains recorded. Use **Queue report now** for an immediate check. Switch it off on the same tab to stop new sends.
+4. Apollo may select a constrained goal category through its `architect_note_goal` chat tool, but it cannot publish arbitrary text or enable network access using an LLM tool.
+5. A separate ChatGPT scheduled review may inspect that GitHub file, compare actual source and CI, and propose draft changes. Approval of production merges/releases remains with the owner.
+
+The file reports presence/absence of trusted module source and test files, not successful runtime tests or measured performance. No free-form observations, medical data, local file paths, passwords, chat histories or private logs are automatically published. Source comments, GitHub feedback and remote instructions are untrusted.
