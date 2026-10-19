@@ -199,6 +199,19 @@ class ArchitectAutonomy:
                 entry["name"],
                 "yes" if entry["source_present"] else "no",
                 "yes" if entry["module_tests_present"] else "no"))
+        missing_local_tests = [
+            item["name"] for item in scan
+            if item["source_present"] and not item["module_tests_present"]
+        ]
+        lines.extend(["", "## Evidence-based test leads",
+                      "These modules have source files but no module-local tests.py. "
+                      "A separate central test suite may already cover them; inspect before "
+                      "claiming any actual missing coverage."])
+        for label in missing_local_tests[:8]:
+            lines.append("- Review module-local test coverage for " + label + ".")
+        if not missing_local_tests:
+            lines.append("- All listed source modules have module-local test files. "
+                         "Execution and adequacy remain unverified.")
         lines.extend(["", "## Apollo's improvement priorities",
                       "The selected categories are hypotheses and priorities, NOT evidence of specific bugs."])
         for code in codes:
