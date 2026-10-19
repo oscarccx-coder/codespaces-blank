@@ -274,6 +274,17 @@ class ArchitectAutonomy:
             self._save(state)
             return {"status": "published", "url": PUBLIC_URL}
 
+    def request_now(self):
+        """Ask the background worker to publish soon; does not block UI."""
+        with self._lock:
+            state = self._load()
+            if not state.get("enabled", False):
+                raise PermissionError("Autonomous publication is disabled.")
+            state["next_due"] = _utc_string()
+            self._save(state)
+        self._wake.set()
+        return {"status": "queued", "target": PUBLIC_URL}
+
     def _loop(self):
         # Bounded daemon, does not block Apollo exit or keep running when Apollo closes.
         while not self._stop.is_set():
