@@ -151,5 +151,86 @@ class ArchitectBridgeTests(unittest.TestCase):
         self.assertIn("UNTRUSTED", detail["comments"][0]["text"])
 
 
+    def test_autonomy_disabled_by_default_and_note_is_category_only(self):
+        a = self.module.autonomy
+        self.assertFalse(a.status()["enabled"])
+        with self.assertRaises(ValueError):
+            a.note_goal("my secret private note")
+        saved = a.note_goal("foundry_tests", 1, "test_missing")
+        self.assertTrue(saved["saved"])
+        content = a.render()
+        self.assertIn("Foundry testing", content)
+        self.assertIn("test missing", content)
+        self.assertNotIn(str(self.base), content)
+        self.assertIn("Not verified", content)
+        self.assertTrue((self.base / "storage" / "state" / "architect_autonomy.json").exists())
+
+    def test_model_cannot_turn_on_or_send_autonomous_report(self):
+        names = {item["name"] for item in self.module.tools()}
+        self.assertIn("architect_note_goal", names)
+        self.assertIn("architect_autonomy_status", names)
+        self.assertNotIn("configure", names)
+        self.assertNotIn("request_now", names)
+        with self.assertRaises(KeyError):
+            self.module.run("configure", {"enabled": True})
+        with self.assertRaises(ValueError):
+            self.module.run("architect_note_goal", {"category": "personal_data"})
+        status = self.module.run("architect_autonomy_status", {})
+        self.assertFalse(status["enabled"])
+
+    def test_autonomy_target_is_fixed_branch_with_non_sensitive_content(self):
+        import base64
+        import apollo_architect_autonomy as auto
+
+        with patch.object(auto.ArchitectAutonomy, "_loop", lambda obj: obj._stop.wait(20)):
+            service = auto.ArchitectAutonomy(self.base)
+        self.addCleanup(service.close)
+        with patch.dict(os.environ, {"APOLLO_GITHUB_TOKEN": "fake-test-token"}):
+            service.note_goal("voice_runtime", 2, "benchmark_needed")
+            status = service.configure(True)
+            self.assertTrue(status["enabled"])
+            outgoing = []
+            def fake_request(url, token, *, data=None, method=None):
+                self.assertEqual(token, "fake-test-token")
+                outgoing.append((url, method, data))
+                if method == "PUT":
+                    packet = json.loads(data)
+                    self.assertEqual(packet["branch"], "apollo-architect-notes")
+                    self.assertEqual(packet["sha"], "a" * 40)
+                    content = base64.b64decode(packet["content"]).decode()
+                    self.assertIn("Voice system", content)
+                    self.assertNotIn("fake-test-token", content)
+                    self.assertNotIn(str(self.base), content)
+                    return {"commit": {"sha": "b" * 40}}
+                self.assertIn("?ref=apollo-architect-notes", url)
+                return {"sha": "a" * 40}
+            with patch.object(auto, "_request", side_effect=fake_request):
+                published = service.publish_once(force=True)
+                self.assertEqual(published["status"], "published")
+                self.assertEqual(len(outgoing), 2)
+                self.assertEqual(outgoing[-1][0], auto.API)
+                self.assertEqual(outgoing[-1][1], "PUT")
+                self.assertEqual(service.publish_once()["status"], "not_due")
+            service.configure(False)
+            with self.assertRaises(PermissionError):
+                service.publish_once(force=True)
+
+    def test_autonomy_failed_network_remains_enabled_and_reports_failure(self):
+        import apollo_architect_autonomy as auto
+        with patch.object(auto.ArchitectAutonomy, "_loop", lambda obj: obj._stop.wait(20)):
+            service = auto.ArchitectAutonomy(self.base)
+        self.addCleanup(service.close)
+        with patch.dict(os.environ, {"APOLLO_GITHUB_TOKEN": "fake-test-token"}):
+            service.configure(True)
+            with patch.object(auto, "_request", side_effect=urllib.error.URLError("secret")):
+                with self.assertRaisesRegex(RuntimeError, "not confirmed"):
+                    service.publish_once(force=True)
+            status = service.status()
+            self.assertTrue(status["enabled"])
+            self.assertIn("URLError", status["last_result"])
+            self.assertNotIn("secret", status["last_result"])
+            self.assertIsNotNone(status["next_due"])
+
+
 if __name__ == "__main__":
     unittest.main()
