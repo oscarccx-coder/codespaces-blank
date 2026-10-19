@@ -15,6 +15,8 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+from apollo_architect_autonomy import ArchitectAutonomy, GOALS
+
 REPOSITORY = "oscarccx-coder/codespaces-blank"
 ISSUES_API = "https://api.github.com/repos/" + REPOSITORY + "/issues"
 ISSUE_WEB = "https://github.com/" + REPOSITORY + "/issues/"
@@ -63,16 +65,28 @@ class Module:
         self.path = root / "architect_bridge.json"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
+        self.autonomy = ArchitectAutonomy(self.base, validation=self.validation)
 
     def close(self):
+        self.autonomy.close()
         if self._temp:
             self._temp.cleanup()
             self._temp = None
 
     def tools(self):
         return [
+            {"name": "architect_note_goal",
+             "description": "Record an Apollo-selected LOCAL, category-only self-improvement goal with no free text and no immediate network send. When owner-enabled, its fixed category may appear in the periodic GitHub notes file.",
+             "parameters": {"type": "object", "properties": {
+                 "category": {"type": "string", "enum": list(GOALS)},
+                 "priority": {"type": "integer", "minimum": 1, "maximum": 5},
+                 "evidence_type": {"type": "string", "enum": ["investigate", "test_missing", "benchmark_needed"]},
+             }, "required": ["category"]}},
             {"name": "architect_directive",
              "description": "Read Apollo's canonical self-improvement goals, evidence rules, safety limits and communication contract. Consult this before planning self-upgrades.",
+             "parameters": {"type": "object", "properties": {}}},
+            {"name": "architect_autonomy_status",
+             "description": "Read whether bounded automatic public GitHub capability notes are enabled and when the next check is due. Does not enable or send.",
              "parameters": {"type": "object", "properties": {}}},
             {"name": "architect_protocol",
              "description": "Explain the owner-approved GitHub communication workflow; no model tool can send network requests or install upgrades.",
@@ -130,11 +144,16 @@ class Module:
 
     def run(self, action, arguments):
         data = arguments or {}
+        if action == "architect_note_goal":
+            return self.autonomy.note_goal(data.get("category"),
+                data.get("priority", 3), data.get("evidence_type", "investigate"))
+        if action == "architect_autonomy_status":
+            return self.autonomy.status()
         if action == "architect_directive":
             return {"directive": self._directive(), "source": DIRECTIVE_PATH}
         if action == "architect_protocol":
             return {
-                "transport": "opt-in public GitHub issue (owner UI only)",
+                "transport": "Owner-reviewed issue plus owner-enabled metadata-only autonomous GitHub notes on a non-production branch",
                 "target": REPOSITORY,
                 "stages": ["local draft", "owner previews and approves", "GitHub issue",
                            "owner asks external ChatGPT to inspect", "separate branch and tests",
@@ -300,7 +319,7 @@ class Module:
 
     def self_test(self):
         assert "self-improvement" in self._directive().lower()
-        assert all(tool["name"] not in {"owner_publish", "owner_refresh_comments"}
+        assert all(tool["name"] not in {"owner_publish", "owner_refresh_comments", "owner_enable_autonomy", "publish_once"}
                    for tool in self.tools())
         assert self.run("architect_protocol", {})["target"] == REPOSITORY
         return "Architect Bridge safe tool routing, directive and transport contract passed."
@@ -311,7 +330,7 @@ class Module:
             QListWidgetItem, QPlainTextEdit, QLineEdit, QMessageBox, QDialog,
             QDialogButtonBox, QTabWidget, QComboBox, QSpinBox
         )
-        from PySide6.QtCore import Qt
+        from PySide6.QtCore import Qt, QTimer
         root = QWidget(parent)
         outer = QVBoxLayout(root)
         outer.addWidget(QLabel("Architect Bridge | Self-improvement and external review"))
@@ -369,6 +388,76 @@ class Module:
         mission.setReadOnly(True)
         mission.setPlainText(self._directive())
         tabs.addTab(mission, "Apollo self-improvement directive")
+        auto_page = QWidget()
+        auto_layout = QVBoxLayout(auto_page)
+        auto_help = QLabel(
+            "Automatic handoff: every 6 hours while Apollo runs, publish ONLY "
+            "a source-file inventory and constrained improvement priorities "
+            "to the PUBLIC apollo-architect-notes branch. Private logs, "
+            "memories, conversations and arbitrary model text are never uploaded. "
+            "Requires GitHub Contents read/write credentials.")
+        auto_help.setWordWrap(True)
+        auto_layout.addWidget(auto_help)
+        auto_status = QLabel()
+        auto_status.setWordWrap(True)
+        auto_layout.addWidget(auto_status)
+        auto_preview = QPlainTextEdit()
+        auto_preview.setReadOnly(True)
+        auto_preview.setPlainText(self.autonomy.render())
+        auto_layout.addWidget(auto_preview)
+        auto_controls = QHBoxLayout()
+        auto_toggle = QPushButton()
+        auto_publish = QPushButton("Queue report now")
+        auto_refresh = QPushButton("Refresh assessment")
+        auto_controls.addWidget(auto_toggle)
+        auto_controls.addWidget(auto_publish)
+        auto_controls.addWidget(auto_refresh)
+        auto_layout.addLayout(auto_controls)
+        tabs.addTab(auto_page, "Autonomous notes")
+
+        def refresh_auto():
+            status = self.autonomy.status()
+            auto_toggle.setText("Disable automatic notes" if status["enabled"]
+                                else "Enable automatic public notes")
+            auto_status.setText(
+                "Enabled: %s | Token configured: %s | Last update: %s | Next due: %s | Result: %s"
+                % (status["enabled"], status["token_configured"], status["last_sent"],
+                   status["next_due"], status["last_result"]))
+            auto_preview.setPlainText(self.autonomy.render())
+
+        def toggle_auto():
+            currently = self.autonomy.status()["enabled"]
+            if not currently:
+                approved = QMessageBox.question(
+                    root, "Allow public metadata reports?",
+                    "Let Apollo automatically publish bounded capability metadata and "
+                    "fixed-category development goals to the PUBLIC notes branch "
+                    "every six hours while running? No private user data or arbitrary "
+                    "model text will be uploaded.",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if approved != QMessageBox.Yes:
+                    return
+            try:
+                self.autonomy.configure(not currently)
+            except (RuntimeError, OSError) as exc:
+                QMessageBox.warning(root, "Unable to change autonomy", str(exc))
+            refresh_auto()
+
+        def queue_auto():
+            try:
+                self.autonomy.request_now()
+                QMessageBox.information(root, "Queued", "Report queued for the background worker.")
+            except (RuntimeError, PermissionError, OSError) as exc:
+                QMessageBox.warning(root, "Not queued", str(exc))
+            refresh_auto()
+
+        auto_toggle.clicked.connect(toggle_auto)
+        auto_publish.clicked.connect(queue_auto)
+        auto_refresh.clicked.connect(refresh_auto)
+        auto_timer = QTimer(auto_page)
+        auto_timer.timeout.connect(refresh_auto)
+        auto_timer.start(10000)
+        refresh_auto()
 
         def refill():
             drafts_list.clear()
