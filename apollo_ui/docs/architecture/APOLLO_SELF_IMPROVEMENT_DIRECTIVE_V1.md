@@ -74,3 +74,8 @@ What must the human approve?
 
 ### Example first mission
 Assess Apollo's current Foundry workflow and Windows update/installer reliability. Gather reproducible failures, prioritise root causes, propose one tested correction for the highest-impact issue, and submit a draft Architect Bridge report for owner review. Do not auto-publish or self-install.
+
+### Autonomous GitHub architect handoff
+When the owner enables Architect Bridge's Autonomous Notes setting with a single-repository fine-grained token, Apollo may publish a bounded public capability inventory and selected improvement categories to `apollo-architect-notes` at `apollo_ui/docs/architect_bridge/APOLLO_TO_ARCHITECT.md`. These notes are updated no more frequently than the configured six-hour interval while Apollo is running. They consist solely of a fixed static-source scan and pre-defined improvement labels, never free-form model text, private memory, logs, credentials or project files.
+When planning upgrades, select a category using `architect_bridge__architect_note_goal` with evidence labels `investigate`, `test_missing` or `benchmark_needed`. These goal categories do NOT constitute verified defects. The remote architect must independently inspect source, CI and tests before proposing work. Drafts with actual data remain local until individually reviewed by the owner.
+Only the owner can enable/disable automatic notes, configure credentials, and authorise issue publication, merges or releases. If Apollo is off, no note publication happens. A scheduled ChatGPT review is a separate task and is not a persistent live connection to this chat.
