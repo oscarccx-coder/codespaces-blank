@@ -114,6 +114,11 @@ def apply_update(target, stage, restart=False, wait_pid=None, assessed_manifest_
     if not ok:
         return {"ok": False, "stage": "signature", "error": detail}
 
+    # The signed installer must operate against a closed application.
+    # Wait before repeating stage hashes and backup checks to minimise races.
+    if wait_pid and not wait_for_pid(wait_pid):
+        return {"ok": False, "stage": "wait", "error": "Apollo did not exit before updater timeout."}
+
     # The external updater independently repeats the assessment AFTER the
     # GUI has closed and BEFORE any installed file is changed. A cached
     # assessment JSON, even with "ok": true, has no installer authority.
@@ -128,9 +133,6 @@ def apply_update(target, stage, restart=False, wait_pid=None, assessed_manifest_
         update_files, remove_files = preflight_manifest(stage, target, manifest)
     except (OSError, ValueError) as exc:
         return {"ok": False, "stage": "preflight", "error": str(exc)}
-
-    if wait_pid and not wait_for_pid(wait_pid):
-        return {"ok": False, "stage": "wait", "error": "Apollo did not exit before updater timeout."}
 
     version = str(manifest.get("version", "unknown"))
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
