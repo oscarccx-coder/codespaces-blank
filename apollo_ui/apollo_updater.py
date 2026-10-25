@@ -173,6 +173,11 @@ def apply_update(target, stage, restart=False, wait_pid=None, assessed_manifest_
                     raise OSError("Backup verification failed for " + label)
                 transaction["replaced"].append(label)
                 transaction["removed"].append(label)
+        # Preserve memory and user settings without touching their sources.
+        # SQLite uses a consistent backup, not a raw copy of a live WAL file.
+        from apollo_update_backup import checkpoint
+        personal_snapshot = checkpoint(target, backup)
+
     except OSError as exc:
         return {
             "ok": False, "stage": "backup", "restored": True,
@@ -212,6 +217,10 @@ def apply_update(target, stage, restart=False, wait_pid=None, assessed_manifest_
         log_dir.mkdir(parents=True, exist_ok=True)
         (log_dir / f"installed-{version}-{stamp}.json").write_text(json.dumps({
             "ok": True, "transaction": transaction, "backup": str(backup),
+            "personal_checkpoint": {
+                "files": personal_snapshot["files"],
+                "estimated_bytes": personal_snapshot["estimated_bytes"]
+            },
             "health": health.stdout[-4000:],
         }, indent=2) + "\n", encoding="utf-8")
 
@@ -250,6 +259,7 @@ def apply_update(target, stage, restart=False, wait_pid=None, assessed_manifest_
     # The signed source is already installed and health-checked. Relaunching
     # the UI is a SEPARATE best-effort action, never a reason to restore code.
     result = {"ok": True, "version": version, "backup": str(backup),
+              "personal_checkpoint_files": personal_snapshot["files"],
               "restart_started": False}
     if restart:
         try:
