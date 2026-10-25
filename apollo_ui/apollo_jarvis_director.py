@@ -36,6 +36,9 @@ END_STATES = {"STOPPED", "COMPLETED", "BUDGET_EXHAUSTED", "BLOCKED"}
 SAFE_EXTENSIONS = {".py", ".json", ".md", ".txt", ".toml"}
 SOURCE_CHOICES = (
     "apollo_project_workers.py",
+    "apollo_update.py",
+    "apollo_updater.py",
+    "modules/update_manager/module.py",
     "apollo_foundry_checks.py",
     "apollo_foundry_sandbox.py",
     "apollo_runtime.py",
@@ -419,6 +422,15 @@ class DirectorStore:
         entries = payload.get("files", [])
         if not isinstance(entries, list) or not 1 <= len(entries) <= MAX_FILES:
             raise ValueError("Invalid candidate fingerprint manifest.")
+        expected = {entry.get("path") for entry in entries if isinstance(entry, dict)}
+        actual = set()
+        for file in folder.rglob("*"):
+            if file.is_symlink():
+                raise PermissionError("Symlink found in candidate.")
+            if file.is_file():
+                actual.add(file.relative_to(folder).as_posix())
+        if actual != expected:
+            raise ValueError("Candidate file set changed since review.")
         for entry in entries:
             if not isinstance(entry, dict):
                 raise ValueError("Invalid fingerprint entry.")
