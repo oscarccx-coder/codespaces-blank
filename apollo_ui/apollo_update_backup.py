@@ -8,6 +8,7 @@ incompatible migrations. DB copying uses SQLite's consistent online backup.
 from __future__ import annotations
 
 import hashlib
+from contextlib import closing
 from pathlib import Path
 import shutil
 import sqlite3
@@ -58,8 +59,9 @@ def checkpoint(root, backup_folder):
             try:
                 # The Apollo GUI should already be closed; sqlite backup still
                 # creates a consistent copy if another reader remains.
-                with sqlite3.connect("file:" + str(src).replace("\\", "/") + "?mode=ro", uri=True, timeout=10) as original:
-                    with sqlite3.connect(str(destination), timeout=10) as copy:
+                with closing(sqlite3.connect(src.resolve().as_uri() + "?mode=ro",
+                                             uri=True, timeout=10)) as original:
+                    with closing(sqlite3.connect(str(destination), timeout=10)) as copy:
                         original.backup(copy, pages=64, sleep=0.02)
                         status = copy.execute("PRAGMA quick_check").fetchone()[0]
                         if status != "ok":
