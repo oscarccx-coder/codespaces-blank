@@ -196,5 +196,50 @@ class AssessedInstallerTests(unittest.TestCase):
         self.assertEqual((self.target / "other.py").read_text(), "SECOND=1\n")
 
 
+    def test_critical_memory_database_and_state_are_snapshotted_before_upgrade(self):
+        import sqlite3
+        memory_path = self.target / "storage" / "databases" / "memory_bank.db"
+        memory_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(memory_path) as db:
+            db.execute("CREATE TABLE notes(note TEXT NOT NULL)")
+            db.execute("INSERT INTO notes(note) VALUES(?)", ("KEEP PRIVATE MEMORY",))
+        state_path = self.target / "storage" / "state" / "preferences.json"
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text('{"voice": "local"}', encoding="utf-8")
+        receipt = self.assessor.assess(self.stage_path, save=False)
+        self.assertTrue(receipt["ok"], receipt)
+        self.assertGreater(receipt["estimated_personal_checkpoint_bytes"], 0)
+        with patch("apollo_updater.subprocess.run", return_value=Mock(
+                returncode=0, stdout="HEALTHY", stderr="")):
+            applied = apply_update(self.target, self.stage_path,
+                                   assessed_manifest_sha256=receipt["manifest_sha256"])
+        self.assertTrue(applied["ok"], applied)
+        self.assertEqual(applied["personal_checkpoint_files"], 2)
+        backup = Path(applied["backup"]) / "personal_state"
+        copied_db = backup / "databases" / "memory_bank.db"
+        self.assertTrue(copied_db.is_file())
+        with sqlite3.connect(copied_db) as db:
+            self.assertEqual(db.execute("SELECT note FROM notes").fetchone()[0], "KEEP PRIVATE MEMORY")
+        self.assertEqual((backup / "state" / "preferences.json").read_text(),
+                         '{"voice": "local"}')
+        self.assertEqual(state_path.read_text(), '{"voice": "local"}')
+        with sqlite3.connect(memory_path) as db:
+            self.assertEqual(db.execute("SELECT note FROM notes").fetchone()[0], "KEEP PRIVATE MEMORY")
+
+    def test_corrupted_memory_database_aborts_before_any_core_update(self):
+        db_path = self.target / "storage" / "databases" / "memory_bank.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        db_path.write_bytes(b"not a real sqlite database")
+        receipt = self.assessor.assess(self.stage_path, save=False)
+        self.assertTrue(receipt["ok"], receipt)
+        with patch("apollo_updater.os.replace") as mutation:
+            result = apply_update(self.target, self.stage_path,
+                                  assessed_manifest_sha256=receipt["manifest_sha256"])
+            mutation.assert_not_called()
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result["stage"], "backup")
+        self.assert_unchanged()
+
+
 if __name__ == "__main__":
     unittest.main()
