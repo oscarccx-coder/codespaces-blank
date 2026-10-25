@@ -208,6 +208,13 @@ class DirectorStore:
                 dest = "PAUSED"
             elif action == "resume" and state in {"PAUSED", "BLOCKED"}:
                 dest = "RUNNING"
+                # Explicit owner retry resets a blocked draft attempt. No code
+                # was executed and prior failure events remain in the ledger.
+                if state == "BLOCKED":
+                    self.db.execute(
+                        "UPDATE agent_tasks SET state='QUEUED',attempts=0,updated=? "
+                        "WHERE mission_id=? AND state='BLOCKED'",
+                        (utc(), mid))
             elif action == "stop" and state not in {"STOPPED", "COMPLETED"}:
                 dest = "STOPPED"
             else:
@@ -216,6 +223,16 @@ class DirectorStore:
                             (dest, time.time(), utc(), mid))
             self._event(mid, "owner_" + action, "Owner controlled mission state.")
             return self._mission(mid)
+
+    def request_now(self, mid):
+        with self.lock, self.db:
+            mission = self._mission(mid)
+            if mission["state"] != "RUNNING":
+                raise PermissionError("Mission must be running.")
+            self.db.execute("UPDATE missions SET next_due=?,updated=? WHERE id=?",
+                            (time.time(), utc(), mid))
+            self._event(mid, "owner_request_next", "A bounded local step was queued.")
+            return {"queued": True, "mission_id": int(mid)}
 
     def detail(self, mid):
         with self.lock:
@@ -250,8 +267,6 @@ class DirectorStore:
             if not mission_row:
                 return None
             m = dict(mission_row)
-            if self._mark_budget(m):
-                return None
             task = self.db.execute(
                 "SELECT * FROM agent_tasks WHERE mission_id=? AND round=? AND state='QUEUED' ORDER BY id LIMIT 1",
                 (m["id"], m["round"])).fetchone()
@@ -259,6 +274,17 @@ class DirectorStore:
                 "SELECT count(*) FROM agent_tasks WHERE mission_id=? AND round=? AND state='RUNNING'",
                 (m["id"], m["round"])).fetchone()[0]
             if pending:
+                return None
+            if not task:
+                count_now = self.db.execute(
+                    "SELECT count(*) FROM agent_tasks WHERE mission_id=? AND round=?",
+                    (m["id"], m["round"])).fetchone()[0]
+                if count_now and m["mode"] == "fixed":
+                    self.db.execute("UPDATE missions SET state='COMPLETED',updated=? WHERE id=?",
+                                    (utc(), m["id"]))
+                    self._event(m["id"], "drafts_completed", "Drafts finished. Tests and deployments not executed.")
+                    return None
+            if self._mark_budget(m):
                 return None
             if task:
                 t = dict(task)
@@ -406,6 +432,11 @@ class Director:
         result = self.store.control(mid, action)
         self.wake.set()
         return result
+
+    def request_next(self, mid):
+        outcome = self.store.request_now(mid)
+        self.wake.set()
+        return outcome
 
     def step(self):
         """One bounded model call; safe to invoke from a background worker."""
