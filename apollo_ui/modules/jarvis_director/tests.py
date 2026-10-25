@@ -58,7 +58,7 @@ class JarvisDirectorTests(unittest.TestCase):
         module = Module({"base_dir": str(self.root), "validation": True})
         self.addCleanup(module.close)
         names = [x["name"] for x in module.tools()]
-        self.assertEqual(names, ["jarvis_mission_status", "jarvis_mission_detail", "jarvis_roles"])
+        self.assertEqual(names, ["jarvis_mission_status", "jarvis_mission_detail", "jarvis_update_status", "jarvis_roles"])
         self.assertTrue(module.self_test())
         with self.assertRaises(KeyError):
             module.run("jarvis_start", {"objective": "write core"})
