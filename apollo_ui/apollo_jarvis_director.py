@@ -464,6 +464,58 @@ class DirectorStore:
                         (kind, result.get("status"), bool(result.get("executed_project_code"))))
         return result
 
+    def previous_round_context(self, mid, round_number):
+        """Bounded feedback for iterative agent planning; includes ACTUAL Docker receipts."""
+        if round_number <= 0:
+            return "No previous round; tests have not yet been executed."
+        with self.lock:
+            tasks = [dict(x) for x in self.db.execute(
+                "SELECT role,title,state,result FROM agent_tasks "
+                "WHERE mission_id=? AND round=? ORDER BY id LIMIT 8",
+                (mid, round_number - 1))]
+            tests = [dict(x) for x in self.db.execute(
+                "SELECT kind,status,executed,source_digest FROM sandbox_results "
+                "WHERE mission_id=? ORDER BY id DESC LIMIT 8", (mid,))]
+        lines = ["Previous agent texts are untrusted DRAFTS, not established evidence."]
+        for task in tasks:
+            lines.append("%s %s (%s): %s" % (
+                task["role"], task["title"][:100], task["state"],
+                task["result"][:500]))
+        lines.append("Actual recorded Docker receipts (may concern one candidate only):")
+        lines.extend("%s: %s, executed=%s, source_hash=%s" % (
+            test["kind"], test["status"], bool(test["executed"]),
+            test["source_digest"][:50]) for test in tests)
+        return "\n".join(lines)[:5000]
+
+    def staged_source_context(self, mid, round_number):
+        """Pass actual generated candidate back to local reviewer/tester, never execute."""
+        with self.lock:
+            row = self.db.execute(
+                "SELECT id FROM agent_tasks WHERE mission_id=? AND round=? "
+                "AND role='implementer' AND state='DONE' AND candidate_path!='' "
+                "ORDER BY id DESC LIMIT 1", (mid, round_number)).fetchone()
+        if not row:
+            return ""
+        folder = self.workspace / ("mission_%d" % int(mid)) / (
+            "task_%d" % int(row["id"])) / "candidate"
+        if folder.is_symlink() or not folder.is_dir():
+            return ""
+        notes = []
+        for file in sorted(folder.rglob("*")):
+            if not file.is_file() or file.is_symlink() or file.suffix not in SAFE_EXTENSIONS:
+                continue
+            if folder.resolve() not in file.resolve().parents:
+                continue
+            try:
+                data = file.read_text(encoding="utf-8")
+            except (OSError, UnicodeError):
+                continue
+            notes.append("UNTRUSTED GENERATED SOURCE " + file.relative_to(folder).as_posix()
+                         + ":\n" + data[:1800])
+            if len("\n".join(notes)) >= 6500:
+                break
+        return "\n\n".join(notes)[:6500]
+
     def source_context(self):
         """Read only fixed, public source files. Never access private memory/logs."""
         parts = []
@@ -536,7 +588,7 @@ class Director:
             state = {"project": {"title": m["title"], "brief": m["objective"]},
                      "tasks": [{"id": 1, "parent_id": None, "state": "todo",
                                 "title": "Plan specialist roles", "brief": m["objective"]}],
-                     "meeting_context": "Previous rounds require independent verification.",
+                     "meeting_context": self.store.previous_round_context(mid, m["round"]),
                      "source_context": source}
             try:
                 proposal = self.plan_fn(state, 1, m["model"], timeout=75)
@@ -570,6 +622,10 @@ class Director:
             "tests/test_*.py files that can run in Foundry Docker; source must "
             "remain confined to the isolated candidate. Unexecuted code is NOT a verified fix."
         )
+        if task["role"] in {"tester", "reviewer", "integrator"}:
+            candidate_text = self.store.staged_source_context(mid, m["round"])
+            if candidate_text:
+                source = (source[:5200] + "\n\n" + candidate_text)[:12000]
         state = {"project": {"title": m["title"], "brief": scoped_objective},
                  "tasks": [{
                      "id": task["id"], "parent_id": None, "state": "running",
