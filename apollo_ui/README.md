@@ -1,5 +1,10 @@
 # Apollo: offline-first AI workstation
 
+## JARVIS Director (development candidate)
+
+The optional **JARVIS Director** app is a local-first mission orchestrator that lets an owner authorise a bounded team of Ollama specialist agents to investigate Apollo, design improvements, stage candidate code, generate test plans and review findings across restarts. Progress and call budgets persist in SQLite. A separate approval can send an unchanged candidate to Foundry's isolated Docker unit-test runner. **Agent output is not installed, merged, executed on the host or considered verified by default.** Signed updates and Git changes remain owner-controlled. See [JARVIS Director design and instructions](docs/features/JARVIS_DIRECTOR.md).
+
+
 Apollo is a local Windows/PySide6 assistant with Ollama, modular tools, a persistent Home hub, personal memory, isolated voice processing, update/recovery utilities and an evolving coding workspace.
 
 ## Apollo 8 learning candidate
