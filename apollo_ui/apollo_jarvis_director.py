@@ -153,6 +153,16 @@ class DirectorStore:
               kind TEXT NOT NULL, detail TEXT NOT NULL, created TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS jarvis_tasks ON agent_tasks(mission_id,round,state);
+            CREATE TABLE IF NOT EXISTS sandbox_results(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              mission_id INTEGER NOT NULL REFERENCES missions(id),
+              task_id INTEGER NOT NULL REFERENCES agent_tasks(id),
+              status TEXT NOT NULL, kind TEXT NOT NULL,
+              source_digest TEXT NOT NULL DEFAULT '',
+              output TEXT NOT NULL DEFAULT '',
+              executed INTEGER NOT NULL DEFAULT 0,
+              created TEXT NOT NULL
+            );
             """)
             # A previous process may have been killed mid-agent call. The call
             # was already budgeted and is not resumed implicitly or counted twice.
@@ -241,9 +251,11 @@ class DirectorStore:
                 "SELECT * FROM agent_tasks WHERE mission_id=? ORDER BY id LIMIT 120", (mid,))]
             events = [dict(row) for row in self.db.execute(
                 "SELECT * FROM events WHERE mission_id=? ORDER BY id DESC LIMIT 80", (mid,))]
+            tests = [dict(row) for row in self.db.execute(
+                "SELECT * FROM sandbox_results WHERE mission_id=? ORDER BY id DESC LIMIT 25", (mid,))]
         for task in tasks:
             task["result_preview"] = task.pop("result")[:2500]
-        return {"mission": mission, "agents": tasks, "events": events}
+        return {"mission": mission, "agents": tasks, "events": events, "sandbox_results": tests}
 
     def list(self):
         with self.lock:
@@ -381,6 +393,62 @@ class DirectorStore:
                         encoding="utf-8")
         return str(root.relative_to(self.base)) if self.base in root.parents else str(root)
 
+    def owner_test_candidate(self, mid, task_id, *, owner_confirmed=False, kind="unit"):
+        """ONLY after GUI confirmation. Existing Foundry Docker sandbox, never host Python."""
+        if owner_confirmed is not True:
+            raise PermissionError("Owner approval required for any executable test.")
+        if kind not in {"unit", "ui", "gui"}:
+            raise ValueError("Unknown Docker test kind.")
+        with self.lock:
+            self._mission(mid)
+            task = self.db.execute(
+                "SELECT * FROM agent_tasks WHERE id=? AND mission_id=?",
+                (int(task_id), int(mid))).fetchone()
+            if not task or task["state"] != "DONE" or task["role"] != "implementer" or not task["candidate_path"]:
+                raise ValueError("Select a completed implementer with staged candidate files.")
+        root = self.workspace.resolve()
+        folder = (root / ("mission_%d" % int(mid)) / ("task_%d" % int(task_id)) / "candidate").resolve()
+        if root not in folder.parents or folder.is_symlink() or not folder.is_dir():
+            raise PermissionError("Candidate folder invalid.")
+        manifest = folder.parent / "candidate_manifest.json"
+        if not manifest.is_file() or manifest.is_symlink():
+            raise ValueError("Candidate manifest missing.")
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+        if payload.get("mission_id") != int(mid) or payload.get("task_id") != int(task_id):
+            raise ValueError("Candidate identity mismatch.")
+        entries = payload.get("files", [])
+        if not isinstance(entries, list) or not 1 <= len(entries) <= MAX_FILES:
+            raise ValueError("Invalid candidate fingerprint manifest.")
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ValueError("Invalid fingerprint entry.")
+            rel = entry.get("path")
+            try:
+                validated = candidate_entries(json.dumps({
+                    "files": [{"path": rel, "content": "pass"}]}))
+            except (PermissionError, ValueError) as error:
+                raise ValueError("Unsafe file in candidate manifest.") from error
+            dest = folder.joinpath(*PurePosixPath(validated[0][0]).parts)
+            if dest.is_symlink() or not dest.is_file() or folder not in dest.resolve().parents:
+                raise PermissionError("Missing or escaped candidate file.")
+            if hashlib.sha256(dest.read_bytes()).hexdigest() != entry.get("sha256"):
+                raise ValueError("Candidate modified since review; revalidate before testing.")
+        # The Foundry runner itself uses a separate read-only snapshot,
+        # --network=none, resource caps and no mount of Apollo credentials.
+        from apollo_foundry_sandbox import run_sandbox
+        result = run_sandbox(folder, kind)
+        with self.lock, self.db:
+            self.db.execute(
+                "INSERT INTO sandbox_results(mission_id,task_id,status,kind,source_digest,output,executed,created)"
+                " VALUES(?,?,?,?,?,?,?,?)",
+                (mid, task_id, str(result.get("status", "unavailable"))[:40], kind,
+                 str(result.get("source_digest", ""))[:128],
+                 str(result.get("output", ""))[-8000:],
+                 int(bool(result.get("executed_project_code"))), utc()))
+            self._event(mid, "sandbox_result", "Docker %s: %s; actually ran code=%s" %
+                        (kind, result.get("status"), bool(result.get("executed_project_code"))))
+        return result
+
     def source_context(self):
         """Read only fixed, public source files. Never access private memory/logs."""
         parts = []
@@ -432,6 +500,9 @@ class Director:
         result = self.store.control(mid, action)
         self.wake.set()
         return result
+
+    def owner_test_candidate(self, mid, task_id, *, kind="unit", approved=False):
+        return self.store.owner_test_candidate(mid, task_id, owner_confirmed=approved, kind=kind)
 
     def request_next(self, mid):
         outcome = self.store.request_now(mid)
