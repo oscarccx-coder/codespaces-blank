@@ -105,9 +105,8 @@ class AssessedInstallerTests(unittest.TestCase):
         self.assertFalse(launch["ok"])
         self.assertEqual(launch["stage"], "assessment")
         self.assert_unchanged()
-        self.assertFalse(list((self.target / "storage" / "backups" / "core_updates").glob("*"))
-                         if (self.target / "storage" / "backups" / "core_updates").exists()
-                         else True)
+        backup_dir = self.target / "storage" / "backups" / "core_updates"
+        self.assertFalse(list(backup_dir.glob("*")) if backup_dir.exists() else [])
 
     def test_tamper_and_low_space_blocks_assessment(self):
         receipt = self.assessor.assess(self.stage_path)
