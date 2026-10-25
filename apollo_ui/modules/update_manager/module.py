@@ -570,6 +570,7 @@ class Module:
         save_btn.clicked.connect(save)
         check_btn.clicked.connect(lambda: run_async("check"))
         stage_btn.clicked.connect(lambda: run_async("stage"))
+        assessment_btn.clicked.connect(lambda: run_async("assess"))
         install_btn.clicked.connect(do_install)
         combined_btn.clicked.connect(do_combined)
         trust_github_btn.clicked.connect(lambda: run_async("key"))
