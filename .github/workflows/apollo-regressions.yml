@@ -51,6 +51,7 @@ jobs:
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/reasoning_director
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/learning_missions
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/architect_bridge
+          APOLLO_BASE_DIR="$PWD" python module_validator.py modules/jarvis_director
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/mission_control
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/research_library
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/visual_learning
