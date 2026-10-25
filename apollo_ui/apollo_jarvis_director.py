@@ -424,8 +424,11 @@ class DirectorStore:
                 raise ValueError("Invalid fingerprint entry.")
             rel = entry.get("path")
             try:
+                if not isinstance(rel, str):
+                    raise ValueError("Invalid manifest path.")
+                probe = "{}" if rel.lower().endswith(".json") else "pass"
                 validated = candidate_entries(json.dumps({
-                    "files": [{"path": rel, "content": "pass"}]}))
+                    "files": [{"path": rel, "content": probe}]}))
             except (PermissionError, ValueError) as error:
                 raise ValueError("Unsafe file in candidate manifest.") from error
             dest = folder.joinpath(*PurePosixPath(validated[0][0]).parts)
@@ -551,7 +554,9 @@ class Director:
             m["objective"] + "\n\nREQUIRED: You work only in isolated workspace; "
             "you cannot edit, execute or install Apollo core. "
             "Provide genuinely useful implementation candidates, test specifications, "
-            "and a concrete independent review. Unexecuted code is NOT a verified fix."
+            "and a concrete independent review. For implementation, include real "
+            "tests/test_*.py files that can run in Foundry Docker; source must "
+            "remain confined to the isolated candidate. Unexecuted code is NOT a verified fix."
         )
         state = {"project": {"title": m["title"], "brief": scoped_objective},
                  "tasks": [{
