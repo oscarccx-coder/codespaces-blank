@@ -51,7 +51,7 @@ class Module:
         return "JARVIS Director owner-only controls and local draft-only agent protocol verified."
 
     def build_ui(self, parent=None, ui_context=None):
-        from PySide6.QtCore import Qt, QTimer
+        from PySide6.QtCore import Qt, QTimer, QObject, Signal, QRunnable, QThreadPool
         from PySide6.QtWidgets import (
             QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit,
             QLineEdit, QPushButton, QListWidget, QListWidgetItem, QComboBox,
@@ -123,8 +123,9 @@ class Module:
         resume = QPushButton("Resume")
         stop = QPushButton("Stop")
         run_next = QPushButton("Request next step")
+        test_candidate = QPushButton("Test candidate in Docker")
         refresh = QPushButton("Refresh")
-        for b in (pause, resume, stop, run_next, refresh):
+        for b in (pause, resume, stop, run_next, test_candidate, refresh):
             buttons.addWidget(b)
         work_layout.addLayout(buttons)
         status = QLabel()
@@ -170,6 +171,10 @@ class Module:
                     agent["attempts"]),
                     agent["result_preview"][:1300] or "Not yet drafted",
                     ("Candidate files: " + agent["candidate_path"]) if agent["candidate_path"] else ""])
+            lines.extend(["", "DOCKER EVIDENCE (tests only after separate owner approval):"])
+            for result in detail.get("sandbox_results", [])[:5]:
+                lines.append("%s %s: %s | executed=%s" % (
+                    result["kind"], result["created"], result["status"], result["executed"]))
             lines.extend(["", "RECENT EVENTS:"])
             for event in detail["events"][:18]:
                 lines.append("%s %s: %s" % (event["created"], event["kind"], event["detail"]))
@@ -210,6 +215,76 @@ class Module:
                 QMessageBox.warning(page, "Mission control", str(exc))
             refresh_view()
 
+        class TestSignals(QObject):
+            done = Signal(object)
+
+        class TestJob(QRunnable):
+            def __init__(self, director, mid, task_id):
+                super().__init__()
+                self.director = director
+                self.mid = mid
+                self.task_id = task_id
+                self.signals = TestSignals()
+
+            def run(self):
+                try:
+                    result = self.director.owner_test_candidate(
+                        self.mid, self.task_id, kind="unit", approved=True)
+                    self.signals.done.emit({
+                        "status": result.get("status", "unknown"),
+                        "reason": result.get("reason", ""),
+                        "executed": bool(result.get("executed_project_code")),
+                    })
+                except Exception as error:
+                    self.signals.done.emit({
+                        "status": "error", "reason": type(error).__name__,
+                        "executed": False,
+                    })
+
+        pending_jobs = []
+        page._jarvis_test_jobs = pending_jobs
+
+        def begin_docker_test():
+            mid = selected_id()
+            if mid is None:
+                return
+            detail = self.director.store.detail(mid)
+            implementers = [x for x in detail["agents"]
+                            if x["role"] == "implementer" and x["state"] == "DONE"
+                            and x["candidate_path"]]
+            if not implementers:
+                QMessageBox.information(
+                    page, "No testable candidate",
+                    "Wait for a completed implementer draft containing source files.")
+                return
+            chosen = implementers[-1]
+            reply = QMessageBox.question(
+                page, "Run untrusted code in isolated Docker?",
+                "Run tests from the selected generated candidate ONLY inside Apollo Foundry's "
+                "preinstalled, network-disabled, resource-limited Docker sandbox? "
+                "This can execute generated Python code inside the container. "
+                "No host execution, installation or code merge will occur. "
+                "The candidate must include tests/test_*.py files.",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply != QMessageBox.Yes:
+                return
+            test_candidate.setEnabled(False)
+            job = TestJob(self.director, mid, chosen["id"])
+            pending_jobs.append(job)
+
+            def completed(result):
+                if job in pending_jobs:
+                    pending_jobs.remove(job)
+                test_candidate.setEnabled(True)
+                refresh_view()
+                QMessageBox.information(
+                    page, "Foundry sandbox result",
+                    "Status: %s\nCode actually executed: %s\n%s" %
+                    (result["status"], result["executed"], result["reason"]))
+
+            job.signals.done.connect(completed, Qt.QueuedConnection)
+            QThreadPool.globalInstance().start(job)
+
         def step_now():
             mid = selected_id()
             if mid is None:
@@ -225,6 +300,7 @@ class Module:
         resume.clicked.connect(lambda: control("resume"))
         stop.clicked.connect(lambda: control("stop"))
         run_next.clicked.connect(step_now)
+        test_candidate.clicked.connect(begin_docker_test)
         refresh.clicked.connect(refresh_view)
         mission_list.currentItemChanged.connect(lambda _current, _previous: refresh_view())
         # Avoid list signals recursively rebuilding the list on every refresh.
@@ -245,6 +321,10 @@ class Module:
                          agent["result_preview"][:1300]]
                 if agent["candidate_path"]:
                     rows.append("Staged: " + agent["candidate_path"])
+            rows += ["", "DOCKER TEST RESULTS (only after owner consent):"]
+            rows += ["%s: %s (executed=%s)" % (
+                x["kind"], x["status"], x["executed"])
+                for x in detail.get("sandbox_results", [])[:8]]
             rows += ["", "EVENTS:"]
             rows += ["%s: %s" % (event["kind"], event["detail"])
                      for event in detail["events"][:20]]
