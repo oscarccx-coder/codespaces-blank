@@ -135,9 +135,10 @@ class Module:
         save_btn = QPushButton("Save update settings")
         check_btn = QPushButton("Check for updates only")
         stage_btn = QPushButton("Download & Verify")
+        assessment_btn = QPushButton("Assess staged update")
         install_btn = QPushButton("Install staged update")
         advanced_actions = QHBoxLayout()
-        for control in (save_btn, stage_btn, install_btn):
+        for control in (save_btn, stage_btn, assessment_btn, install_btn):
             advanced_actions.addWidget(control)
         check_btn.setText("Check only")
         check_btn.setMinimumHeight(44)
@@ -187,7 +188,7 @@ class Module:
 
         signals = UpdateSignals(page)
         state = {"busy": False}
-        controls = (git_btn, save_btn, check_btn, stage_btn, install_btn,
+        controls = (git_btn, save_btn, check_btn, stage_btn, assessment_btn, install_btn,
                     combined_btn, trust_github_btn, trust_local_btn)
         window = (ui_context or {}).get("apollo_window") if isinstance(ui_context, dict) else None
 
@@ -267,6 +268,14 @@ class Module:
                         result = self.service.check_for_updates()
                     elif kind in {"stage", "combined"}:
                         result = self.service.stage_update(progress=report)
+                        if result.get("ok") and result.get("stage_dir"):
+                            assessment = self.service.assess_staged_update(result["version"])
+                            result["assessment"] = assessment
+                            if not assessment["ok"]:
+                                result["ok"] = False
+                                result["error"] = "Assessment refused: " + assessment["reason"]
+                    elif kind == "assess":
+                        result = self.service.assess_staged_update()
                     elif kind == "key":
                         current = self.service.settings()
                         if current["source"] != "github":
@@ -345,12 +354,38 @@ class Module:
                 progress.setText("New release available." if result.get("available")
                                  else "Apollo is up to date for the chosen channel.")
                 return
+            if kind == "assess":
+                progress.setText(
+                    "Signed source, static syntax and backup capacity passed. "
+                    "No runtime tests were executed by this local assessment.")
+                return
             if kind == "stage":
-                progress.setText("Signed update downloaded and verified. Ready to install.")
+                progress.setText("Signed update assessed and staged. Awaiting installation approval.")
                 return
             if kind == "combined":
-                progress.setText("Release verified. Handing off to the external updater...")
-                launch_installer()
+                assessment = result.get("assessment") or {}
+                message = (
+                    "Release %s passed its local signed-source assessment.\n"
+                    "Verified %s signed files; parsed %s Python and %s JSON files.\n"
+                    "Estimated rollback backup: %s bytes.\n\n"
+                    "This is NOT a substitute for release CI or runtime testing.\n"
+                    "Do you approve creating the core backup, installing, health-checking "
+                    "and restarting Apollo? If the health check fails, the installer "
+                    "will attempt to restore the previous code."
+                    % (result.get("version"), assessment.get("changed"),
+                       assessment.get("static_python_checked"),
+                       assessment.get("json_checked"),
+                       assessment.get("estimated_core_backup_bytes"))
+                )
+                answer = QMessageBox.question(
+                    page, "Approve assessed Apollo installation", message,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No)
+                if answer == QMessageBox.StandardButton.Yes:
+                    progress.setText("Owner approved assessed release; starting external backup installer...")
+                    launch_installer()
+                else:
+                    progress.setText("Update assessed but installation declined. No source changed.")
 
         def failed(kind, message):
             set_busy(False)
@@ -471,13 +506,23 @@ class Module:
         git_btn.clicked.connect(git_update)
 
         def do_install():
+            assessed = self.service.assess_staged_update()
+            pretty(assessed)
+            if not assessed.get("ok"):
+                QMessageBox.warning(
+                    page, "Assessment rejected the update",
+                    str(assessed.get("reason", "No installable signed release.")))
+                return
             confirmation = QMessageBox.question(
-                page, "Install signed Apollo update",
-                "Install the latest VERIFIED staged release and restart Apollo?\n"
-                "The external installer backs up code and rolls back on health-check failure.",
+                page, "Install assessed Apollo update",
+                "Release %s PASSED trusted-signature, file-hash, Python/JSON static checks "
+                "and rollback backup capacity assessment.\n"
+                "Estimated core backup: %s bytes. Runtime correctness still depends on "
+                "signed-release CI and the post-install health check.\n\n"
+                "Back up, install and restart Apollo now?"
+                % (assessed["target_version"], assessed["estimated_core_backup_bytes"]),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
+                QMessageBox.StandardButton.No)
             if confirmation == QMessageBox.StandardButton.Yes:
                 launch_installer()
 
