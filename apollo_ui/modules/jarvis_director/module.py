@@ -22,6 +22,9 @@ class Module:
              "description": "Inspect a mission's locally saved specialist drafts and unverified candidate paths. Does not run code.",
              "parameters": {"type": "object", "properties": {"mission_id": {"type": "integer"}},
                             "required": ["mission_id"]}},
+            {"name": "jarvis_update_status",
+             "description": "Read trusted Apollo Update Centre status. Never download, trust a signing key, install or restart.",
+             "parameters": {"type": "object", "properties": {}}},
             {"name": "jarvis_roles",
              "description": "Show specialist agent roles and safe autonomy contracts; only the owner can start or control an agent mission.",
              "parameters": {"type": "object", "properties": {}}},
@@ -34,6 +37,15 @@ class Module:
                     "note": "Only owner-approved local Ollama drafting; no cloud or deployments."}
         if action == "jarvis_mission_detail":
             return self.director.store.detail(arguments["mission_id"])
+        if action == "jarvis_update_status":
+            runtime = self.context.get("runtime")
+            manager = getattr(runtime, "_manager", None)
+            item = manager.get_module("update_manager") if manager else None
+            instance = item.get("instance") if item and item.get("enabled") else None
+            if instance is None:
+                return {"available": False, "reason": "Update Centre module is unavailable."}
+            return {"available": True, "status": instance.run("update_status", {}),
+                    "read_only": True, "production_installed": False}
         if action == "jarvis_roles":
             return {"roles": ROLES, "mode": "local Ollama via existing Foundry workers",
                     "limits": "Maximum 8 specialists in a planning round, at most 60 model calls per mission, no production writes.",
@@ -135,6 +147,22 @@ class Module:
         results.setReadOnly(True)
         work_layout.addWidget(results, 1)
         tabs.addTab(work_page, "Mission console")
+        # Existing trusted updater remains the ONLY route for signed releases.
+        # The Director provides a single surface, never a bypass.
+        manager = (ui_context or {}).get("module_manager") if isinstance(ui_context, dict) else None
+        if manager is not None:
+            entry = manager.get_module("update_manager")
+            updater = entry.get("instance") if entry and entry.get("enabled") else None
+            if updater is not None:
+                try:
+                    tabs.addTab(updater.build_ui(parent=tabs, ui_context=ui_context), "Update Centre")
+                except Exception:
+                    help_tab = QWidget()
+                    help_layout = QVBoxLayout(help_tab)
+                    note = QLabel("Update Centre could not be embedded; open it from Apollo Apps.")
+                    note.setWordWrap(True)
+                    help_layout.addWidget(note)
+                    tabs.addTab(help_tab, "Update Centre")
 
         def selected_id():
             item = mission_list.currentItem()
