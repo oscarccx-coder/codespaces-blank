@@ -103,7 +103,7 @@ def preflight_manifest(stage, target, manifest):
     return checked, removed
 
 
-def apply_update(target, stage, restart=False, wait_pid=None):
+def apply_update(target, stage, restart=False, wait_pid=None, assessed_manifest_sha256=None):
     target = Path(target).resolve()
     stage = Path(stage).resolve()
     manifest = json.loads((stage / "manifest.json").read_text(encoding="utf-8"))
@@ -114,6 +114,15 @@ def apply_update(target, stage, restart=False, wait_pid=None):
     if not ok:
         return {"ok": False, "stage": "signature", "error": detail}
 
+    # The external updater independently repeats the assessment AFTER the
+    # GUI has closed and BEFORE any installed file is changed. A cached
+    # assessment JSON, even with "ok": true, has no installer authority.
+    if assessed_manifest_sha256 is not None:
+        try:
+            from apollo_assessed_update import AssessedUpdate
+            AssessedUpdate(target).require(stage, assessed_manifest_sha256)
+        except (OSError, ValueError, TypeError) as exc:
+            return {"ok": False, "stage": "assessment", "error": str(exc)[:400]}
     # Validate all files before creating a backup or changing a single byte.
     try:
         update_files, remove_files = preflight_manifest(stage, target, manifest)
@@ -246,7 +255,10 @@ if __name__ == "__main__":
     parser.add_argument("--stage", required=True)
     parser.add_argument("--wait-pid", type=int, default=0)
     parser.add_argument("--restart", action="store_true")
+    parser.add_argument("--assessed-manifest-sha256", default=None)
     args = parser.parse_args()
-    result = apply_update(args.target, args.stage, restart=args.restart, wait_pid=args.wait_pid or None)
+    result = apply_update(args.target, args.stage, restart=args.restart,
+                          wait_pid=args.wait_pid or None,
+                          assessed_manifest_sha256=args.assessed_manifest_sha256)
     print(json.dumps(result, indent=2))
     raise SystemExit(0 if result.get("ok") else 1)
