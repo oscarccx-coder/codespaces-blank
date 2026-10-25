@@ -19,6 +19,7 @@ import shutil
 from apollo_storage import StorageLayout
 from apollo_update import verify_manifest_signature, version_key
 from apollo_updater import preflight_manifest
+from apollo_update_backup import sources as personal_sources
 
 MAX_FILES = 4000
 MAX_MANIFEST_BYTES = 1024 * 1024
@@ -61,6 +62,7 @@ class AssessedUpdate:
             "checks": [], "changed": 0, "removed": 0,
             "static_python_checked": 0, "json_checked": 0,
             "estimated_core_backup_bytes": 0,
+            "estimated_personal_checkpoint_bytes": 0,
             "runtime_tests_executed": False,
             "manual_release_approval_required": True,
             "reason": "",
@@ -147,14 +149,18 @@ class AssessedUpdate:
                         raise AssessmentFailure("Existing update destination is not a normal file.")
                     reserve += old.stat().st_size
             report["estimated_core_backup_bytes"] = reserve
+            _files, personal_bytes = personal_sources(self.target)
+            report["estimated_personal_checkpoint_bytes"] = personal_bytes
 
-            # Rollback holds only replaced/removed source and config. User
-            # memory, models and workspace are never replaced by signed updates.
+            # Rollback covers changed core source and config; a separate
+            # consistent SQLite/JSON checkpoint preserves user knowledge
+            # without overwriting models, workspace or private media.
             free = shutil.disk_usage(self.root).free
-            if free < reserve * 2 + MIN_FREE_HEADROOM:
+            if free < reserve * 2 + personal_bytes * 2 + MIN_FREE_HEADROOM:
                 raise AssessmentFailure("Not enough free disk space for a rollback backup and safe source replacement.")
             check("backup_feasibility",
-                  "Core rollback estimated at %d bytes; free space checked." % reserve)
+                  "Core rollback %d bytes; critical state %d bytes; free space checked."
+                  % (reserve, personal_bytes))
             report["ok"] = True
             report["reason"] = "Signed update assessed. Owner may approve backup and installation."
         except (AssessmentFailure, OSError, KeyError, TypeError, ValueError) as exc:
