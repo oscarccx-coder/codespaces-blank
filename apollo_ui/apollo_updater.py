@@ -136,32 +136,52 @@ def apply_update(target, stage, restart=False, wait_pid=None, assessed_manifest_
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup = storage.backups / "core_updates" / f"before-{version}-{stamp}"
     config_path = target / "config.json"
-    # A full disk, denied folder or locked config must refuse installation
-    # before *any* live application source file is modified.
+    # BACKUP PHASE: finish and hash-check the entire rollback set before
+    # replacing or deleting ANY installed Apollo file. A partial backup
+    # must fail closed without attempting to apply a single update.
+    transaction = {"version": version, "created": [], "replaced": [], "removed": []}
     try:
         backup.mkdir(parents=True, exist_ok=True)
         if config_path.exists():
             shutil.copy2(config_path, backup / "config.json")
+            if sha256_file(config_path) != sha256_file(backup / "config.json"):
+                raise OSError("Backup config verification failed.")
+
+        for rel, _source in update_files:
+            destination = target / rel
+            label = rel.as_posix()
+            if not destination.exists():
+                transaction["created"].append(label)
+                continue
+            backup_path = backup / "files" / rel
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(destination, backup_path)
+            if sha256_file(destination) != sha256_file(backup_path):
+                raise OSError("Backup verification failed for " + label)
+            transaction["replaced"].append(label)
+
+        for rel in remove_files:
+            destination = target / rel
+            if destination.exists() and destination.is_file():
+                label = rel.as_posix()
+                backup_path = backup / "files" / rel
+                backup_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(destination, backup_path)
+                if sha256_file(destination) != sha256_file(backup_path):
+                    raise OSError("Backup verification failed for " + label)
+                transaction["replaced"].append(label)
+                transaction["removed"].append(label)
     except OSError as exc:
         return {
             "ok": False, "stage": "backup", "restored": True,
-            "error": f"Backup failed; no live files changed: {type(exc).__name__}: {exc}",
+            "error": "Backup failed; no live files changed: %s: %s" %
+                     (type(exc).__name__, exc),
         }
-    transaction = {"version": version, "created": [], "replaced": [], "removed": []}
 
-    def backup_existing(rel):
-        dest = target / rel
-        if not dest.exists():
-            transaction["created"].append(str(rel).replace("\\", "/"))
-            return
-        backup_path = backup / "files" / rel
-        backup_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(dest, backup_path)
-        transaction["replaced"].append(str(rel).replace("\\", "/"))
-
+    # APPLY PHASE: all affected pre-existing code and config have verified
+    # backups. Existing rollback restores from this complete transaction.
     try:
         for rel, source in update_files:
-            backup_existing(rel)
             destination = target / rel
             destination.parent.mkdir(parents=True, exist_ok=True)
             temp = destination.with_name(destination.name + ".apollo-update-tmp")
@@ -171,9 +191,7 @@ def apply_update(target, stage, restart=False, wait_pid=None, assessed_manifest_
         for rel in remove_files:
             destination = target / rel
             if destination.exists() and destination.is_file():
-                backup_existing(rel)
                 destination.unlink()
-                transaction["removed"].append(str(rel).replace("\\", "/"))
 
         config = json.loads(config_path.read_text(encoding="utf-8"))
         config["version"] = version
