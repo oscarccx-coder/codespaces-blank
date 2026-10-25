@@ -140,5 +140,61 @@ class AssessedInstallerTests(unittest.TestCase):
             self.assessor.require(external, "a" * 64)
 
 
+    def test_all_old_files_are_backed_up_before_first_source_replacement(self):
+        import os as actual_os
+        (self.source / "other.py").write_text("SECOND=2\n")
+        (self.target / "other.py").write_text("SECOND=1\n")
+        (self.source / "config.json").write_text('{"version":"3.2.1"}')
+        self.release()
+        receipt = self.assessor.assess(self.stage_path, save=False)
+        self.assertTrue(receipt["ok"], receipt)
+        underlying = actual_os.replace
+        checked = []
+        def spy_replace(src, dst):
+            # First mutation is forbidden until both old files and config
+            # have verified backup copies.
+            if not checked:
+                backups = list((self.target / "storage" / "backups" / "core_updates").glob("before-3.2.1-*"))
+                self.assertEqual(len(backups), 1)
+                backup = backups[0]
+                self.assertEqual((backup / "files" / "main.py").read_text(), "UPDATE_VALUE=1\n")
+                self.assertEqual((backup / "files" / "other.py").read_text(), "SECOND=1\n")
+                self.assertIn("keep-local", (backup / "config.json").read_text())
+                checked.append(True)
+            return underlying(src, dst)
+        with patch("apollo_updater.os.replace", side_effect=spy_replace):
+            with patch("apollo_updater.subprocess.run", return_value=Mock(
+                    returncode=0, stdout="HEALTHY", stderr="")):
+                result = apply_update(self.target, self.stage_path, restart=False,
+                                      assessed_manifest_sha256=receipt["manifest_sha256"])
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(len(checked), 1)
+        self.assertEqual((self.target / "other.py").read_text(), "SECOND=2\n")
+
+    def test_late_backup_failure_cannot_leave_partially_updated_files(self):
+        (self.source / "other.py").write_text("SECOND=2\n")
+        (self.target / "other.py").write_text("SECOND=1\n")
+        (self.source / "config.json").write_text('{"version":"3.2.1"}')
+        self.release()
+        receipt = self.assessor.assess(self.stage_path, save=False)
+        self.assertTrue(receipt["ok"])
+        import shutil
+        original = shutil.copy2
+        def deny_late_backup(src, dst, *args, **kwargs):
+            if "core_updates" in str(dst) and Path(dst).name == "other.py":
+                raise PermissionError("Simulated full/locked backup volume")
+            return original(src, dst, *args, **kwargs)
+        with patch("apollo_updater.shutil.copy2", side_effect=deny_late_backup):
+            with patch("apollo_updater.os.replace") as mutation:
+                outcome = apply_update(self.target, self.stage_path, restart=False,
+                                       assessed_manifest_sha256=receipt["manifest_sha256"])
+                mutation.assert_not_called()
+        self.assertFalse(outcome["ok"])
+        self.assertEqual(outcome["stage"], "backup")
+        self.assertTrue(outcome["restored"])
+        self.assert_unchanged()
+        self.assertEqual((self.target / "other.py").read_text(), "SECOND=1\n")
+
+
 if __name__ == "__main__":
     unittest.main()
