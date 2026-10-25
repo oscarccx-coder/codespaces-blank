@@ -10,6 +10,21 @@ The Update Centre checks GitHub Releases, verifies an explicit trusted Ed25519 s
 
 Publishing code to GitHub **does not automatically install or publish** a signed release.
 
+## Assessed self-installation (candidate update)
+
+The new **Assess staged update** control performs a local, read-only, deterministic assessment of an already staged, properly signed Apollo release. It checks the pinned Ed25519 signing key, signed manifest identity and version progression, every source SHA-256 digest, safe install/remove paths, Python syntax, JSON parsing and free disk space for a core rollback backup. Results are written only to local \`storage/updates/assessments/\` and explicitly identify that no runtime tests were executed by this local assessment.
+
+**Installation remains a deliberate owner decision.** The **Update Apollo** combined workflow downloads/stages, assesses, shows the assessment summary and asks for explicit approval. The external installer receives the expected signed-manifest SHA-256, independently reruns all assessment checks, then:
+1. Waits for Apollo to close.
+2. Backs up config and *all existing files that will be replaced or removed*, verifying every backup hash **before modifying any installed code**. If a backup fails, installation does not start.
+3. Creates a consistent local checkpoint of bounded SQLite memory databases and JSON/JSONL state files before any source replacement. The assessment budgets storage for this critical-user-state checkpoint. Models, voice media and projects are preserved in place; they are **not duplicated** in this checkpoint.
+4. Applies the signed code update, runs Apollo's existing post-install health check, and attempts to roll back source and config if application/health fails.
+5. Records install or rollback evidence in local update logs, and restarts Apollo only after a passing health check.
+
+This is **not** permission for an LLM, agent, or Foundry draft to self-install. The source must first be incorporated into an owner-approved, CI-tested and correctly signed release. Assessing source syntax locally does not certify runtime behaviour, compatibility or safety. A downloaded unsigned ZIP, arbitrary git branch or model-generated code cannot pass this signed-release gate. Rollback automatically restores affected core code and config. The critical SQLite/JSON checkpoint is retained for **manual** recovery if a later app migration affects user data; the installer does not overwrite newer personal records automatically. Models, voice media, private projects and other large user storage are preserved in place but are not fully backed up by the updater. Keep separate periodic backups of those assets as good operational practice.
+
+This feature uses the signed-release path, not the developer's Git fast-forward updater. The existing developer Git update still requires its own approval and checks; it should not be mistaken for an assessed signed deployment.
+
 ## Advanced local update server (developers)
 
 The old convenience `.bat` wrapper was removed. The underlying server remains available, when deliberately configured, via:
