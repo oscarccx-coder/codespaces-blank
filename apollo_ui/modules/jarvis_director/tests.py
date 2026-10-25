@@ -266,7 +266,7 @@ class JarvisDirectorTests(unittest.TestCase):
             self.run_one(mid)
         feedback = self.director.store.previous_round_context(mid, 1)
         self.assertIn("untrusted DRAFTS", feedback)
-        self.assertIn("Review changes", feedback)
+        self.assertIn("Independent critical review", feedback)
         self.assertIn("Docker receipts", feedback)
         result = self.run_one(mid)
         self.assertEqual(result["status"], "agents_created")
