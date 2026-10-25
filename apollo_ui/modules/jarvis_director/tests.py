@@ -194,5 +194,54 @@ class JarvisDirectorTests(unittest.TestCase):
         finally:
             reopened.close()
 
+
+    def test_owner_authorised_docker_tests_only_inside_existing_foundry(self):
+        mid = self.start()["id"]
+        self.run_one(mid)  # plan
+        self.run_one(mid)  # architect
+        self.run_one(mid)  # implementer, creates candidate
+        details = self.director.store.detail(mid)
+        implementer = next(a for a in details["agents"] if a["role"] == "implementer")
+        candidate = implementer["candidate_path"]
+        with patch("apollo_foundry_sandbox.run_sandbox") as sandbox:
+            with self.assertRaises(PermissionError):
+                self.director.owner_test_candidate(mid, implementer["id"], approved=False)
+            self.assertEqual(sandbox.call_count, 0)
+            sandbox.return_value = {
+                "status": "unavailable", "reason": "Docker not installed",
+                "executed_project_code": False, "output": "",
+            }
+            result = self.director.owner_test_candidate(
+                mid, implementer["id"], approved=True)
+            self.assertEqual(result["status"], "unavailable")
+            self.assertEqual(sandbox.call_count, 1)
+            self.assertEqual(Path(sandbox.call_args.args[0]), Path(candidate))
+            self.assertEqual(sandbox.call_args.args[1], "unit")
+            info = self.director.store.detail(mid)
+            self.assertEqual(info["sandbox_results"][0]["status"], "unavailable")
+            self.assertEqual(info["sandbox_results"][0]["executed"], 0)
+            (Path(candidate) / "plugin.py").write_text("print('tampered')")
+            with self.assertRaisesRegex(ValueError, "modified"):
+                self.director.owner_test_candidate(mid, implementer["id"], approved=True)
+            self.assertEqual(sandbox.call_count, 1)
+
+    def test_mocked_docker_pass_only_records_actual_test_receipt(self):
+        mid = self.start()["id"]
+        self.run_one(mid)
+        self.run_one(mid)
+        self.run_one(mid)
+        implementer = next(a for a in self.director.store.detail(mid)["agents"]
+                           if a["role"] == "implementer")
+        with patch("apollo_foundry_sandbox.run_sandbox", return_value={
+            "status": "passed", "executed_project_code": True,
+            "source_digest": "a" * 64, "output": "Ran 1 test\\nOK",
+        }):
+            self.director.owner_test_candidate(mid, implementer["id"], approved=True)
+        result = self.director.store.detail(mid)["sandbox_results"][0]
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["executed"], 1)
+        # Only one candidate received evidence; this is not a production pass.
+        self.assertEqual(self.director.store.detail(mid)["mission"]["state"], "RUNNING")
+
 if __name__ == "__main__":
     unittest.main()
