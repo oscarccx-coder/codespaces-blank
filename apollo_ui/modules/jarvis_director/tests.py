@@ -224,6 +224,11 @@ class JarvisDirectorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "modified"):
                 self.director.owner_test_candidate(mid, implementer["id"], approved=True)
             self.assertEqual(sandbox.call_count, 1)
+            (Path(candidate) / "plugin.py").write_text("def calculate():\\n    return 42\\n")
+            (Path(candidate) / "rogue.py").write_text("print('not reviewed')")
+            with self.assertRaisesRegex(ValueError, "file set changed"):
+                self.director.owner_test_candidate(mid, implementer["id"], approved=True)
+            self.assertEqual(sandbox.call_count, 1)
 
     def test_mocked_docker_pass_only_records_actual_test_receipt(self):
         mid = self.start()["id"]
