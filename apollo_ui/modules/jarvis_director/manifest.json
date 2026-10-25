@@ -1,0 +1,13 @@
+{
+  "id": "jarvis_director",
+  "name": "JARVIS Director",
+  "version": "0.1.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Offline-first autonomous mission director: bounded Ollama specialist agents, durable checkpoints, staged code candidates, owner-controlled recovery and no auto-deployment.",
+  "ui": {
+    "enabled": true,
+    "title": "JARVIS Director",
+    "default_placement": "apps"
+  }
+}

@@ -2379,6 +2379,11 @@ class ApolloWindow(QMainWindow):
             "upgrade apollo",
             "architect bridge",
             "architect report",
+            "jarvis director",
+            "start agents",
+            "my agents",
+            "agent mission",
+            "autonomous agents",
         )
 
         return any(phrase in lower for phrase in action_phrases)
@@ -3384,6 +3389,21 @@ class ApolloWindow(QMainWindow):
             "Modules page is always required."
         )
         system += personality_instruction(self.config.get("sarcasm_level", 1))
+        if any(phrase in text.lower() for phrase in (
+            "jarvis director", "start agents", "my agents", "agent mission",
+            "autonomous agents", "improve yourself", "improve apollo",
+        )):
+            system += (
+                "\n\nApollo JARVIS Director runs bounded, offline-first "
+                "specialist coding/review missions. Use jarvis_director "
+                "read-only status/detail tools to describe only actual progress. "
+                "An owner must explicitly authorise starting, pausing, resuming "
+                "or stopping missions in Apps > JARVIS Director. Local model "
+                "drafts and staged candidate code are NOT executed or verified "
+                "and cannot auto-merge, change Apollo core or install updates. "
+                "Never claim you started an agent, fixed code or verified a "
+                "feature without real results."
+            )
         if any(phrase in text.lower() for phrase in (
             "self-improvement", "self improvement", "improve yourself",
             "improve apollo", "upgrade apollo", "architect bridge",
