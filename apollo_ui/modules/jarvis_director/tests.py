@@ -248,5 +248,29 @@ class JarvisDirectorTests(unittest.TestCase):
         # Only one candidate received evidence; this is not a production pass.
         self.assertEqual(self.director.store.detail(mid)["mission"]["state"], "RUNNING")
 
+
+    def test_reviewer_sees_actual_isolated_generated_source(self):
+        mid = self.start()["id"]
+        self.run_one(mid)
+        self.run_one(mid)
+        self.run_one(mid)
+        actual = self.director.store.staged_source_context(mid, 0)
+        self.assertIn("UNTRUSTED GENERATED SOURCE", actual)
+        self.assertIn("def calculate()", actual)
+        self.assertNotIn("HIGHLY_PRIVATE_SAMPLE", actual)
+
+    def test_next_round_reflects_previous_drafts_as_unverified(self):
+        mid = self.start(mode="until_stop", max_calls=14)["id"]
+        self.run_one(mid)
+        for _ in self.plan:
+            self.run_one(mid)
+        feedback = self.director.store.previous_round_context(mid, 1)
+        self.assertIn("untrusted DRAFTS", feedback)
+        self.assertIn("Review changes", feedback)
+        self.assertIn("Docker receipts", feedback)
+        result = self.run_one(mid)
+        self.assertEqual(result["status"], "agents_created")
+        self.assertEqual(self.director.store.detail(mid)["mission"]["round"], 1)
+
 if __name__ == "__main__":
     unittest.main()
