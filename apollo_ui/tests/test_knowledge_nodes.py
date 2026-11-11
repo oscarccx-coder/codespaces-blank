@@ -1,6 +1,7 @@
 """Offline migration, recall, history and real Qt interaction checks."""
 import json
 import os
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -137,7 +138,7 @@ class KnowledgeNodeTests(unittest.TestCase):
         path = Path(self.temp.name) / "storage" / "databases" / "memory_bank.db"
         path.parent.mkdir(parents=True)
         # Baseline schema fixture has neither nodes nor history.
-        with sqlite3.connect(path) as conn:
+        with closing(sqlite3.connect(path)) as conn, conn:
             conn.execute("""CREATE TABLE memories(id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,memory_type TEXT NOT NULL,summary TEXT NOT NULL,
                 content TEXT NOT NULL,source TEXT NOT NULL,source_ref TEXT NOT NULL,
