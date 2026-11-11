@@ -2099,6 +2099,11 @@ class ApolloWindow(QMainWindow):
         self.hub_manager_dialog = None
 
     def _build_chat(self):
+        from apollo_chat_workspace import ChatWorkspace
+        self.chat_workspace = ChatWorkspace(self, BASE_DIR)
+        return self.chat_workspace
+
+    def _build_legacy_chat(self):
         page = QWidget()
         v = QVBoxLayout(page)
         v.setContentsMargins(0, 0, 0, 0)
@@ -2214,6 +2219,7 @@ class ApolloWindow(QMainWindow):
             self.chat_mic_button.setEnabled(
                 self.stt_task is None
                 and module_ready
+                and not (hasattr(self, "chat_workspace") and self.chat_workspace.session_store.temporary)
             )
 
         if hasattr(self, "chat_voice_settings_button"):
@@ -3029,6 +3035,9 @@ class ApolloWindow(QMainWindow):
 
     @Slot()
     def send_chat(self):
+        if hasattr(self, "chat_workspace"):
+            self.chat_workspace.send()
+            return
         # This method only runs on the GUI thread.
         text = self.chat_input.text().strip()
         if not text or self.chat_busy:
@@ -6596,6 +6605,9 @@ class ApolloWindow(QMainWindow):
         self.hub_learning.setText(f"{learned} learned items")
 
     def closeEvent(self, event):
+        if hasattr(self, "chat_workspace") and not self.chat_workspace.prepare_close():
+            event.ignore()
+            return
         # Persist UI and stop speech/background work before shutdown.
         try:
             self.stop_apollo_speech()
@@ -6610,6 +6622,9 @@ class ApolloWindow(QMainWindow):
             self.chat_task.cancel()
 
         self.thread_pool.waitForDone(1800)
+
+        if hasattr(self, "chat_workspace"):
+            self.chat_workspace.close_store()
 
         try:
             self.memory.conn.close()
