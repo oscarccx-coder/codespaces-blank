@@ -29,7 +29,7 @@ class ApolloRuntime:
         "write", "save", "store", "add", "update", "create", "remove",
         "record", "snapshot", "schedule", "complete", "reopen", "train",
         "speak", "listen", "fetch", "download", "set_active", "set_role",
-        "move", "copy", "import", "rename", "trash", "restore", "clipboard", "stage",
+        "move", "copy", "import", "rename", "trash", "restore", "clipboard", "stage", "link",
     }
 
     def __init__(self, base_dir):

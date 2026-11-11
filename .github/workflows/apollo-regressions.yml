@@ -36,6 +36,11 @@ jobs:
         run: |
           python -m tests.test_apollo_shell
           python -m tests.test_module_manager_surfaces
+      - name: Check knowledge migration, graph recall and memory history
+        working-directory: apollo_ui
+        run: |
+          python -m unittest -v tests.test_knowledge_nodes
+          APOLLO_BASE_DIR="$PWD" python module_validator.py modules/memory_bank
       - name: Validate staged Coding Team module without installation
         working-directory: apollo_ui
         run: python pending_modules/coding_team/tests.py
@@ -120,7 +125,7 @@ jobs:
         shell: cmd
         run: |
           set QT_QPA_PLATFORM=offscreen
-          .venv\Scripts\python.exe -m unittest -v tests.test_windows_ui_polish tests.test_windows_foundry_ui tests.test_windows_obd_starting_ui tests.test_windows_updater_ui tests.test_windows_learning_ui
+          .venv\Scripts\python.exe -m unittest -v tests.test_windows_ui_polish tests.test_windows_foundry_ui tests.test_windows_obd_starting_ui tests.test_windows_updater_ui tests.test_windows_learning_ui tests.test_knowledge_nodes
       - name: Check numbered Setup batch entrypoints
         working-directory: apollo_ui
         shell: cmd

@@ -2650,7 +2650,8 @@ class ChatTask(QRunnable):
 
             if any(x in lower for x in (
                 "memory bank", "remember this", "search memory", "forget memory",
-                "list memories",
+                "list memories", "knowledge node", "knowledge graph", "memory node",
+                "organise memories", "organize memories", "link memories", "memory section",
             )):
                 prefixes += ["memory_bank__", "chat_memory_module__"]
 

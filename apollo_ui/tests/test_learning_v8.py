@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from apollo_learning_v8 import LearningController, knowledge_query
 from apollo_reasoning import ReasoningStore
@@ -11,6 +12,11 @@ from modules.reasoning_director.module import Module
 
 class ControllerTests(unittest.TestCase):
     def setUp(self):
+        # Questions must be created at the same simulated time as the schedule.
+        # Otherwise this fixture fails once wall-clock time passes 1 November.
+        clock = patch("apollo_reasoning.utc_now", return_value=datetime(2026, 11, 1, tzinfo=timezone.utc))
+        clock.start()
+        self.addCleanup(clock.stop)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.store = ReasoningStore(self.tmp.name)
