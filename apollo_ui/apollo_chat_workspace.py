@@ -307,7 +307,12 @@ class ChatWorkspace(QWidget):
             self.draft_timer.stop(); self.save_draft()
         previous_store = self.session_store
         self.session_store = store or self.store; self.chat_id = chat_id
-        self.pending_attachments = []
+        try:
+            saved_pending = json.loads(self.session_store.preference("pending:" + chat_id, "[]"))
+        except (ValueError, TypeError):
+            saved_pending = []
+        owned_ids = {a["id"] for a in self.session_store.attachments(chat_id=chat_id)}
+        self.pending_attachments = [i for i in saved_pending if i in owned_ids] if isinstance(saved_pending, list) else []
         self._loading = True
         chat = self.session_store.chat(chat_id)
         self.chat_title.setText(("Temporary · " if self.session_store.temporary else "") + chat["title"])
@@ -499,6 +504,7 @@ class ChatWorkspace(QWidget):
         self.status.setText("Files ready. Review the message, then Send.")
 
     def refresh_attachments(self):
+        self.session_store.set_preference("pending:" + self.chat_id, json.dumps(self.pending_attachments))
         self.attachments_list.clear()
         for ident in self.pending_attachments:
             data = self.session_store.attachment(ident)

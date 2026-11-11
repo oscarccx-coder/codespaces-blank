@@ -165,6 +165,11 @@ class StoreTests(unittest.TestCase):
         self.assertNotIn("DO_NOT_EXPORT_IMAGE_BYTES", exported)
         self.assertIn("Export this", self.store.export(self.chat))
 
+    def test_unsent_attachment_is_not_in_model_context(self):
+        self.store.add_attachment(attachment("draft.txt", "UNSENT PRIVATE MATERIAL"), chat_id=self.chat)
+        self.store.add_message(self.chat, "user", "Hi")
+        self.assertNotIn("UNSENT PRIVATE MATERIAL", json.dumps(build_chat_context(self.store, self.chat, "Hi")))
+
 
 class FileTests(unittest.TestCase):
     def setUp(self):
@@ -467,6 +472,18 @@ class WorkspaceQtTests(unittest.TestCase):
         message = self.view.store.messages(self.view.chat_id)[-1]
         self.assertEqual(message["status"], "failed")
         self.assertIn("vision", message["content"])
+
+    def test_unsent_attachment_is_restored_with_draft(self):
+        path = Path(self.tmp.name) / "draft.txt"; path.write_text("Draft source")
+        self.view.attach_paths([str(path)]); self.pump()
+        self.view.composer.setText("My unsent question"); self.view.save_draft()
+        second = ChatWorkspace(self.owner, self.tmp.name)
+        try:
+            self.assertEqual(second.composer.text(), "My unsent question")
+            self.assertEqual(len(second.pending_attachments), 1)
+            self.assertEqual(second.attachments_list.item(0).text(), "draft.txt")
+        finally:
+            second.prepare_close(); second.close_store(); second.close()
 
 
 if __name__ == "__main__":

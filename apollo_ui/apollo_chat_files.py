@@ -231,7 +231,9 @@ def build_chat_context(store, chat_id, question, personality="", memory_packet=N
         warnings.append("The latest message was shortened to 16,000 characters for model input.")
     stored_messages = store.messages(chat_id)
     current_ids = set(stored_messages[-1]["metadata"].get("attachments", [])) if stored_messages and stored_messages[-1]["role"] == "user" else set()
-    attachments = store.attachments(chat_id=chat_id)
+    sent_ids = {ident for message in stored_messages if message["role"] == "user"
+                for ident in message["metadata"].get("attachments", [])}
+    attachments = [a for a in store.attachments(chat_id=chat_id) if a["id"] in sent_ids]
     if project:
         attachments += store.attachments(project_id=project["id"])
     query_words = set(re.findall(r"[a-z0-9]{3,}", question.lower()))
