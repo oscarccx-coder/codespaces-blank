@@ -50,6 +50,15 @@ class KnowledgeNodeTests(unittest.TestCase):
         self.assertIn("New tag", titles)
         self.assertNotIn("Old tag", titles)
 
+    def test_repeated_node_creation_preserves_existing_notes_and_parent(self):
+        parent = self.bank.create_knowledge_node("Apollo", "project")
+        node = self.bank.create_knowledge_node("Voice", description="Audio settings", parent_id=parent["id"])
+        repeated = self.bank.create_knowledge_node("Voice")
+        self.assertEqual(repeated["id"], node["id"])
+        self.assertEqual(repeated["description"], "Audio settings")
+        self.assertEqual(repeated["parent_id"], parent["id"])
+        self.assertIsNone(self.bank.create_knowledge_node("Voice", clear_parent=True)["parent_id"])
+
     def test_confirmed_one_hop_retrieves_without_text_match(self):
         self.memory("Voice runtime", "XTTS installation", tags=["XTTS"])
         target = self.memory("Resource budget", "Quantised speech worker memory ceiling", tags=["Resource planning"])

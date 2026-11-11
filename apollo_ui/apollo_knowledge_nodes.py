@@ -115,9 +115,17 @@ class KnowledgeNodesMixin:
             self.conn.execute("INSERT OR IGNORE INTO memory_node_links VALUES(?,?,?)",
                               (row["id"], self._node(title, node_kind), origin))
 
-    def create_knowledge_node(self, title, kind="topic", description="", parent_id=None):
+    def create_knowledge_node(self, title, kind="topic", description=None, parent_id=None,
+                              clear_parent=False):
         with self._lock, self.conn:
             node_id = self._node(title, kind)
+            existing = self._get_node(node_id)
+            if description is None:
+                description = existing["description"]
+            if clear_parent:
+                parent_id = None
+            elif parent_id is None:
+                parent_id = existing["parent_id"]
             self._set_parent(node_id, parent_id)
             self.conn.execute("UPDATE knowledge_nodes SET description=?,parent_id=? WHERE id=?",
                               (str(description or "")[:4000], parent_id, node_id))
@@ -299,7 +307,8 @@ class KnowledgeNodesMixin:
         return [
             tool("create_knowledge_node", "Create or edit a named knowledge section/topic/project with optional parent.",
                  {"title": string, "kind": {"type": "string", "enum": list(KINDS)},
-                  "description": string, "parent_id": integer}, ["title"]),
+                  "description": string, "parent_id": integer,
+                  "clear_parent": {"type": "boolean"}}, ["title"]),
             tool("list_knowledge_nodes", "Browse knowledge sections and topics with linked memory counts.",
                  {"query": string, "kind": string, "limit": integer}),
             tool("inspect_knowledge_node", "Read memories and connections belonging to a knowledge node.",
