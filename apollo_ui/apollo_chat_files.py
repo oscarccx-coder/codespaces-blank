@@ -2,6 +2,7 @@
 import base64
 import csv
 import hashlib
+import html
 import io
 import json
 from pathlib import Path
@@ -172,18 +173,46 @@ def export_canvas(path, text):
                         run.font.name = "Consolas"; run.font.size = Pt(9)
         document.save(path)
     elif path.suffix.lower() == ".pdf":
-        from PySide6.QtGui import QTextDocument
-        from PySide6.QtCore import QByteArray
-        from PySide6.QtPrintSupport import QPrinter
-        class OfflineDocument(QTextDocument):
-            def loadResource(self, resource_type, name):
-                return QByteArray()
-        document = OfflineDocument()
-        # Strip external image references before Qt parses any Markdown.
-        safe_text = re.sub(r"!\[([^]]*)\]\([^)]*\)", r"[Image: \1]", text)
-        document.setMarkdown(safe_text, QTextDocument.MarkdownDialectGitHub | QTextDocument.MarkdownNoHTML)
-        printer = QPrinter(QPrinter.HighResolution); printer.setOutputFormat(QPrinter.PdfFormat)
-        printer.setOutputFileName(str(path)); document.print_(printer)
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Preformatted, Spacer
+        font_name = "Helvetica"
+        for candidate in (Path("C:/Windows/Fonts/arial.ttf"),
+                          Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+                          Path("/System/Library/Fonts/Supplemental/Arial.ttf")):
+            if candidate.is_file():
+                if "ApolloChatBody" not in pdfmetrics.getRegisteredFontNames():
+                    pdfmetrics.registerFont(TTFont("ApolloChatBody", str(candidate)))
+                font_name = "ApolloChatBody"; break
+        styles = getSampleStyleSheet()
+        for name in ("Normal", "Heading1", "Heading2", "Heading3"):
+            styles[name].fontName = font_name
+        styles["Normal"].fontSize = 10; styles["Normal"].leading = 15
+        content, code = [], None
+        for line in text.splitlines():
+            if line.startswith("```"):
+                if code is None:
+                    code = []
+                else:
+                    content.append(Preformatted("\n".join(code), styles["Code"], maxLineLength=95)); code = None
+                continue
+            if code is not None:
+                code.append(line); continue
+            heading = re.match(r"^(#{1,6})\s+(.*)", line)
+            if heading:
+                content.append(Paragraph(html.escape(heading[2]), styles["Heading" + str(min(len(heading[1]), 3))]))
+            elif line.strip():
+                content.append(Paragraph(html.escape(line), styles["Normal"]))
+            else:
+                content.append(Spacer(1, 7))
+        if code:
+            content.append(Preformatted("\n".join(code), styles["Code"], maxLineLength=95))
+        if not content:
+            content.append(Paragraph(" ", styles["Normal"]))
+        SimpleDocTemplate(str(path), pagesize=A4, leftMargin=48, rightMargin=48,
+                          topMargin=48, bottomMargin=48).build(content)
     elif path.suffix.lower() == ".xlsx":
         from openpyxl import Workbook
         if not text.strip():

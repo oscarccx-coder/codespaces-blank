@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install lightweight test dependencies
-        run: python -m pip install cryptography numpy pypdf python-docx openpyxl
+        run: python -m pip install cryptography numpy pypdf python-docx openpyxl reportlab
       - name: Reject newly tracked private runtime files
         run: python apollo_ui/tools/audit_repository.py --check-new --base origin/main
       - name: Validate source syntax and module manifests
@@ -128,7 +128,8 @@ jobs:
         shell: cmd
         run: |
           set QT_QPA_PLATFORM=offscreen
-          .venv\Scripts\python.exe -m unittest -v tests.test_windows_ui_polish tests.test_windows_foundry_ui tests.test_windows_obd_starting_ui tests.test_windows_updater_ui tests.test_windows_learning_ui tests.test_knowledge_nodes tests.test_chat_workspace
+          .venv\Scripts\python.exe -m unittest -v tests.test_windows_ui_polish tests.test_windows_foundry_ui tests.test_windows_obd_starting_ui tests.test_windows_updater_ui tests.test_windows_learning_ui tests.test_knowledge_nodes
+          .venv\Scripts\python.exe -m unittest -v tests.test_chat_workspace
       - name: Check numbered Setup batch entrypoints
         working-directory: apollo_ui
         shell: cmd

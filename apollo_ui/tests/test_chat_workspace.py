@@ -225,6 +225,18 @@ class FileTests(unittest.TestCase):
             book.close()
         self.assertIn("12", extract_attachment(path)["content"])
 
+    def test_pdf_export_has_selectable_text_without_qt(self):
+        try:
+            import reportlab
+            import pypdf
+        except ImportError:
+            self.skipTest("PDF dependencies not installed")
+        path = self.root / "result.pdf"
+        export_canvas(path, "# Measured Result\nMeasured result: 42 N\n```python\nprint(42)\n```")
+        content = extract_attachment(path)["content"]
+        self.assertIn("Measured result: 42 N", content)
+        self.assertIn("print(42)", content)
+
 
 class TransportTests(unittest.TestCase):
     def start_server(self, handler):
