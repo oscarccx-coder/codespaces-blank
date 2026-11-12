@@ -380,6 +380,26 @@ class UpdateService:
         result["package_url"] = package_url
         return result
 
+    def assess_staged_update(self, version=None):
+        """Read-only pre-install assessment of the selected signed staging area."""
+        from apollo_assessed_update import AssessedUpdate
+        if version is None:
+            versions = []
+            for folder in self.staged_dir.iterdir():
+                if not (folder / "manifest.json").is_file():
+                    continue
+                try:
+                    manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+                    versions.append((version_key(manifest.get("version")), folder))
+                except (OSError, ValueError):
+                    continue
+            if not versions:
+                return {"ok": False, "reason": "No signed update is staged."}
+            _, stage = sorted(versions, key=lambda entry: entry[0])[-1]
+        else:
+            stage = self.staged_dir / str(version)
+        return AssessedUpdate(self.base).assess(stage)
+
     def launch_installer(self, version=None, restart=True):
         if version is None:
             versions = []
@@ -397,6 +417,13 @@ class UpdateService:
         else:
             stage = self.staged_dir / str(version)
             manifest = json.loads((stage / "manifest.json").read_text(encoding="utf-8"))
+        # Assessment cannot be substituted with agent opinions or a cached
+        # "tests passed" flag. Repeat source checks before spawning installer.
+        from apollo_assessed_update import AssessedUpdate
+        assessment = AssessedUpdate(self.base).assess(stage)
+        if not assessment["ok"]:
+            return {"ok": False, "stage": "assessment", "assessment": assessment,
+                    "error": "Update assessment failed: " + assessment["reason"]}
         # The UI may run as a frozen .exe while the updater is a .py script.
         # Never re-launch the packaged GUI as if it were a Python interpreter.
         try:
@@ -412,6 +439,7 @@ class UpdateService:
             "--target", str(self.base),
             "--stage", str(stage),
             "--wait-pid", str(os.getpid()),
+            "--assessed-manifest-sha256", assessment["manifest_sha256"],
         ]
         if restart:
             args.append("--restart")
@@ -430,4 +458,5 @@ class UpdateService:
                     "installer_log": str(log_path)}
         return {"ok": True, "version": manifest.get("version"),
                 "installer_started": True, "installer_pid": process.pid,
-                "installer_log": str(log_path)}
+                "installer_log": str(log_path),
+                "assessment": assessment}
