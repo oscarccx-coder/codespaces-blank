@@ -122,7 +122,7 @@ class MissionStore:
             self.db.execute("BEGIN IMMEDIATE")
             columns = {r[1] for r in self.db.execute("PRAGMA table_info(missions)")}
             for name, definition in (("practice", "INTEGER NOT NULL DEFAULT 0"),
-                                     ("target_node_id", "INTEGER")):
+                                     ("target_node_id", "INTEGER"), ("idle_only", "INTEGER NOT NULL DEFAULT 0")):
                 if name not in columns:
                     self.db.execute(f"ALTER TABLE missions ADD COLUMN {name} {definition}")
 
@@ -144,12 +144,14 @@ class MissionStore:
 
     def create(self, title, goal, *, mode="until_stop", web_allowed=False,
                steps=8, interval_seconds=120, owner_confirmed=False,
-               practice=False, target_node_id=None):
+               practice=False, target_node_id=None, idle_only=False):
         if owner_confirmed is not True:
             raise PermissionError("Learning mission creation requires explicit owner authorisation.")
         title = clean(title, max_chars=MAX_TOPIC)
         goal = clean(goal, max_chars=MAX_LENGTH)
         mode = valid_mode(mode)
+        if type(idle_only) is not bool:
+            raise ValueError("idle_only must be explicitly enabled or disabled.")
         if type(practice) is not bool:
             raise ValueError("Practice must be explicitly enabled or disabled.")
         if target_node_id is not None and (type(target_node_id) is not int or target_node_id < 1):
@@ -171,10 +173,10 @@ class MissionStore:
             stamp = utc()
             cursor = self.db.execute(
                 "INSERT INTO missions(title,goal,mode,state,web_allowed,autorun,max_steps,"
-                "interval_seconds,next_due,created_at,updated_at,practice,target_node_id) "
-                "VALUES(?,?,?,'RUNNING',?,1,?,?,0,?,?,?,?)",
+                "interval_seconds,next_due,created_at,updated_at,practice,target_node_id,idle_only) "
+                "VALUES(?,?,?,'RUNNING',?,1,?,?,0,?,?,?,?,?)",
                 (title, goal, mode, int(web_allowed), steps, interval_seconds, stamp, stamp,
-                 int(practice), target_node_id),
+                 int(practice), target_node_id, int(idle_only)),
             )
             mid = cursor.lastrowid
             self._event(mid, "authorised",
@@ -280,6 +282,9 @@ class MissionStore:
                 " AND next_due<=? ORDER BY next_due,id LIMIT 20", (now,)
             ).fetchall()
             for row in candidates:
+                from apollo_idle_learning import idle_ready
+                if row["idle_only"] and not idle_ready():
+                    continue
                 mid = row["id"]
                 day_start = datetime.fromtimestamp(now,timezone.utc).date().isoformat()
                 used = self.db.execute(
@@ -574,6 +579,9 @@ class MissionService:
     def tick(self):
         """Complete one bounded research pass. Callable from deterministic tests."""
         self.store.finalize_stops()
+        from apollo_idle_learning import foreground_busy
+        if foreground_busy():
+            return None
         if self._shutdown.is_set() or self.executor is None:
             # Never burn through pending missions while the Tool Manager loads.
             return None
@@ -683,3 +691,4 @@ def shared_service(root, *, executor=None, validation=False, practitioner=None, 
         if memory_sink is not None:
             obj.memory_sink = memory_sink
         return obj
+
