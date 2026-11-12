@@ -21,6 +21,7 @@ MODULE_GROUPS = {
     "growth_lab": "Coding",
     "reasoning_director": "Memory & Learning",
     "learning_missions": "Memory & Learning",
+    "suggestion_center": "Everyday",
     "workflow_intelligence": "Memory & Learning",
     "mission_control": "Coding",
     "research_library": "Memory & Learning",
@@ -88,3 +89,4 @@ def main_app_for(module_id):
         "upgrade_history": "self_improvement_lab",
     }
     return aliases.get(str(module_id), str(module_id))
+
