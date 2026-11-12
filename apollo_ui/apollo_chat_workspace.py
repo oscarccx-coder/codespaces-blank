@@ -106,6 +106,8 @@ class ScopedChatManager:
 class ChatWorkspace(QWidget):
     def __init__(self, owner, base_dir):
         super().__init__()
+        from apollo_idle_learning import install_tracker
+        install_tracker()
         self.owner, self.base_dir = owner, Path(base_dir)
         self.store = ChatStore(base_dir)
         self.session_store = self.store
@@ -622,6 +624,8 @@ class ChatWorkspace(QWidget):
         menu.exec(self.composer.mapToGlobal(self.composer.rect().topLeft()))
 
     def _set_busy(self, busy):
+        from apollo_idle_learning import chat_busy
+        chat_busy(busy)
         self.busy = bool(busy)
         enabled = not self.busy and not self.io_busy
         for widget in (self.chats, self.new_button, self.temporary_button, self.attach_button,
@@ -918,3 +922,4 @@ class ChatWorkspace(QWidget):
         self.store.close()
         if self.temp_store is not None:
             self.temp_store.close()
+

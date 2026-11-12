@@ -72,6 +72,9 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
         practice=QCheckBox("Practice mode: source-linked lessons, local recall exercises and saved topic memory")
         practice.setObjectName("practice_mode")
         b.addWidget(practice)
+        idle=QCheckBox("Run only after 5 minutes without Apollo interaction; yield to chat")
+        idle.setObjectName("idle_learning")
+        b.addWidget(idle)
         destination=QComboBox()
         destination.setObjectName("practice_destination")
         destination.addItem("Save under Research → this topic automatically", None)
@@ -84,6 +87,9 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
         b.addWidget(destination)
         start=QPushButton("Authorise and start learning mission")
         b.addWidget(start)
+        idle_start=QPushButton("Start idle self-study")
+        idle_start.setObjectName("idle_self_study")
+        b.addWidget(idle_start)
         layout.addWidget(box)
 
     splitter=QSplitter(page)
@@ -127,6 +133,7 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
                 f"Mission #{mid}: {item['title']}",
                 f"State: {item['state']} | Mode: {item['mode']}",
                 f"Goal: {item['goal']}",
+                "Scheduling: "+("idle only; waits for 5 minutes without Apollo input and no active chat" if item.get("idle_only") else "normal research schedule"),
                 f"Completed source batches: {item['completed_steps']}",
                 f"Failed batches: {item['failed_steps']}",
                 f"New referenced source URLs: {item['new_sources']}",
@@ -236,7 +243,7 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
             "Continuous mode stays authorised across normal restarts until you pause/stop, "
             "but is limited to 24 source batches per UTC day and 3 pages per batch. "
             "Repeated/no-progress/error cases stop automatically. Each fetch may take time.\n"
-            "Practice mode also runs two bounded local model calls and saves unverified lessons to the selected Memory Bank node. Repeated sources trigger a one-hour wait.\n"
+            "Practice mode also runs three bounded local model calls and saves unverified lessons to the selected Memory Bank node. Repeated sources trigger a one-hour wait.\n"
             "No private data, code changes, software installation or verified claims.\n\n"
             "Start this research mission?",
             QMessageBox.Yes|QMessageBox.No,QMessageBox.No
@@ -245,7 +252,7 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
         try:
             item=service.begin(caption,topic,mode=mode.currentData(),
                                web_allowed=True,steps=cycles.value(),
-                               practice=practice.isChecked(),target_node_id=destination.currentData(),
+                               practice=practice.isChecked(),target_node_id=destination.currentData(),idle_only=idle.isChecked(),
                                interval_seconds=interval.value(),owner_confirmed=True)
             reload_list()
             for i in range(mission_list.count()):
@@ -254,6 +261,17 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
                     break
         except (ValueError,PermissionError,OSError) as exc:
             show_error("Cannot start learning",exc)
+
+    def start_idle_study():
+        idle.setChecked(True)
+        practice.setChecked(True)
+        mode.setCurrentIndex(0)
+        if not title.text().strip(): title.setText("Apollo idle self-improvement")
+        if not goal.toPlainText().strip(): goal.setPlainText("Evidence-based improvements to local AI memory, retrieval and reasoning")
+        create()
+
+    if kind=="learning":
+        idle_start.clicked.connect(start_idle_study)
 
     def read_source():
         mid=selected_id()
@@ -327,3 +345,4 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
     poll.start()
     reload_list()
     return page
+
