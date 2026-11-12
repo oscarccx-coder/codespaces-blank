@@ -36,11 +36,13 @@ class ChatTask(QRunnable):
     MAX_TOTAL_TOOL_CALLS = 28
     MAX_IDENTICAL_CALLS = 1
 
-    def __init__(self, client, messages, module_manager=None):
+    def __init__(self, client, messages, module_manager=None, *, owner_text=None, work_mode="Chat"):
         super().__init__()
         self.client = client
         self.messages = list(messages)
         self.module_manager = module_manager
+        self.owner_text = owner_text
+        self.work_mode = work_mode
         self.signals = ChatSignals()
         self._cancelled = False
         self._call_counts = Counter()
@@ -3026,15 +3028,24 @@ class ChatTask(QRunnable):
         # The model cannot start research by emitting tool JSON or pretending
         # to have permission. Chat and apps share the same persistent service.
         from apollo_learning_mission_chat import handle_command, parse_owner_command
-        intent = parse_owner_command(self._last_user_text())
+        owner_text = self.owner_text if self.owner_text is not None else self._last_user_text()
+        intent = parse_owner_command(owner_text)
         if intent is not None:
             record = (self.module_manager.get_module("learning_missions")
                       if self.module_manager is not None else None)
             instance = (record.get("instance") if record and record.get("enabled") else None)
-            direct = handle_command(self._last_user_text(), instance)
+            direct = handle_command(owner_text, instance)
             if direct is not None:
                 self.signals.chunk.emit(direct)
                 return direct
+
+        if self.work_mode in ("Web research", "Deep research"):
+            from apollo_chat_research import research_messages
+            messages = research_messages(self.module_manager, self.messages, owner_text,
+                deep=self.work_mode == "Deep research", cancelled=lambda: self._cancelled,
+                started=self.signals.tool_started.emit, used=self.signals.tool_used.emit,
+                max_chars=max(6000, int(getattr(self.client, "num_ctx", 8192))*2))
+            return "" if messages is None else self._normal_stream(messages)
 
         # Explicit module-build requests from Chat, Coding Workspace, Workshop or
         # Self-Improvement Workshop enter Module Factory mode deterministically. This

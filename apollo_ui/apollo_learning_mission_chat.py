@@ -7,6 +7,7 @@ trigger the commands below.
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 
 def parse_owner_command(text):
@@ -14,6 +15,27 @@ def parse_owner_command(text):
     if len(value)>500:
         return None
     lower=value.casefold()
+    # Practice is an owner command, never a model-callable mutating tool.
+    practice = re.fullmatch(r"(?:apollo[, ]+)?(?:start|begin)\s+(?:public|online)\s+practice(?:\s+mode)?\s+(?:about|on|for|:)\s*(.{5,250})", value, re.I)
+    if practice:
+        topic = practice.group(1)
+        target = re.search(r"\s+in\s+(?:knowledge\s+)?node\s+#?(\d{1,6})[.!]?$", topic, re.I)
+        node = int(target.group(1)) if target else None
+        if target:
+            topic = topic[:target.start()]
+        parsed = parse_owner_command("start public research mission about " + topic)
+        if parsed and parsed["action"] == "start":
+            parsed.update(practice=True, target_node_id=node)
+        return parsed
+    if re.fullmatch(r"(?:show|list|status)\s+(?:my\s+)?practice(?:\s+(?:mode|missions))?[?.!]?", value, re.I):
+        return {"action": "list"}
+    control = re.fullmatch(r"(stop|pause|resume|status|report|progress)\s+practice(?:\s+(?:mode|mission))?\s+#?(\d{1,6})[?.!]?", value, re.I)
+    if control:
+        return {"action": "status" if control.group(1).lower() in ("report", "progress") else control.group(1).lower(), "mission_id": int(control.group(2))}
+    if re.fullmatch(r"(?:stop practice(?: mode)?|stop learning now)[.!]?", value, re.I):
+        return {"action": "stop_current"}
+    if re.fullmatch(r"(?:start|begin)\s+practice(?:\s+mode)?\s+(?:on|about|for|:)\s*.{5,250}", value, re.I):
+        return {"action": "invalid", "reason": "Practice uses public web sources and a local model. Start it in Learning Missions, or say **start public practice on TOPIC until I say stop**."}
     if re.fullmatch(r"(?:show|list|status(?: of)?|what is the progress of)\s+(?:my\s+)?(?:apollo\s+)?learning missions[?.!]?",value,re.I):
         return {"action":"list"}
     if re.fullmatch(r"stop\s+all\s+(?:apollo\s+)?learning missions[.!]?",value,re.I):
@@ -110,12 +132,13 @@ def handle_command(text, module):
                 "Any in-flight public-source fetch finishes first; closing reports are then saved.")
     if name=="start":
         return (
-            f"**Learning mission #{result['id']} started:** {result['title']}\n"
+            f"**{'Practice' if result.get('practice') else 'Learning'} mission #{result['id']} started:** {result['title']}\n"
             f"Mode: {result['mode']}. Public-source research was explicitly approved, "
             f"with at most 24 batches/day and 3 pages/batch. "
             "The existing Training tool must also permit web research.\n"
             "Apollo will store actual source files and progress. This is not model-weight training "
             "or an automatic Apollo core change.\n"
+            +("Practice adds source-quote checks, local cloze recall and unverified lessons linked to your selected knowledge node (or Research/topic automatically). Memory indexing failures are visible and retried.\n" if result.get("practice") else "")+
             f"Use **status learning mission {result['id']}** or "
             f"**stop learning mission {result['id']}** to finish the current batch and write the report."
         )
@@ -136,9 +159,19 @@ def handle_command(text, module):
     ]
     if result.get("last_error"):
         lines.append("Last error: "+result["last_error"])
+    if result["state"] == "RUNNING" and result.get("next_due"):
+        lines.append("Next batch not before: "+datetime.fromtimestamp(result["next_due"], timezone.utc).isoformat(timespec="seconds"))
     if latest:
         lines.append("Latest source receipt: "+latest[0]["query"]
                      +" ("+str(latest[0]["fetched_count"])+" pages)")
+    for cycle in result.get("practice_cycles", [])[:2]:
+        lesson = cycle["lesson"]
+        if cycle["error"]:
+            lines.append("Practice error: "+cycle["error"])
+        elif lesson:
+            lines.append(f"Practice batch {cycle['step_no']}: exact cloze recall {lesson['correct']}/{lesson['total']}; {lesson.get('new_claims',0)} new source-linked notes.")
+            lines.append("Next gap: "+lesson["next_question"])
+            lines.append("Memory: "+(f"#{cycle['memory_id']}" if cycle["memory_id"] else cycle["memory_error"] or "indexing pending"))
     if report:
         lines.append("\n"+report[:8000])
     else:
