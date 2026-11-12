@@ -14,6 +14,7 @@ class ChatSignals(QObject):
     failed = Signal(str)
     completed = Signal()
     tool_used = Signal(str, str)
+    tool_started = Signal(str)
 
 
 class ChatTask(QRunnable):
@@ -49,6 +50,8 @@ class ChatTask(QRunnable):
 
     def cancel(self):
         self._cancelled = True
+        if hasattr(self.client, "cancel_generation"):
+            self.client.cancel_generation()
 
     def _normal_stream(self, messages):
         full = []
@@ -2650,7 +2653,8 @@ class ChatTask(QRunnable):
 
             if any(x in lower for x in (
                 "memory bank", "remember this", "search memory", "forget memory",
-                "list memories",
+                "list memories", "knowledge node", "knowledge graph", "memory node",
+                "organise memories", "organize memories", "link memories", "memory section",
             )):
                 prefixes += ["memory_bank__", "chat_memory_module__"]
 
@@ -2896,6 +2900,7 @@ class ChatTask(QRunnable):
             self._total_tool_calls += 1
 
             try:
+                self.signals.tool_started.emit(name)
                 result = self.module_manager.execute_tool(name, arguments)
                 payload = {
                     "ok": True,
@@ -3015,6 +3020,8 @@ class ChatTask(QRunnable):
         return results, terminal_success, duplicate_detected
 
     def _run_with_modules(self):
+        if self._cancelled:
+            return ""
         # Only the newest real user message can authorise a learning mission.
         # The model cannot start research by emitting tool JSON or pretending
         # to have permission. Chat and apps share the same persistent service.
@@ -3246,6 +3253,10 @@ class ChatTask(QRunnable):
     @Slot()
     def run(self):
         try:
+            if any(message.get("images") for message in self.messages):
+                info = self.client.model_info()
+                if "vision" not in info.get("capabilities", []):
+                    raise RuntimeError("This model does not report vision support. Select an installed vision model to use image attachments.")
             full = self._run_with_modules()
 
             if not self._cancelled:

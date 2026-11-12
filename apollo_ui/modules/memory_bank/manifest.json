@@ -1,10 +1,10 @@
 {
   "id": "memory_bank",
   "name": "Memory Bank",
-  "version": "1.1",
+  "version": "1.2.0",
   "entrypoint": "module.py",
   "class": "Module",
-  "description": "Persistent named Memory Bank that replaces stale same-topic source-backed memories when Apollo learns an improved version.",
+  "description": "Named memories with linked knowledge sections, topics and projects, source-aware graph recall, correction history and a local wiki export.",
   "ui": {
     "enabled": true,
     "title": "Memory Bank",

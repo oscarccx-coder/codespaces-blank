@@ -3,7 +3,7 @@ from pathlib import Path
 class Module:
  def __init__(self,context=None):c=context or {};self.base=Path(c.get('base_dir','.')).resolve();self.runtime=c.get('runtime')
  def tools(self):return [
-  {'name':'build_context','description':'Build a compact internal coordination packet for a task.','parameters':{'type':'object','properties':{'task':{'type':'string'},'max_chars':{'type':'integer'}},'required':['task']}},
+  {'name':'build_context','description':'Build a compact coordination packet, including shared knowledge unless already supplied by the caller.','parameters':{'type':'object','properties':{'task':{'type':'string'},'max_chars':{'type':'integer'},'include_knowledge':{'type':'boolean'}},'required':['task']}},
   {'name':'context_status','description':'Return Context Manager health/last task.','parameters':{'type':'object','properties':{}}},]
  def _tok(self,t):return {x for x in re.findall(r'[a-z0-9_+#.-]+',str(t).lower()) if len(x)>2}
  def run(self,a,x):
@@ -22,7 +22,15 @@ class Module:
     if sc:shared.append((sc,k,i))
    shared.sort(key=lambda z:(-z[0],z[1])); failed=[q for q in self.runtime.task_history(30) if q.get('status')=='failed'][:6]
    pack={'task':task,'active_goals':self.runtime.goals('active')[:8],'relevant_shared_state':[{'key':k,**i} for _,k,i in shared[:8]],'suggested_capabilities':[{'capability':i['capability'],'risk':i['risk'],'permission':i['permission']} for _,i in caps[:12]],'recent_failed_actions':failed,'permission_profile':self.runtime.permission_profile()}
-   if len(json.dumps(pack,default=str))>max(1000,min(int(x.get('max_chars',6000)),12000)):pack['relevant_shared_state']=pack['relevant_shared_state'][:4];pack['suggested_capabilities']=pack['suggested_capabilities'][:8];pack['recent_failed_actions']=pack['recent_failed_actions'][:3]
+   bank=manager.get_module('memory_bank') if manager else None
+   if x.get('include_knowledge',True) and bank and bank.get('enabled') and bank.get('instance') is not None:
+    try:pack['knowledge']=manager.execute('memory_bank','knowledge_context',{'query':task,'limit':4,'max_chars':2000})
+    except Exception as exc:pack['knowledge']={'available':False,'reason':str(exc)[:160]}
+   budget=max(1000,min(int(x.get('max_chars',6000)),12000));pack['task']=task[:min(1000,budget//3)]
+   for key in ('recent_failed_actions','relevant_shared_state','suggested_capabilities','active_goals'):
+    while pack[key] and len(json.dumps(pack,default=str))>budget:pack[key].pop()
+   if len(json.dumps(pack,default=str))>budget and 'knowledge' in pack:
+    pack['knowledge']={'available':False,'reason':'Omitted to keep the requested context budget.'}
    self.runtime.blackboard_set('context_manager.last_packet',pack,'context_manager');return pack
   if a=='context_status':
    v=self.runtime.blackboard_get('context_manager.last_packet',{});return {'ready':True,'last_task':v.get('task') if isinstance(v,dict) else None,'active_goal_count':len(self.runtime.goals('active'))}

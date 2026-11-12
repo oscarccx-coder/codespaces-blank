@@ -1,6 +1,7 @@
 import hashlib, json, math, re, sqlite3, threading
 from collections import Counter
 from pathlib import Path
+from apollo_knowledge_nodes import KnowledgeNodesMixin
 
 TOKEN_RE = re.compile(r"[a-zA-Z0-9']+")
 
@@ -16,7 +17,7 @@ def _cosine(a, b):
     mb = math.sqrt(sum(v*v for v in bb.values()))
     return dot / (ma * mb) if ma and mb else 0.0
 
-class Module:
+class Module(KnowledgeNodesMixin):
     def __init__(self, context=None):
         context = context or {}
         self.base_dir = Path(context.get("base_dir", ".")).resolve()
@@ -25,7 +26,7 @@ class Module:
             self.db_path = ":memory:"
         else:
             storage = self.base_dir / "storage"
-            storage.mkdir(parents=True, exist_ok=True)
+            (storage / "databases").mkdir(parents=True, exist_ok=True)
             self.db_path = str(storage / "databases" / "memory_bank.db")
         self._lock = threading.RLock()
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=15.0)
@@ -78,6 +79,7 @@ class Module:
             except sqlite3.OperationalError:
                 self.fts_available = False
             self.conn.commit()
+            self._setup_knowledge()
 
     def tools(self):
         return [
@@ -98,7 +100,7 @@ class Module:
              "parameters":{"type":"object","properties":{"memory":{"type":"string"}},"required":["memory"]}},
             {"name":"memory_bank_stats","description":"Return Memory Bank statistics.",
              "parameters":{"type":"object","properties":{}}},
-        ]
+        ] + self.knowledge_tools()
 
     @staticmethod
     def _limit(value, default=10, maximum=200):
@@ -130,7 +132,7 @@ class Module:
         summary, source, source_ref = map(lambda x: str(x or "").strip(), (summary,source,source_ref))
         tags = self._tags(tags)
         digest = hashlib.sha256((source+"\n"+source_ref+"\n"+content).encode("utf-8","replace")).hexdigest()
-        with self._lock:
+        with self._lock, self.conn:
             existing = self.conn.execute(
                 "SELECT id FROM memories WHERE content_hash=? LIMIT 1",
                 (digest,),
@@ -187,6 +189,8 @@ class Module:
                         existing["id"],
                     ),
                 )
+                self._sync_memory_nodes(self.conn.execute(
+                    "SELECT * FROM memories WHERE id=?", (existing["id"],)).fetchone())
                 self.conn.commit()
                 return {
                     "stored": True,
@@ -199,6 +203,8 @@ class Module:
                                   tags_json,importance,content_hash) VALUES(?,?,?,?,?,?,?,?,?)""",
                                   (name,memory_type,summary,content,source,source_ref,
                                    json.dumps(tags,ensure_ascii=False),importance,digest))
+            self._sync_memory_nodes(self.conn.execute(
+                "SELECT * FROM memories WHERE id=?", (cur.lastrowid,)).fetchone())
             self.conn.commit()
             return {"stored":True,"updated_existing":False,"id":cur.lastrowid,"name":name}
 
@@ -208,7 +214,8 @@ class Module:
         return {"id":row["id"],"name":row["name"],"memory_type":row["memory_type"],
                 "summary":row["summary"],"content":row["content"],"source":row["source"],
                 "source_ref":row["source_ref"],"tags":tags,"importance":float(row["importance"]),
-                "learned_at":row["learned_at"],"updated_at":row["updated_at"]}
+                "learned_at":row["learned_at"],"updated_at":row["updated_at"],
+                "nodes":self.memory_nodes(row["id"]),"reference":f"memory:{row['id']}"}
 
     def search_memory(self, query, limit=5):
         query = str(query or "").strip()
@@ -236,11 +243,15 @@ class Module:
             for row in candidates:
                 searchable = " ".join(str(row[k] or "") for k in ("name","summary","content","source","tags_json"))
                 score = _cosine(query, searchable) + (0.35 if query.lower() in searchable.lower() else 0)
-                score += float(row["importance"]) * 0.02
-                if score > 0: ranked.append((score,row))
+                if score > 0:
+                    ranked.append((score + float(row["importance"]) * 0.02,row))
             ranked.sort(key=lambda x:x[0], reverse=True)
             rows = [r for _,r in ranked[:limit]]
-        return [self._row(r) for r in rows[:limit]]
+        direct = [dict(self._row(r), retrieval_reason="text match") for r in rows[:limit]]
+        linked = self._graph_recall(query, [r["id"] for r in direct], limit)
+        # Keep at least two thirds of the direct hits; reserve a small graph budget.
+        reserved = min(len(linked), max(1, limit // 3)) if limit > 1 else 0
+        return (direct[:max(limit - reserved, 0)] + linked)[:limit]
 
     def list_memories(self, limit=20, memory_type=""):
         limit = self._limit(limit,20,200)
@@ -370,6 +381,7 @@ class Module:
             r=next((x for x in state["rows"] if x["id"]==ident),None)
             if r:
                 details.setPlainText(f"Name: {r['name']}\nType: {r['memory_type']}\nLearned: {r['learned_at']}\nUpdated: {r['updated_at']}\nSource: {r['source']}\nSource reference: {r['source_ref']}\nTags: {', '.join(r['tags'])}\nImportance: {r['importance']}\n\nSummary:\n{r['summary']}\n\nMemory:\n{r['content']}")
+                details.setPlainText(details.toPlainText() + "\nKnowledge nodes: " + ", ".join(n['title'] for n in r['nodes']))
         def edit():
             sel=lst.selectedItems()
             if not sel: return
@@ -418,7 +430,14 @@ class Module:
         health_btn.clicked.connect(memory_health); graph_btn.clicked.connect(graph_search)
         search_btn.clicked.connect(do_search); recent_btn.clicked.connect(recent); edit_btn.clicked.connect(edit); remove_btn.clicked.connect(remove)
         search.returnPressed.connect(do_search); lst.itemSelectionChanged.connect(show); recent()
-        return page
+        from PySide6.QtWidgets import QTabWidget
+        from apollo_knowledge_ui import knowledge_view
+        tabs = QTabWidget(parent)
+        tabs.addTab(page, "Memories")
+        nodes_page = knowledge_view(self, tabs)
+        tabs.addTab(nodes_page, "Knowledge Nodes")
+        tabs.currentChanged.connect(lambda index: nodes_page.refresh_nodes() if index == 1 else None)
+        return tabs
 
     def build_hub_widget(self, parent=None, ui_context=None):
         from PySide6.QtCore import QTimer
@@ -443,6 +462,8 @@ class Module:
 
     def run(self, action, arguments):
         arguments=arguments or {}
+        if action in {tool["name"] for tool in self.knowledge_tools()}:
+            return self.run_knowledge(action, arguments)
         if action=="store_memory":
             return self.store_memory(arguments.get("name"),arguments.get("content"),
                 arguments.get("memory_type","knowledge"),arguments.get("summary",""),

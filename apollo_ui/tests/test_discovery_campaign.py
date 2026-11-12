@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -56,7 +57,12 @@ class CampaignTests(unittest.TestCase):
         snap = self.store.step(cid, ask=lambda *a: "123")
         self.assertEqual(snap["steps"], 1)
         self.assertEqual(sum(a["trials"] for a in snap["agents"]), 1)
-        self.assertFalse(any("123" in str(e) for e in snap["events"]))
+        # Timestamps can legitimately contain these digits; inspect event content.
+        self.assertFalse(any("123" in e["detail"] for e in snap["events"]))
+        digest = self.store.conn.execute(
+            "SELECT answer_sha256 FROM discovery_trials WHERE campaign_id=?", (cid,)
+        ).fetchone()[0]
+        self.assertEqual(digest, hashlib.sha256(b"123").hexdigest())
         second = DiscoveryCampaign(self.root)
         self.addCleanup(second.close)
         self.assertEqual(second.snapshot(cid)["steps"], 1)
