@@ -110,4 +110,9 @@ def memory_document(mission, step_no, lesson):
         lines.extend(["\nConcept: "+claim["concept"], "Unverified summary: "+claim["summary"],
                       "Source quotation: "+claim["quote"], "Source: "+claim["url"]])
     lines.extend(["\nLimitations: "+lesson["limitations"], "Next gap: "+lesson["next_question"]])
+    if lesson.get('application'):
+        app=lesson['application']
+        lines.extend([f"Application benchmark: {app['correct']}/{app['total']}", app['notice']])
+    if lesson.get('application_error'):
+        lines.append('Application benchmark error: '+lesson['application_error'])
     return "\n".join(lines)

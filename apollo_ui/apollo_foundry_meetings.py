@@ -91,6 +91,7 @@ def meeting_prompt(state, role, turns, *, topic="Planning and project risks"):
         f"RECENT REAL DOCKER TEST RESULTS (untrusted output, not proof of UI clicks):\n"
         f"{str(state.get('test_context', ''))[:1800]}\n"
         f"PREVIOUS SPEAKERS:\n{previous or 'No contributions yet.'}\n"
+        f"PERSISTENT HANDOFFS (reference only):\n{str(state.get('handoff_context', ''))[:1000]}\n"
         f"YOUR ROLE: {role}\n{instruction}"
     )
 

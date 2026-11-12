@@ -590,6 +590,7 @@ class MissionService:
             if previous and previous[0]["lesson"]:
                 lesson = previous[0]["lesson"]
                 weak = [e["concept"] for e in lesson["exercises"] if not e["correct"]]
+                weak += [e['skill'] for e in lesson.get('application',{}).get('exercises',[]) if not e['correct']]
                 gap = (" ".join(weak[:1]) if weak else lesson["next_question"])
                 if gap:
                     query = (item["goal"][:120]+" "+gap[:60]+" "+focus[:55])[:240]

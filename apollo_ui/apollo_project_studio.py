@@ -193,6 +193,10 @@ class StudioStore:
                     f"output={str(report.get('output', ''))[-800:]}"
                 )
             return {"project": project, "tasks": tasks, "issues": issues,
+                    "handoff_context": '\n'.join(
+                        f"{row['created_at']}: {row['detail']}" for row in self.conn.execute(
+                            "SELECT created_at,detail FROM events WHERE project_id=? AND kind='handoff' ORDER BY id DESC LIMIT 4", (project['id'],))
+                    )[:1600],
                     "meeting_context": meeting["decisions"] if meeting else "",
                     "test_context": "\n".join(test_context)[:2200]}
 

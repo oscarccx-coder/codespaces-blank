@@ -199,7 +199,7 @@ class ChatWorkspace(QWidget):
         options.addWidget(self.models, 1); self.model_refresh = self._button("↻", self.refresh_models, options)
         self.style = QComboBox(); self.style.addItems(["Balanced", "Concise", "Detailed"])
         self.style.currentTextChanged.connect(self.save_options); options.addWidget(self.style)
-        self.mode = QComboBox(); self.mode.addItems(["Chat", "Web research", "Deep research", "Coding", "Analyse files"])
+        self.mode = QComboBox(); self.mode.addItems(["Chat", "Auto", "Web research", "Deep research", "Coding", "Analyse files"])
         self.mode.setToolTip("Web research explicitly enables web lookup for this request. Coding uses Apollo's existing guarded tools.")
         options.addWidget(self.mode)
         self.memory_check = QCheckBox("Memory"); self.memory_check.setToolTip("Retrieve relevant saved knowledge; project sources remain separate.")
@@ -603,6 +603,7 @@ class ChatWorkspace(QWidget):
         for title, key in (("Knowledge & memory", "memory_bank"), ("Voice", "voice_center"),
                            ("Foundry", "project_studio"), ("Missions", "mission_control"),
                            ("Practice & learning", "learning_missions"),
+                           ("Workflows & learning", "workflow_intelligence"),
                            ("Vision", "visual_learning"), ("Files", "file_manager"), ("Updates", "update_manager")):
             action = menu.addAction(title)
             record = self.owner.module_manager.get_module(key)
@@ -638,7 +639,10 @@ class ChatWorkspace(QWidget):
             question = "Describe and help me understand the attached files."
         if not question:
             return
-        if self.mode.currentText() in ("Web research", "Deep research") and not self.tools_check.isChecked():
+        from apollo_workflows import route_request
+        routing = route_request(question, tools=self.tools_check.isChecked(), temporary=self.session_store.temporary)
+        mode = routing['mode'] if self.mode.currentText() == 'Auto' else self.mode.currentText()
+        if mode in ("Web research", "Deep research") and not self.tools_check.isChecked():
             self.status.setText("Enable Tools for web research, or choose Chat for a model-only answer.")
             return
         if sum(self.session_store.attachment(i)["kind"] == "image" for i in self.pending_attachments) > 4:
@@ -664,7 +668,6 @@ class ChatWorkspace(QWidget):
             personality_instruction(config.get("sarcasm_level", 2)), memory,
             max_chars=max(6000, int(config.get("num_ctx", 8192)) * 3),
             canvas=self.canvas.toPlainText(), canvas_enabled=self.include_canvas.isChecked())
-        mode = self.mode.currentText()
         if mode == "Web research":
             self.packet["messages"][-1]["content"] = "Search the web and cite real sources for this request: " + self.packet["messages"][-1]["content"]
         elif mode == "Coding":
@@ -676,12 +679,14 @@ class ChatWorkspace(QWidget):
         client.strict_model = True
         self.turn_client = client
         self.current_text = ""; self.rendered_stream = ""; self.activities = []
+        if self.mode.currentText() == 'Auto':
+            self.activities.append({'tool':'workspace_route','result':json.dumps(routing)})
         self._cancel_requested = False; self._started = time.monotonic(); self._last_checkpoint = self._started
         self.answer_id = self.session_store.add_message(self.chat_id, "assistant", "", "streaming", {"model": client.model})
         self._loading = True; self.composer.clear(); self._loading = False
         self.session_store.update_chat(self.chat_id, draft="")
         self._set_busy(True); self.render(); self.refresh_sources(); self.refresh_chats()
-        self.activity.setPlainText("Started model: " + client.model)
+        self.activity.setPlainText("Started model: " + client.model + ('\nAuto route: '+mode+' · '+routing['reason'] if self.mode.currentText() == 'Auto' else ''))
         self.status.setText("Working · " + str(self.packet["history_messages"]) + " earlier messages · " + str(len(self.packet["sources"])) + " sources" +
             (" · " + " ".join(self.packet["warnings"]) if self.packet["warnings"] else ""))
         manager = ScopedChatManager(self.owner.module_manager) if chat["tools"] and not self.session_store.temporary else None
