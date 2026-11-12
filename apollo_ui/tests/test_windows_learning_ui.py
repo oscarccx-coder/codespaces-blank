@@ -64,6 +64,18 @@ class LearningMissionsQtTests(unittest.TestCase):
         self.assertEqual(self.service.store.status(item["id"])["state"],"STOPPED")
         window.close()
 
+    def test_idle_self_study_button_creates_persisted_default_topic(self):
+        window=self.make_view(kind="learning")
+        next(w for w in window.findChildren(QCheckBox) if "authorise public" in w.text()).setChecked(True)
+        with patch.object(QMessageBox,"question",return_value=QMessageBox.Yes):
+            next(b for b in window.findChildren(QPushButton) if b.text()=="Start idle self-study").click()
+        mission=self.service.store.list()[0]
+        self.assertEqual(mission["idle_only"],1)
+        self.assertEqual(mission["practice"],1)
+        self.assertEqual(mission["mode"],"until_stop")
+        self.assertIn("local AI memory",mission["goal"])
+        window.close()
+
     def test_control_and_library_inspect_same_actual_state(self):
         mid=self.service.begin("Independent research review",
                                "Compare memory evidence storage strategies",
@@ -102,3 +114,4 @@ class LearningMissionsQtTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+
