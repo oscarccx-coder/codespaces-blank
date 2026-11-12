@@ -1,0 +1,1 @@
+{"id":"suggestion_center","name":"Apollo Suggestions","version":"1.0.0","entrypoint":"module.py","class":"Module","description":"Idle local reflection, research proposals and owner guidance questions with durable review controls.","ui":{"enabled":true,"title":"Apollo Suggestions","default_placement":"apps"}}

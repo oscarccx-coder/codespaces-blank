@@ -149,6 +149,8 @@ class ChatWorkspace(QWidget):
         self.composer.textChanged.connect(self._draft_changed)
         self.canvas.textChanged.connect(self._draft_changed)
         self._refresh_projects(); self.load_chat(initial)
+        self.guidance_timer = QTimer(self); self.guidance_timer.setInterval(30000)
+        self.guidance_timer.timeout.connect(self._guidance_tick); self.guidance_timer.start()
 
     def _button(self, title, callback, layout):
         button = QPushButton(title); button.clicked.connect(callback); layout.addWidget(button)
@@ -166,6 +168,10 @@ class ChatWorkspace(QWidget):
         self._button("Apps", self.apps_menu, heading)
         self._button("Preferences", self.preferences, heading)
         outer.addLayout(heading)
+        self.guidance_button = QPushButton("Apollo has a question")
+        self.guidance_button.setObjectName("apollo_guidance_banner")
+        self.guidance_button.clicked.connect(lambda: self.owner.open_module_app("suggestion_center"))
+        self.guidance_button.hide(); outer.addWidget(self.guidance_button)
         splitter = QSplitter(Qt.Horizontal); self.splitter = splitter
         navigation = QWidget(); nav = QVBoxLayout(navigation); nav.setContentsMargins(0, 0, 8, 0)
         self.navigation = navigation; navigation.setMinimumWidth(170); navigation.setMaximumWidth(260)
@@ -337,6 +343,7 @@ class ChatWorkspace(QWidget):
         self.activity.clear(); self.refresh_chats(); self.refresh_attachments(); self.render()
         self.refresh_sources()
         self.status.setText("Temporary chat: history, tools and saved-memory retrieval are off." if self.session_store.temporary else "Saved on this computer · choose a model and start talking.")
+        self._guidance_tick()
 
     def new_chat(self, temporary=False):
         if self.busy or self.io_busy or getattr(self.owner, "stt_task", None) is not None:
@@ -600,12 +607,25 @@ class ChatWorkspace(QWidget):
             except (ValueError, OSError, ImportError) as exc:
                 self.status.setText("Export failed: " + str(exc))
 
+    def _guidance_tick(self):
+        self.guidance_button.hide()
+        if self.busy or self.session_store.temporary:
+            return
+        record = self.owner.module_manager.get_module("suggestion_center")
+        if not record or not record.get("enabled") or not record.get("instance"):
+            return
+        questions = [i for i in record["instance"].store.list() if i["kind"] == "question" and i["status"] == "open"]
+        if questions:
+            self.guidance_button.setText("Apollo asks: " + questions[0]["title"][:140] + " · Open Suggestions")
+            self.guidance_button.show()
+
     def apps_menu(self):
         menu = QMenu(self)
         for title, key in (("Knowledge & memory", "memory_bank"), ("Voice", "voice_center"),
                            ("Foundry", "project_studio"), ("Missions", "mission_control"),
                            ("Practice & learning", "learning_missions"),
                            ("Workflows & learning", "workflow_intelligence"),
+                           ("Apollo Suggestions", "suggestion_center"),
                            ("Vision", "visual_learning"), ("Files", "file_manager"), ("Updates", "update_manager")):
             action = menu.addAction(title)
             record = self.owner.module_manager.get_module(key)
@@ -634,6 +654,7 @@ class ChatWorkspace(QWidget):
         self.composer.setReadOnly(not enabled)
         self.stop_button.setEnabled(self.busy and not self._cancel_requested)
         self.owner.chat_busy = self.busy
+        self._guidance_tick()
 
     def send(self):
         if self.busy or self.io_busy:
@@ -914,6 +935,7 @@ class ChatWorkspace(QWidget):
         return True
 
     def close_store(self):
+        self.guidance_timer.stop()
         self.draft_timer.stop(); self.stream_timer.stop()
         if self.project_dialog is not None:
             self.project_dialog.close()
@@ -922,4 +944,5 @@ class ChatWorkspace(QWidget):
         self.store.close()
         if self.temp_store is not None:
             self.temp_store.close()
+
 
