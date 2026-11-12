@@ -1,3 +1,12 @@
+## 2026-11-12 — Native workflow intelligence and application practice
+
+- Workflows & Learning adds five finite graphs, stage receipts, pause/stop/retry, persistent handoffs and reports.
+- Repeated checked runs propose owner-approved/revocable reusable procedures.
+- Added knowledge map, topic progress, fresh application benchmarks and redacted configuration audits.
+- Auto chat routing preserves the selected model and Tools/temporary boundaries.
+- Foundry drafts/meetings now receive project-scoped persisted handoffs.
+- Full plan: `docs/APOLLO_CHASE_ECC_IMPLEMENTATION_PLAN.md`; owner guide: `docs/APOLLO_WORKFLOWS_AND_LEARNING.md`.
+
 ## 2026-11-12 — Grounded research and persistent practice
 
 - Chat Web research performs real source fetches; Deep research runs three bounded passes and records fetched sources.
