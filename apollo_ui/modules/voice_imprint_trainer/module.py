@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from apollo_xtts_paths import chosen_xtts_folder, save_xtts_folder
 from apollo_voice_profiles import VoiceProfileLibrary
+from apollo_core_activity import PlaybackEnvelope
 
 import numpy as np
 
@@ -123,6 +124,7 @@ class Module:
         self.output.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._speech_process = None
+        self._playback_envelope = PlaybackEnvelope()
         # Legacy in-process XTTS fields are kept only for explicit fallback/testing.
         # Normal Apollo speech uses an isolated worker process so torch/XTTS cannot
         # stall the Qt UI event loop or retain CUDA state inside the GUI process.
@@ -2329,6 +2331,7 @@ class Module:
         }
 
     def _stop_playback(self):
+        self._playback_envelope.stop()
         with self._lock:
             proc = self._speech_process
             self._speech_process = None
@@ -2347,6 +2350,7 @@ class Module:
     def _play_wav(self, path):
         self._stop_playback()
         path = Path(path).resolve()
+        levels = self._playback_envelope.read(path)
         if sys.platform == "win32":
             command = [
                 "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
@@ -2366,7 +2370,12 @@ class Module:
             proc = subprocess.Popen([player, "-nodisp", "-autoexit", "-loglevel", "quiet", str(path)])
         with self._lock:
             self._speech_process = proc
+            self._playback_envelope.start(proc, levels)
         return proc
+
+    def playback_activity(self):
+        """Read-only Home visualizer snapshot; never loads XTTS or starts playback."""
+        return self._playback_envelope.snapshot()
 
     # ---------------------- UI-only profile management ----------------------
     def rename_profile_from_ui(self, profile_id, display_name):

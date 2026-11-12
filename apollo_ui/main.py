@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 try:
@@ -36,6 +37,8 @@ from apollo_storage import StorageLayout
 from apollo_window_geometry import centered_window_geometry
 from apollo_model_memory import PROFILES, normalize_profile, memory_advice
 from apollo_module_catalog import GROUPS, group_for, is_visible, main_app_for
+from apollo_core_activity import resolve_activity
+from apollo_home_core import ApolloHomeCore
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -663,6 +666,8 @@ class ApolloWindow(QMainWindow):
         self.pending_learning_events = []
         self.chat_task = None
         self.chat_busy = False
+        self._core_tool = ""
+        self._core_error = ("", 0.0)
 
         speech_state = self.ui_state.get("speech", {}) if isinstance(self.ui_state, dict) else {}
         self.speech_muted = bool(speech_state.get("muted", False))
@@ -695,6 +700,11 @@ class ApolloWindow(QMainWindow):
         self._build_ui()
         self.rebuild_module_ui()
         self._restore_ui_state()
+
+        self.core_activity_timer = QTimer(self)
+        self.core_activity_timer.setInterval(100)
+        self.core_activity_timer.timeout.connect(self._refresh_home_core)
+        self.core_activity_timer.start()
 
         self.command_palette_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
         self.command_palette_shortcut.activated.connect(self.open_command_palette)
@@ -822,6 +832,7 @@ class ApolloWindow(QMainWindow):
             "speech": {
                 "muted": bool(getattr(self, "speech_muted", False)),
             },
+            "core_reduced_motion": bool(self.ui_state.get("core_reduced_motion", False)),
             "window": {
                 "x": self.x(),
                 "y": self.y(),
@@ -1454,6 +1465,8 @@ class ApolloWindow(QMainWindow):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         body = QWidget()
+        body.setObjectName("apolloHome")
+        body.setStyleSheet("QWidget#apolloHome { background:#030706; }")
         scroll.setWidget(body)
 
         main = QVBoxLayout(body)
@@ -1462,13 +1475,13 @@ class ApolloWindow(QMainWindow):
         hero = QFrame()
         hero.setObjectName("hero")
         hv = QVBoxLayout(hero)
-        hv.setContentsMargins(28, 22, 28, 22)
+        hv.setContentsMargins(20, 14, 20, 14)
 
         hero_top = QHBoxLayout()
         hero_text = QVBoxLayout()
         hero_text.addWidget(label(
             f"Welcome back, {self.config.get('user_name', 'there')}",
-            26, "#e9fffb", True
+            21, "#e9fffb", True
         ))
         hero_text.addWidget(label(
             "Your assistant, projects and tools in one place.",
@@ -1493,13 +1506,16 @@ class ApolloWindow(QMainWindow):
         quick_actions.addWidget(quick_updates)
         quick_actions.addStretch(1)
         hv.addLayout(quick_actions)
-        hv.addSpacing(8)
-        hv.addWidget(label(
-            "“Understand. Learn. Assist. Protect. Evolve.”",
-            11, "#62ddc8"
-        ))
-        hero.setMinimumHeight(175)
         main.addWidget(hero)
+
+        self.home_core = ApolloHomeCore(
+            reduced_motion=bool(self.ui_state.get("core_reduced_motion", False))
+        )
+        self.home_core.chat_requested.connect(lambda: self.switch_page("Chat"))
+        self.home_core.listen_requested.connect(self._dictate_from_home)
+        self.home_core.mute_requested.connect(self.toggle_speech_mute)
+        self.home_core.motion_changed.connect(self._save_core_motion)
+        main.addWidget(self.home_core)
 
         apps_heading = QHBoxLayout()
         apps_heading.addWidget(label("Pinned Apps", 17, "#e9fffb", True))
@@ -1640,6 +1656,66 @@ class ApolloWindow(QMainWindow):
                 self._clear_layout(child_layout)
             if widget is not None:
                 widget.deleteLater()
+
+    def _dictate_from_home(self):
+        # Dictation stays on Home so the listening core remains visible. The
+        # existing Chat composer receives the result for review before sending.
+        self.start_speech_to_text()
+        self._refresh_home_core()
+
+    def _save_core_motion(self, reduced):
+        self.ui_state["core_reduced_motion"] = bool(reduced)
+        self._queue_ui_state_save()
+
+    def _report_core_error(self, message):
+        self._core_error = (str(message)[:160], time.monotonic() + 12)
+        self._refresh_home_core()
+
+    def _refresh_home_core(self):
+        """Observe existing state only; never start tools/models or inspect audio devices."""
+        if (not hasattr(self, "home_core") or not self.home_core.isVisible()
+                or self.isMinimized() or self.home_core.visibleRegion().isEmpty()):
+            return
+        speech = {}
+        for module_id in ("text_to_speech", "voice_imprint_trainer"):
+            record = self.module_manager.get_module(module_id)
+            instance = record.get("instance") if record and record.get("enabled") else None
+            if instance is None:
+                continue
+            if module_id == "text_to_speech":
+                status = instance._speech_status()
+                speech["generating"] = status.get("worker_alive") and status.get("state") in {
+                    "starting", "queued", "generating"
+                }
+                process = instance._speech_process
+                speech["playing"] = process is not None and process.poll() is None
+                if status.get("state") == "failed":
+                    # Surface each failed synthesis once; it must not latch forever.
+                    job_id = status.get("job_id")
+                    if job_id != getattr(self, "_core_failed_voice_job", None):
+                        self._core_failed_voice_job = job_id
+                        self._core_error = ("Voice: " + str(status.get("last_error", "Generation failed"))[:140],
+                                            time.monotonic() + 12)
+            elif hasattr(instance, "playback_activity"):
+                playback = instance.playback_activity()
+                speech["playing"] = speech.get("playing", False) or playback.get("playing", False)
+                speech["level"] = playback.get("level", 0.0)
+        if self.speech_task is not None and not speech.get("playing"):
+            speech["generating"] = True
+        workspace = getattr(self, "chat_workspace", None)
+        tool = getattr(workspace, "active_core_tool", "") if workspace is not None else self._core_tool
+        error, expires = self._core_error
+        activity = resolve_activity(
+            listening=self.stt_task is not None, speech=speech, thinking=self.chat_busy,
+            tool=tool, working=self.runtime.active_capabilities(),
+            error=error if time.monotonic() < expires else "", muted=self.speech_muted,
+        )
+        self.home_core.set_activity(activity)
+        available = self._speech_module_ready()
+        temporary = workspace is not None and workspace.session_store.temporary
+        self.home_core.set_voice(self.speech_muted, available and not temporary, self.stt_task is not None)
+        model = getattr(getattr(workspace, "turn_client", None), "model", None) if self.chat_busy else None
+        self.home_core.model.setText(str(model or self.client.model)[:48])
 
     def toggle_hub_edit_mode(self, force=None):
         if force is None:
@@ -2275,6 +2351,7 @@ class ApolloWindow(QMainWindow):
 
     @Slot(str)
     def _on_speech_failed(self, error):
+        self._report_core_error("Voice: " + str(error))
         # Speech is optional. A voice failure must never break Chat.
         if hasattr(self, "online_text"):
             self.online_text.setText(
@@ -2331,6 +2408,7 @@ class ApolloWindow(QMainWindow):
 
     @Slot(str)
     def _on_stt_failed(self, error):
+        self._report_core_error("Microphone: " + str(error))
         if hasattr(self, "online_text"):
             self.online_text.setText(
                 "Speech-to-text unavailable: " + str(error)[:160]
@@ -2433,6 +2511,10 @@ class ApolloWindow(QMainWindow):
 
     def _set_chat_busy(self, busy):
         self.chat_busy = bool(busy)
+        if busy:
+            self._core_error = ("", 0.0)
+        else:
+            self._core_tool = ""
         self.chat_input.setEnabled(not busy)
         self.chat_send_button.setEnabled(not busy)
         self.chat_send_button.setText("Thinking..." if busy else "Send")
@@ -3510,6 +3592,7 @@ class ApolloWindow(QMainWindow):
         task.signals.finished.connect(self.on_chat_finished, Qt.QueuedConnection)
         task.signals.failed.connect(self.on_chat_failed, Qt.QueuedConnection)
         task.signals.tool_used.connect(self.on_module_tool_used, Qt.QueuedConnection)
+        task.signals.tool_started.connect(self._on_core_tool_started, Qt.QueuedConnection)
         task.signals.completed.connect(self._on_chat_task_completed, Qt.QueuedConnection)
 
         self.thread_pool.start(task)
@@ -3520,6 +3603,11 @@ class ApolloWindow(QMainWindow):
         # model chunk caused the visible transcript to flash during generation and
         # file writes. Accumulate output in memory and render once when finished.
         self.current_stream_text += chunk
+        self._core_tool = ""
+
+    @Slot(str)
+    def _on_core_tool_started(self, name):
+        self._core_tool = name
 
     @Slot(str)
     def on_chat_finished(self, answer):
@@ -3574,6 +3662,7 @@ class ApolloWindow(QMainWindow):
 
     @Slot(str, str)
     def on_module_tool_used(self, tool_name, result):
+        self._core_tool = ""
         # Keep the transcript clean while still showing that a real feature ran.
         self.online_text.setText(f"Module ran: {tool_name.replace('__', '.')}")
 
@@ -3585,6 +3674,7 @@ class ApolloWindow(QMainWindow):
 
     @Slot(str)
     def on_chat_failed(self, error):
+        self._report_core_error("Chat: " + str(error))
         message = (
             "I couldn't talk to Ollama.\n\n"
             + error
