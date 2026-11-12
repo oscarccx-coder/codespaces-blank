@@ -147,7 +147,16 @@ class OllamaClient:
                 raise OllamaError("Generation stopped.")
             connection.connect()
             with self._connection_lock:
-                self._chat_socket = connection.sock
+                # HTTP/1.0 getresponse() may close the connection's socket object
+                # while its response file still owns the underlying stream.
+                # Keep an independent handle so Stop can interrupt that read on
+                # Windows as well as POSIX, including HTTPS transport sockets.
+                live = connection.sock
+                raw = socket.socket(live.family, live.type, live.proto, fileno=live.fileno())
+                try:
+                    self._chat_socket = raw.dup()
+                finally:
+                    raw.detach()
             if self._cancel_event.is_set():
                 raise OllamaError("Generation stopped.")
             connection.sock.settimeout(600)
@@ -165,6 +174,8 @@ class OllamaClient:
             with self._connection_lock:
                 if self._chat_connection is connection:
                     self._chat_connection = None
+                    if self._chat_socket is not None:
+                        self._chat_socket.close()
                     self._chat_socket = None
             connection.close()
 
