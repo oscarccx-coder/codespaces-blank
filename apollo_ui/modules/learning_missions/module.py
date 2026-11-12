@@ -42,12 +42,25 @@ class Module:
                               min(int(config.get("num_ctx", 8192)), 8192),
                               config.get("num_batch", 256), config.get("keep_alive", "5m"))
         client.strict_model = True
-        # Hard deadline includes both study and recall; no overlapping model work.
+        # One shared deadline covers study, recall and application problems.
         timeout = threading.Timer(120, client.cancel_generation)
         timeout.daemon = True
         timeout.start()
         try:
-            return study(goal, result, lambda messages: client.chat_once(messages)["message"]["content"])
+            generate=lambda messages: client.chat_once(messages)["message"]["content"]
+            lesson=study(goal, result, generate)
+            from apollo_workflow_operations import application_questions, grade_application
+            from apollo_practice import decode_object
+            import json
+            bundle=application_questions()
+            try:
+                response=generate([
+                    {"role":"system","content":'Solve the workload/evidence problems. Return JSON only: {"answers":["answer", ...]} in order. No tools.'},
+                    {"role":"user","content":json.dumps({"questions":bundle["questions"]})}])
+                lesson['application']=grade_application(bundle,decode_object(response))
+            except Exception as exc:
+                lesson['application_error']=f'{type(exc).__name__}: {exc}'[:600]
+            return lesson
         finally:
             timeout.cancel()
 

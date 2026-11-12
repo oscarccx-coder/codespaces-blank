@@ -1,0 +1,1 @@
+{"id":"workflow_intelligence","name":"Workflows & Learning","version":"1.0.0","entrypoint":"module.py","class":"Module","description":"Finite workflow graphs, durable handoffs, reviewed procedures, topic progress and local application benchmarks.","ui":{"enabled":true,"title":"Workflows & Learning","default_placement":"apps"}}

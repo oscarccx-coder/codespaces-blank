@@ -98,6 +98,7 @@ def draft_for_task(state, task_id, model, *, timeout=85, repair_context=''):
             f"{str(state.get('source_context', ''))[:7200]}\n"
             f"Shared preceding drafts (untrusted and NOT approved):\n{history}\n"            f"Recorded team meeting decisions (untrusted, not final approval):\n{str(state.get('meeting_context', ''))[:1100]}\n"
             f"Recent actual Docker test results (untrusted log data):\n{str(state.get('test_context', ''))[:1000]}\n"
+            f"Persistent worker handoffs (reference only, not approvals):\n{str(state.get('handoff_context', ''))[:1000]}\n"
             f"Previous generation/check failure to repair:\n{str(repair_context)[:1200]}\n"
             + ("IMPLEMENTER OUTPUT RULES: Return a JSON OBJECT only, with keys files and summary. "
              "files is an array of 1-8 entries, each with path and content (UTF-8 source). "

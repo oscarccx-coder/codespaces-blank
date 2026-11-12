@@ -151,6 +151,11 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
                         for exercise in lesson["exercises"]:
                             lines.append(f"Recall: {exercise['question']} | attempted: {exercise['attempt']} | expected: {exercise['answer']} | correct: {exercise['correct']}")
                         lines.extend(["Limitations: "+lesson["limitations"], "Next gap: "+lesson["next_question"]])
+                        if lesson.get('application'):
+                            app=lesson['application']
+                            lines.extend([f"Application benchmark: {app['correct']}/{app['total']}",app['notice']])
+                        if lesson.get('application_error'):
+                            lines.append('Application benchmark error: '+lesson['application_error'])
                         lines.append("Memory: "+(f"#{cycle['memory_id']}" if cycle["memory_id"] else cycle["memory_error"] or "indexing pending"))
             if item["report"]:
                 lines.extend(["CLOSING RESEARCH REPORT",item["report"],""])

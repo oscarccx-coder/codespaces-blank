@@ -3029,6 +3029,13 @@ class ChatTask(QRunnable):
         # to have permission. Chat and apps share the same persistent service.
         from apollo_learning_mission_chat import handle_command, parse_owner_command
         owner_text = self.owner_text if self.owner_text is not None else self._last_user_text()
+        from apollo_workflow_chat import parse_workflow_command, handle_workflow_command
+        if parse_workflow_command(owner_text) is not None:
+            record = self.module_manager.get_module('workflow_intelligence') if self.module_manager else None
+            instance = record.get('instance') if record and record.get('enabled') else None
+            direct = handle_workflow_command(owner_text, instance)
+            self.signals.chunk.emit(direct)
+            return direct
         intent = parse_owner_command(owner_text)
         if intent is not None:
             record = (self.module_manager.get_module("learning_missions")

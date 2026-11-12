@@ -31,7 +31,7 @@ Automatic routing is **Research → the mission's topic**. A selected knowledge 
 ## Limits and recovery
 
 - Existing budget: at most 24 research batches per mission per UTC day, then resume at the next UTC day. The UI shows scheduling state; this is not an unrestricted compute loop.
-- Interval: 30–3600 seconds. Each practice batch uses up to two local model calls with a shared 120-second deadline.
+- Interval: 30–3600 seconds. Each practice batch uses up to three local model calls with a shared 120-second deadline.
 - Localhost Ollama only; cloud-labelled models and external server addresses are rejected. No private memory or previous chat is supplied to practice generation.
 - Three passes without new quoted evidence trigger an hour's backoff in continuous practice, then revisit the topic. Three practice errors or three research failures block the mission with the actual error.
 - SQLite leases prevent two research workers from committing the same batch. Late/stale results cannot write lessons or memory. Source files, practice records and pending memory receipts survive ordinary restarts.
@@ -46,3 +46,6 @@ Readable sources are deduplicated, supplied as bounded untrusted excerpts to the
 ## Validation boundary
 
 Automated tests exercise source matching, exact recall scoring, migrations, topic routing with a real SQLite Memory Bank, duplicate suppression, durable retry, pause/stop/restart behaviour, research permission failures, cancellation boundaries, worker routing and real Qt controls. They use deterministic source/model fixtures; they do not benchmark the quality of an installed Ollama model or establish ChatGPT feature parity.
+
+
+The native workflow update adds a separately graded application benchmark to practice. See [Workflows & Learning](APOLLO_WORKFLOWS_AND_LEARNING.md) for scoring, topic progress and limits.

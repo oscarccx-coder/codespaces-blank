@@ -354,6 +354,18 @@ class WorkspaceQtTests(unittest.TestCase):
         self.client_patch.start(); self.addCleanup(self.client_patch.stop)
         FakeClient.requests = []
 
+    def test_auto_routing_fetches_sources_preserves_model_and_tools_boundary(self):
+        self.view.mode.setCurrentText('Auto'); self.view.tools_check.setChecked(True); calls=[]
+        def execute(module,action,args):
+            calls.append((module,action,args))
+            return {'sources':[{'url':'https://example.org/paper','title':'Paper','text':'Fetched public evidence.'}], 'saved':{'saved':True,'filename':args['filename']}}
+        self.owner.module_manager.execute=execute
+        self.view.composer.setText('Research public source retrieval'); self.view.send(); self.pump()
+        self.assertEqual(calls[0][1],'explore_web_and_save'); self.assertEqual(self.view.turn_client.model,'local-test')
+        self.assertIn('Fetched public evidence',json.dumps(FakeClient.requests[-1])); self.assertTrue(any(s['id']=='https://example.org/paper' for s in self.view.packet['sources']))
+        calls.clear(); self.view.tools_check.setChecked(False); self.view.composer.setText('Research public source retrieval'); self.view.send(); self.pump()
+        self.assertEqual(calls,[]); self.assertIn('Tools are unavailable',self.view.activities[0]['result'])
+
     def cleanup_view(self):
         if self.view.busy: self.view.stop()
         self.owner.thread_pool.waitForDone(3000); self.app.processEvents()

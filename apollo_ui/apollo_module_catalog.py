@@ -21,6 +21,7 @@ MODULE_GROUPS = {
     "growth_lab": "Coding",
     "reasoning_director": "Memory & Learning",
     "learning_missions": "Memory & Learning",
+    "workflow_intelligence": "Memory & Learning",
     "mission_control": "Coding",
     "research_library": "Memory & Learning",
     "task_engine": "Coding",
