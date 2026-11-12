@@ -1,6 +1,6 @@
 # Apollo Chat Workspace
 
-This is a local-first assistant workspace inspired by familiar ChatGPT workflows. It is not a claim that Apollo has ChatGPT's models, hosted services or reasoning quality. Based on Apollo main `84c06a2` and the Knowledge Nodes update in PR #50; neither is deployed by this feature branch.
+This is a local-first assistant workspace inspired by familiar ChatGPT workflows. It is not a claim that Apollo has ChatGPT's models, hosted services or reasoning quality. Chat Workspace, Knowledge Nodes and Apollo's distinctive personality were merged in PR #51. Grounded research and practice extend that shared chat/memory foundation.
 
 ## Features implemented
 
@@ -65,3 +65,8 @@ Each turn receives its own client. Cancellation cannot stop unrelated voice/rese
 Data is in `storage/databases/chat_workspace.db`; source code and runtime data remain separate. Migrations are additive. Roll back source to return to the earlier interface; the new database remains available for later restoration. Back up state before production adoption. Deleting a workspace chat removes its messages and owned attachment rows, but does not erase independent Knowledge Bank records, project sources or legacy conversation databases.
 
 The test suite uses deterministic model fixtures, actual local HTTP streaming/cancellation, file parsers, real PDF/DOCX/XLSX exports, and real offscreen Qt interactions. This does not establish live-model answer quality or microphone/XTTS performance on the owner's PC. Owner approval is required before merging or installing a production update.
+
+
+## Grounded research and practice
+
+Web research now fetches pages before synthesis; Deep research adds bounded primary-evidence and counterevidence passes. Open Apps → Practice & learning for persistent topic practice with source-linked memory. See [Practice Mode](APOLLO_PRACTICE_MODE.md) for commands, limits and validation boundaries.

@@ -110,7 +110,21 @@ class MissionStore:
                   event TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '',
                   at TEXT NOT NULL
               );
+              CREATE TABLE IF NOT EXISTS practice_cycles(
+                  mission_id INTEGER NOT NULL REFERENCES missions(id),
+                  step_no INTEGER NOT NULL, lesson_json TEXT NOT NULL DEFAULT '{}',
+                  error TEXT NOT NULL DEFAULT '', memory_id INTEGER,
+                  memory_error TEXT NOT NULL DEFAULT '', retry_after REAL NOT NULL DEFAULT 0,
+                  PRIMARY KEY(mission_id,step_no)
+              );
             """)
+            # Additive migration preserves existing authorised missions and receipts.
+            self.db.execute("BEGIN IMMEDIATE")
+            columns = {r[1] for r in self.db.execute("PRAGMA table_info(missions)")}
+            for name, definition in (("practice", "INTEGER NOT NULL DEFAULT 0"),
+                                     ("target_node_id", "INTEGER")):
+                if name not in columns:
+                    self.db.execute(f"ALTER TABLE missions ADD COLUMN {name} {definition}")
 
     def close(self):
         with self.lock:
@@ -129,12 +143,17 @@ class MissionStore:
         return dict(item)
 
     def create(self, title, goal, *, mode="until_stop", web_allowed=False,
-               steps=8, interval_seconds=120, owner_confirmed=False):
+               steps=8, interval_seconds=120, owner_confirmed=False,
+               practice=False, target_node_id=None):
         if owner_confirmed is not True:
             raise PermissionError("Learning mission creation requires explicit owner authorisation.")
         title = clean(title, max_chars=MAX_TOPIC)
         goal = clean(goal, max_chars=MAX_LENGTH)
         mode = valid_mode(mode)
+        if type(practice) is not bool:
+            raise ValueError("Practice must be explicitly enabled or disabled.")
+        if target_node_id is not None and (type(target_node_id) is not int or target_node_id < 1):
+            raise ValueError("Choose an existing knowledge node or automatic topic routing.")
         if type(web_allowed) is not bool:
             raise ValueError("web_allowed must be explicitly true or false.")
         if type(steps) is not int or not 1 <= steps <= MAX_STEPS:
@@ -152,9 +171,10 @@ class MissionStore:
             stamp = utc()
             cursor = self.db.execute(
                 "INSERT INTO missions(title,goal,mode,state,web_allowed,autorun,max_steps,"
-                "interval_seconds,next_due,created_at,updated_at) "
-                "VALUES(?,?,?,'RUNNING',?,1,?,?,0,?,?)",
-                (title, goal, mode, int(web_allowed), steps, interval_seconds, stamp, stamp),
+                "interval_seconds,next_due,created_at,updated_at,practice,target_node_id) "
+                "VALUES(?,?,?,'RUNNING',?,1,?,?,0,?,?,?,?)",
+                (title, goal, mode, int(web_allowed), steps, interval_seconds, stamp, stamp,
+                 int(practice), target_node_id),
             )
             mid = cursor.lastrowid
             self._event(mid, "authorised",
@@ -191,6 +211,11 @@ class MissionStore:
                     "SELECT event,detail,at FROM events WHERE mission_id=? ORDER BY id DESC LIMIT 15", (mid,)
                 )
             ]
+            item["practice_cycles"] = []
+            for row in self.db.execute("SELECT * FROM practice_cycles WHERE mission_id=? ORDER BY step_no DESC LIMIT 8", (mid,)):
+                cycle = dict(row)
+                cycle["lesson"] = json.loads(cycle.pop("lesson_json"))
+                item["practice_cycles"].append(cycle)
             return item
 
     def pause(self, mid, *, owner_confirmed=False):
@@ -271,13 +296,13 @@ class MissionStore:
                 if row["mode"]=="fixed" and row["completed_steps"]>=row["max_steps"]:
                     self._finish(mid, "COMPLETED")
                     continue
-                if row["no_new_steps"]>=3:
+                if row["no_new_steps"]>=3 and not row["practice"]:
                     self._finish(mid, "BLOCKED", "No new source URLs in three research passes. Review the goal.")
                     continue
                 # Reserve step before web action, guaranteeing one active worker/cycle.
                 self.db.execute(
                     "UPDATE missions SET next_due=?,lease_owner=?,lease_until=?,updated_at=? WHERE id=?",
-                    (now+row["interval_seconds"],owner,now+240,utc(),mid),
+                    (now+row["interval_seconds"],owner,now+(600 if row["practice"] else 240),utc(),mid),
                 )
                 self._event(mid, "step_started", "Source research batch reserved")
                 return dict(row)
@@ -315,6 +340,13 @@ class MissionStore:
             if not success:
                 count = 0
                 filename = ""
+            lesson = (result or {}).get("practice_lesson") if success else None
+            if item["practice"] and lesson:
+                seen = set()
+                for row in self.db.execute("SELECT lesson_json FROM practice_cycles WHERE mission_id=?", (mid,)):
+                    seen.update(c["fingerprint"] for c in json.loads(row[0]).get("claims", []))
+                lesson["new_claims"] = sum(c["fingerprint"] not in seen for c in lesson["claims"])
+            novelty = bool(lesson and lesson["new_claims"]) if item["practice"] else bool(new_urls)
             with self.db:
                 self.db.execute(
                     "INSERT INTO evidence(mission_id,step_no,query,fetched_count,saved_file,"
@@ -326,19 +358,36 @@ class MissionStore:
                     "UPDATE missions SET completed_steps=completed_steps+?,failed_steps=failed_steps+?,"
                     "no_new_steps=?,last_error=?,lease_owner='',lease_until=0,updated_at=? WHERE id=?",
                     (int(success),int(not success),
-                     (0 if new_urls else item["no_new_steps"]+1) if success else item["no_new_steps"],
+                     (0 if novelty else item["no_new_steps"]+1) if success else item["no_new_steps"],
                      "" if success else str(error or "No fetched source pages")[:600],utc(),mid),
                 )
                 self._event(mid,"source_saved" if success else "step_failed",
                             f"{count} pages; {len(new_urls)} new source references"
                             if success else str(error or "No pages fetched")[:450])
+                if item["practice"]:
+                    practice_error = str((result or {}).get("practice_error") or (error if not success else "") or ("No grounded lesson returned" if not lesson else ""))[:600]
+                    self.db.execute("INSERT INTO practice_cycles(mission_id,step_no,lesson_json,error) VALUES(?,?,?,?)",
+                                    (mid, step_no, json.dumps(lesson or {}), practice_error))
+                    if lesson and not lesson["new_claims"]:
+                        # Zero is a documented non-memory receipt, never an ID
+                        # returned by Memory Bank (whose IDs start at one).
+                        self.db.execute("UPDATE practice_cycles SET memory_id=0,memory_error=? WHERE mission_id=? AND step_no=?",
+                                        ("Repeated source quotations; no new memory created.", mid, step_no))
+                    self._event(mid, "practice_failed" if practice_error else "practice_saved",
+                                practice_error or f"Exact cloze recall {lesson['correct']}/{lesson['total']}; {lesson['new_claims']} new source-linked notes")
                 after = self._mission(mid)
+                recent_practice = self.db.execute("SELECT error FROM practice_cycles WHERE mission_id=? ORDER BY step_no DESC LIMIT 3", (mid,)).fetchall()
                 if after["state"] == "STOP_REQUESTED":
                     self._finish(mid,"STOPPED")
                 elif after["state"] == "RUNNING" and after["mode"] == "fixed" and after["completed_steps"] >= after["max_steps"]:
                     self._finish(mid,"COMPLETED")
                 elif after["state"] == "RUNNING" and after["failed_steps"] >= 3:
                     self._finish(mid,"BLOCKED","Three research steps failed. Review the error and tool permissions.")
+                elif after["state"] == "RUNNING" and after["practice"] and len(recent_practice) == 3 and all(r[0] for r in recent_practice):
+                    self._finish(mid,"BLOCKED","Three practice passes failed: "+recent_practice[0][0])
+                elif after["state"] == "RUNNING" and after["practice"] and after["no_new_steps"] >= 3:
+                    self.db.execute("UPDATE missions SET next_due=? WHERE id=?", (time.time()+3600, mid))
+                    self._event(mid, "practice_backoff", "No new grounded notes in three passes; wait one hour, then revisit topic gaps.")
                 elif after["state"] == "RUNNING" and after["no_new_steps"] >= 3:
                     self._finish(mid,"BLOCKED","No new source URLs over three cycles; avoid endless repetition.")
         return self.status(mid)
@@ -379,6 +428,14 @@ class MissionStore:
             "has occurred. Read and cross-check primary sources before promoting claims.",
             "Propose new experiments and improvements for human approval.",
         ])
+        if item["practice"]:
+            cycles = self.db.execute("SELECT lesson_json,error,memory_id,memory_error FROM practice_cycles WHERE mission_id=? ORDER BY step_no", (mid,)).fetchall()
+            lessons = [json.loads(c["lesson_json"]) for c in cycles if not c["error"]]
+            lines.extend(["", "## Practice record",
+                          f"Grounded lessons: {len(lessons)}; practice errors: {sum(bool(c['error']) for c in cycles)}",
+                          f"Exact cloze recall: {sum(l.get('correct',0) for l in lessons)}/{sum(l.get('total',0) for l in lessons)}",
+                          "Word recall is not a measure of understanding; model weights were not changed.",
+                          "Memory indexing receipts and any indexing errors remain in the mission inspector."])
         if error:
             lines.append("Blocker: "+error)
             if item["last_error"]:
@@ -456,11 +513,14 @@ def safe_public_https_urls(sources):
 class MissionService:
     """Single shared process worker; app and Chat read/write same database."""
 
-    def __init__(self, root, *, executor=None, memory=False, auto_thread=True):
+    def __init__(self, root, *, executor=None, memory=False, auto_thread=True,
+                 practitioner=None, memory_sink=None):
         self.root = Path(root).resolve()
         self._temp = tempfile.TemporaryDirectory() if memory else None
         self.store = MissionStore(self._temp.name if memory else self.root)
         self.executor = executor
+        self.practitioner = practitioner
+        self.memory_sink = memory_sink
         self.lock = threading.RLock()
         self._wake = threading.Event()
         self._shutdown = threading.Event()
@@ -517,6 +577,7 @@ class MissionService:
         if self._shutdown.is_set() or self.executor is None:
             # Never burn through pending missions while the Tool Manager loads.
             return None
+        self._index_pending()
         item=self.store.pick(owner=self.owner_id)
         if item is None:
             return None
@@ -524,6 +585,14 @@ class MissionService:
         step_no=item["completed_steps"]+item["failed_steps"]
         focus=SEARCH_TOPICS[step_no % len(SEARCH_TOPICS)]
         query=(item["goal"]+" "+focus)[:240]
+        if item["practice"]:
+            previous = self.store.status(mid)["practice_cycles"]
+            if previous and previous[0]["lesson"]:
+                lesson = previous[0]["lesson"]
+                weak = [e["concept"] for e in lesson["exercises"] if not e["correct"]]
+                gap = (" ".join(weak[:1]) if weak else lesson["next_question"])
+                if gap:
+                    query = (item["goal"][:120]+" "+gap[:60]+" "+focus[:55])[:240]
         result=None
         error=None
         try:
@@ -531,9 +600,44 @@ class MissionService:
                 raise RuntimeError("Research tool unavailable. Enable Apollo Training and its permitted public web search.")
             filename=f"learning_missions/mission_{mid}_step_{step_no+1}_{int(time.time())}.txt"
             result=self.executor(query,filename,3)
+            if item["practice"] and result.get("source_pages_fetched"):
+                try:
+                    if self.practitioner is None:
+                        raise RuntimeError("Local practice model is not configured.")
+                    result["practice_lesson"] = self.practitioner(item["goal"], result)
+                except Exception as exc:
+                    result["practice_error"] = f"{type(exc).__name__}: {exc}"[:600]
         except Exception as exc:
             error=f"{type(exc).__name__}: {str(exc)[:500]}"
-        return self.store.record(mid,query,result,error,owner=self.owner_id)
+        self.store.record(mid,query,result,error,owner=self.owner_id)
+        self._index_pending()
+        return self.store.status(mid)
+
+    def _index_pending(self):
+        """Durable outbox: retry failed memory writes without repeating web/model calls.
+
+        The sink uses stable mission/batch names, so retries after a crash upsert
+        the same memory rather than producing duplicate lessons.
+        """
+        if self.memory_sink is None:
+            return
+        with self.store.lock:
+            row = self.store.db.execute("SELECT * FROM practice_cycles WHERE error='' AND memory_id IS NULL AND retry_after<=? ORDER BY mission_id,step_no LIMIT 1", (time.time(),)).fetchone()
+            if row is None:
+                return
+            cycle = dict(row)
+            mission = self.store._mission(cycle["mission_id"])
+        try:
+            receipt = self.memory_sink(mission, cycle["step_no"], json.loads(cycle["lesson_json"]))
+            if not isinstance(receipt, dict) or not receipt.get("stored") or type(receipt.get("id")) is not int or receipt["id"] < 1:
+                raise RuntimeError("Memory Bank did not acknowledge a saved lesson.")
+            memory_id, error = receipt["id"], ""
+        except Exception as exc:
+            memory_id, error = None, f"{type(exc).__name__}: {exc}"[:600]
+        with self.store.lock, self.store.db:
+            self.store.db.execute("UPDATE practice_cycles SET memory_id=?,memory_error=?,retry_after=? WHERE mission_id=? AND step_no=?",
+                                  (memory_id, error, time.time()+300 if error else 0, cycle["mission_id"], cycle["step_no"]))
+            self.store._event(cycle["mission_id"], "memory_index_failed" if error else "memory_indexed", error or f"Memory #{memory_id}")
 
     def _loop(self):
         while not self._shutdown.is_set():
@@ -558,18 +662,23 @@ class MissionService:
         # No destructive DB close while a slow network pass is still active.
 
 
-def shared_service(root, *, executor=None, validation=False):
+def shared_service(root, *, executor=None, validation=False, practitioner=None, memory_sink=None):
     """One service for both Apollo apps and Chat in a single running process."""
     if validation:
-        return MissionService(root, memory=True, auto_thread=False,executor=executor)
+        return MissionService(root, memory=True, auto_thread=False,executor=executor,
+                              practitioner=practitioner, memory_sink=memory_sink)
     key=str(Path(root).resolve()).casefold()
     with SERVICE_LOCK:
         obj=SERVICES.get(key)
         if obj is None or obj._shutdown.is_set():
             # A module disable/reload invalidates the old executor/permissions.
             # The new module will construct a fresh service from durable state.
-            obj=MissionService(root,executor=executor)
+            obj=MissionService(root,executor=executor,practitioner=practitioner,memory_sink=memory_sink)
             SERVICES[key]=obj
         elif executor is not None:
             obj.configure(executor)
+        if practitioner is not None:
+            obj.practitioner = practitioner
+        if memory_sink is not None:
+            obj.memory_sink = memory_sink
         return obj

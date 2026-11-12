@@ -68,6 +68,19 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
         web_consent=QCheckBox(
             "I authorise public web research for this mission; no private data or cloud model calls")
         b.addWidget(web_consent)
+        practice=QCheckBox("Practice mode: source-linked lessons, local recall exercises and saved topic memory")
+        practice.setObjectName("practice_mode")
+        b.addWidget(practice)
+        destination=QComboBox()
+        destination.setObjectName("practice_destination")
+        destination.addItem("Save under Research → this topic automatically", None)
+        if manager is not None:
+            try:
+                for node in manager.execute("memory_bank", "list_knowledge_nodes", {"limit": 200}):
+                    destination.addItem(f"{node['kind']}: {node['title']} (#{node['id']})", node["id"])
+            except Exception:
+                destination.setToolTip("Memory Bank is unavailable; failed indexing is reported and retried.")
+        b.addWidget(destination)
         start=QPushButton("Authorise and start learning mission")
         b.addWidget(start)
         layout.addWidget(box)
@@ -120,6 +133,22 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
                 f"Last error: {item['last_error'] or 'none'}",
                 "",
             ]
+            if item.get("practice"):
+                lines.append("PRACTICE MODE · local model; unverified research notes; no weight training")
+                lines.append("Memory destination: "+(f"knowledge node #{item['target_node_id']}" if item["target_node_id"] else "Research → "+item["title"]))
+                for cycle in item.get("practice_cycles", []):
+                    lesson = cycle["lesson"]
+                    lines.append(f"\nPractice batch {cycle['step_no']}")
+                    if cycle["error"]:
+                        lines.append("Practice error: "+cycle["error"])
+                    elif lesson:
+                        lines.append(f"Exact cloze recall {lesson['correct']}/{lesson['total']}; {lesson.get('new_claims',0)} new quoted notes")
+                        for claim in lesson["claims"]:
+                            lines.extend([claim["concept"]+": "+claim["summary"], "Quote: "+claim["quote"], claim["url"]])
+                        for exercise in lesson["exercises"]:
+                            lines.append(f"Recall: {exercise['question']} | attempted: {exercise['attempt']} | expected: {exercise['answer']} | correct: {exercise['correct']}")
+                        lines.extend(["Limitations: "+lesson["limitations"], "Next gap: "+lesson["next_question"]])
+                        lines.append("Memory: "+(f"#{cycle['memory_id']}" if cycle["memory_id"] else cycle["memory_error"] or "indexing pending"))
             if item["report"]:
                 lines.extend(["CLOSING RESEARCH REPORT",item["report"],""])
             lines.append("RECENT SAVED EVIDENCE")
@@ -199,6 +228,7 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
             "Continuous mode stays authorised across normal restarts until you pause/stop, "
             "but is limited to 24 source batches per UTC day and 3 pages per batch. "
             "Repeated/no-progress/error cases stop automatically. Each fetch may take time.\n"
+            "Practice mode also runs two bounded local model calls and saves unverified lessons to the selected Memory Bank node. Repeated sources trigger a one-hour wait.\n"
             "No private data, code changes, software installation or verified claims.\n\n"
             "Start this research mission?",
             QMessageBox.Yes|QMessageBox.No,QMessageBox.No
@@ -207,6 +237,7 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
         try:
             item=service.begin(caption,topic,mode=mode.currentData(),
                                web_allowed=True,steps=cycles.value(),
+                               practice=practice.isChecked(),target_node_id=destination.currentData(),
                                interval_seconds=interval.value(),owner_confirmed=True)
             reload_list()
             for i in range(mission_list.count()):

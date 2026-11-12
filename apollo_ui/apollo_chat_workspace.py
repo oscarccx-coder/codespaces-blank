@@ -199,7 +199,7 @@ class ChatWorkspace(QWidget):
         options.addWidget(self.models, 1); self.model_refresh = self._button("↻", self.refresh_models, options)
         self.style = QComboBox(); self.style.addItems(["Balanced", "Concise", "Detailed"])
         self.style.currentTextChanged.connect(self.save_options); options.addWidget(self.style)
-        self.mode = QComboBox(); self.mode.addItems(["Chat", "Web research", "Coding", "Analyse files"])
+        self.mode = QComboBox(); self.mode.addItems(["Chat", "Web research", "Deep research", "Coding", "Analyse files"])
         self.mode.setToolTip("Web research explicitly enables web lookup for this request. Coding uses Apollo's existing guarded tools.")
         options.addWidget(self.mode)
         self.memory_check = QCheckBox("Memory"); self.memory_check.setToolTip("Retrieve relevant saved knowledge; project sources remain separate.")
@@ -602,6 +602,7 @@ class ChatWorkspace(QWidget):
         menu = QMenu(self)
         for title, key in (("Knowledge & memory", "memory_bank"), ("Voice", "voice_center"),
                            ("Foundry", "project_studio"), ("Missions", "mission_control"),
+                           ("Practice & learning", "learning_missions"),
                            ("Vision", "visual_learning"), ("Files", "file_manager"), ("Updates", "update_manager")):
             action = menu.addAction(title)
             record = self.owner.module_manager.get_module(key)
@@ -637,7 +638,7 @@ class ChatWorkspace(QWidget):
             question = "Describe and help me understand the attached files."
         if not question:
             return
-        if self.mode.currentText() == "Web research" and not self.tools_check.isChecked():
+        if self.mode.currentText() in ("Web research", "Deep research") and not self.tools_check.isChecked():
             self.status.setText("Enable Tools for web research, or choose Chat for a model-only answer.")
             return
         if sum(self.session_store.attachment(i)["kind"] == "image" for i in self.pending_attachments) > 4:
@@ -684,7 +685,8 @@ class ChatWorkspace(QWidget):
         self.status.setText("Working · " + str(self.packet["history_messages"]) + " earlier messages · " + str(len(self.packet["sources"])) + " sources" +
             (" · " + " ".join(self.packet["warnings"]) if self.packet["warnings"] else ""))
         manager = ScopedChatManager(self.owner.module_manager) if chat["tools"] and not self.session_store.temporary else None
-        self.task = ChatTask(client, self.packet["messages"], manager)
+        self.task = ChatTask(client, self.packet["messages"], manager,
+                             owner_text=question, work_mode=mode)
         self.owner.chat_task = self.task
         self.task.signals.chunk.connect(self.on_chunk, Qt.QueuedConnection)
         self.task.signals.finished.connect(self.on_finished, Qt.QueuedConnection)
@@ -745,6 +747,14 @@ class ChatWorkspace(QWidget):
             payload = result
         self.activities.append({"tool": name, "result": str(result)[:10000]})
         self.activities = self.activities[-40:]
+        if name == "training_module__explore_web_and_save" and isinstance(payload, dict):
+            for source in payload.get("sources", []):
+                if isinstance(source, dict) and source.get("fetched"):
+                    url = source["url"]
+                    if not any(s["id"] == url for s in self.packet.get("sources", [])):
+                        self.packet.setdefault("sources", []).append({"id": url, "name": source["title"],
+                            "excerpt": url, "notice": "Public page fetched for this research response."})
+            self.refresh_sources()
         self.activity.setPlainText("\n\n".join(a["tool"] + "\n" + a["result"] for a in self.activities))
         chat = self.session_store.chat(self.chat_id)
         if chat["memory"] and not self.session_store.temporary and hasattr(self.owner, "_auto_bank_tool_result"):

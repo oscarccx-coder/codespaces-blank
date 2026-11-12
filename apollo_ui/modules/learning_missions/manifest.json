@@ -1,10 +1,10 @@
 {
   "id": "learning_missions",
   "name": "Learning Missions",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "entrypoint": "module.py",
   "class": "Module",
-  "description": "Owner-approved, resumable, bounded public-source research goals and graceful-stop reports.",
+  "description": "Resumable public research and local practice: quote-linked lessons, recall exercises, topic memory and graceful-stop reports.",
   "ui": {
     "enabled": true,
     "title": "Learning Missions",

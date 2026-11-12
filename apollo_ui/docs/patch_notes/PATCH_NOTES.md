@@ -1,3 +1,10 @@
+## 2026-11-12 — Grounded research and persistent practice
+
+- Chat Web research performs real source fetches; Deep research runs three bounded passes and records fetched sources.
+- Practice mode adds quote-checked lessons, exact cloze recall, topic gaps, selectable Knowledge Node storage, durable memory retries and duplicate suppression.
+- Pause/stop/restart use the existing mission service, leases and daily budgets. Model or memory errors remain visible; no weight training or automatic software upgrades.
+- See `docs/APOLLO_PRACTICE_MODE.md` for setup, commands and limits.
+
 ## Apollo 8.0.0.0 — Learning and self-research development candidate
 **11 October 2026**
 
