@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from datetime import datetime, timezone
 
 
 def mission_view(service, *, kind="learning", parent=None, manager=None):
@@ -130,6 +131,8 @@ def mission_view(service, *, kind="learning", parent=None, manager=None):
                 f"Failed batches: {item['failed_steps']}",
                 f"New referenced source URLs: {item['new_sources']}",
                 f"Research interval: {item['interval_seconds']} seconds",
+                "Daily budget: up to 24 source batches per mission (UTC day)",
+                "Next batch not before: "+(datetime.fromtimestamp(item["next_due"], timezone.utc).isoformat(timespec="seconds") if item["state"] == "RUNNING" and item["next_due"] else "not scheduled / ready when enabled"),
                 f"Last error: {item['last_error'] or 'none'}",
                 "",
             ]

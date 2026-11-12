@@ -7,6 +7,7 @@ trigger the commands below.
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 
 def parse_owner_command(text):
@@ -158,6 +159,8 @@ def handle_command(text, module):
     ]
     if result.get("last_error"):
         lines.append("Last error: "+result["last_error"])
+    if result["state"] == "RUNNING" and result.get("next_due"):
+        lines.append("Next batch not before: "+datetime.fromtimestamp(result["next_due"], timezone.utc).isoformat(timespec="seconds"))
     if latest:
         lines.append("Latest source receipt: "+latest[0]["query"]
                      +" ("+str(latest[0]["fetched_count"])+" pages)")
