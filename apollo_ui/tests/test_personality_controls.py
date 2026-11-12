@@ -27,6 +27,16 @@ class PersonalityTests(unittest.TestCase):
         self.assertIn('self.setting_sarcasm_level = QComboBox()', source)
         self.assertIn('self.config["sarcasm_level"] = normalize_sarcasm_level(', source)
 
+    def test_apollo_character_is_helpful_exasperation_without_forced_catchphrases(self):
+        for level in (1, 2, 3):
+            instruction = personality_instruction(level)
+            self.assertIn("Ugh, fine. Let's solve it.", instruction)
+            self.assertIn("practical help is prompt and wholehearted", instruction)
+            self.assertIn("never begin every reply with a sigh", instruction)
+            self.assertIn("never at the person's intelligence", instruction)
+            self.assertIn("never blame the creator", instruction)
+        self.assertNotIn("Ugh, fine. Let's solve it.", personality_instruction(0))
+
 
 if __name__ == "__main__":
     unittest.main()

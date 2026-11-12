@@ -660,7 +660,7 @@ class ChatWorkspace(QWidget):
                 self.owner._apply_integrated_chat_learning(question)
         config = self.owner.config
         self.packet = build_chat_context(self.session_store, self.chat_id, question,
-            personality_instruction(config.get("sarcasm_level", "balanced")), memory,
+            personality_instruction(config.get("sarcasm_level", 2)), memory,
             max_chars=max(6000, int(config.get("num_ctx", 8192)) * 3),
             canvas=self.canvas.toPlainText(), canvas_enabled=self.include_canvas.isChecked())
         mode = self.mode.currentText()
