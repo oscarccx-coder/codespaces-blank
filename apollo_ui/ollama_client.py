@@ -4,6 +4,7 @@ import urllib.request
 import http.client
 import socket
 import threading
+import queue
 from contextlib import contextmanager
 from urllib.parse import urlsplit
 
@@ -105,6 +106,22 @@ class OllamaClient:
         return payload
 
     def chat_once(self, messages, tools=None):
+        return self._cancellable(lambda: self._chat_once_blocking(messages, tools))
+
+    def _cancellable(self, fn):
+        results = queue.Queue()
+        def receive():
+            try: results.put((True, fn()))
+            except Exception as exc: results.put((False, exc))
+        threading.Thread(target=receive, daemon=True).start()
+        while not self._cancel_event.is_set():
+            try: ok, result = results.get(timeout=0.1)
+            except queue.Empty: continue
+            if ok: return result
+            raise result
+        raise OllamaError("Generation stopped.")
+
+    def _chat_once_blocking(self, messages, tools=None):
         """One non-streaming chat call. Used to detect native tool calls."""
         payload = self._chat_payload(messages, False, tools=tools)
         with self._chat_response(payload) as response:
@@ -118,7 +135,7 @@ class OllamaClient:
                 "eval_duration", "total_duration") if key in result}
 
     def model_info(self):
-        return self._request_json("/api/show", {"model": self.model}, timeout=8)
+        return self._cancellable(lambda: self._request_json("/api/show", {"model": self.model}, timeout=8))
 
     def cancel_generation(self):
         """Interrupt this per-turn client's socket; never cancel another app's client."""
@@ -180,6 +197,27 @@ class OllamaClient:
             connection.close()
 
     def stream_chat(self, messages, tools=None):
+        # Response delivery must stay interruptible even when a platform's
+        # socket wrapper does not promptly wake a blocked network read.
+        results = queue.Queue()
+        def receive():
+            try:
+                for part in self._stream_chat_blocking(messages, tools):
+                    if self._cancel_event.is_set(): break
+                    results.put(("part", part))
+            except Exception as exc:
+                results.put(("error", exc))
+            finally:
+                results.put(("done", None))
+        threading.Thread(target=receive, daemon=True).start()
+        while not self._cancel_event.is_set():
+            try: kind, result = results.get(timeout=0.1)
+            except queue.Empty: continue
+            if kind == "done": return
+            if kind == "error": raise result
+            yield result
+
+    def _stream_chat_blocking(self, messages, tools=None):
         payload = self._chat_payload(messages, True, tools=tools)
         with self._chat_response(payload) as response:
                 while not self._cancel_event.is_set():
