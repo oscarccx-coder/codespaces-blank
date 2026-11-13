@@ -3,6 +3,8 @@
 No real network, GPU, external applications or user schedule is started.
 """
 from datetime import datetime, timedelta
+import importlib.util
+import os
 import tempfile
 import time
 import unittest
@@ -226,6 +228,54 @@ class ScheduleModuleTests(unittest.TestCase):
             self.assertIsNone(self.module.schedule_tick())
         self.assertEqual(self.module.schedules.get(s["id"])["run_count"],0)
         self.assertEqual(self.missions,[])
+
+
+os.environ.setdefault("QT_QPA_PLATFORM","offscreen")
+
+@unittest.skipIf(importlib.util.find_spec("PySide6") is None, "Qt GUI tested on Windows CI")
+class ScheduledTaskQtTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from PySide6.QtWidgets import QApplication
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_schedule_dialog_can_create_offline_daily_task(self):
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QDialog, QPushButton, QComboBox
+        from modules.suggestion_center.module import Module
+        from apollo_suggestion_ui import suggestion_view
+        import shiboken6
+
+        with tempfile.TemporaryDirectory() as folder:
+            module = Module({"base_dir":folder,"validation":True})
+            page = suggestion_view(module)
+            try:
+                events = []
+                def configure():
+                    dialogs = [w for w in self.app.topLevelWidgets()
+                               if isinstance(w,QDialog) and w.windowTitle()=="Apollo scheduled missions"]
+                    self.assertEqual(len(dialogs),1)
+                    dlg = dialogs[0]
+                    task_kind = next(w for w in dlg.findChildren(QComboBox)
+                                     if w.findData("health")>=0)
+                    task_kind.setCurrentIndex(task_kind.findData("health"))
+                    frequency = next(w for w in dlg.findChildren(QComboBox)
+                                     if w.findData("daily")>=0)
+                    frequency.setCurrentIndex(frequency.findData("daily"))
+                    next(w for w in dlg.findChildren(QPushButton)
+                         if w.text()=="Create approved schedule").click()
+                    events.append(len(module.schedules_status()))
+                    dlg.accept()
+                QTimer.singleShot(0,configure)
+                page.findChild(QPushButton,"initiative_schedules").click()
+                self.assertEqual(events,[1])
+                record = module.schedules_status()[0]
+                self.assertEqual(record["task_kind"],"health")
+                self.assertEqual(record["repeat_mode"],"daily")
+                self.assertFalse(record["web_allowed"])
+            finally:
+                shiboken6.delete(page)
+                module.close()
 
 
 if __name__=="__main__":
