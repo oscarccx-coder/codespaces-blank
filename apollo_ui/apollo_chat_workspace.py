@@ -6,12 +6,13 @@ import re
 import secrets
 import time
 
-from PySide6.QtCore import Qt, QTimer, QObject, QRunnable, Signal, Slot, QUrl, QByteArray
+from PySide6.QtCore import Qt, QTimer, QObject, QRunnable, Signal, Slot, QUrl, QByteArray, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QTextDocument, QTextCursor, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QPlainTextEdit, QTextBrowser, QComboBox, QCheckBox, QListWidget,
     QListWidgetItem, QSplitter, QTabWidget, QMenu, QFileDialog, QInputDialog,
-    QMessageBox, QApplication, QDialog)
+    QMessageBox, QApplication, QDialog, QGraphicsOpacityEffect)
+from apollo_home_core import ApolloChatCore
 
 from apollo_chat_store import ChatStore
 from apollo_chat_files import extract_attachment, build_chat_context, table_summary, export_canvas
@@ -168,6 +169,9 @@ class ChatWorkspace(QWidget):
         self._button("Apps", self.apps_menu, heading)
         self._button("Preferences", self.preferences, heading)
         outer.addLayout(heading)
+        self.core_header = ApolloChatCore()
+        self.core_header.wake_changed.connect(lambda enabled: getattr(self.owner, '_toggle_wake_word', lambda _: None)(enabled))
+        outer.addWidget(self.core_header)
         self.guidance_button = QPushButton("Apollo has a question")
         self.guidance_button.setObjectName("apollo_guidance_banner")
         self.guidance_button.clicked.connect(lambda: self.owner.open_module_app("suggestion_center"))
@@ -262,6 +266,9 @@ class ChatWorkspace(QWidget):
         self.inspector.addTab(self.activity, "Activity")
         splitter.addWidget(self.inspector); self.inspector.hide()
         splitter.setSizes([235, 800, 340]); outer.addWidget(splitter, 1)
+        self.chat_fade = QPropertyAnimation(self)
+        self.chat_fade.setDuration(460); self.chat_fade.setEasingCurve(QEasingCurve.OutCubic)
+        self.chat_fade.finished.connect(self._finish_entry_fade)
         # Keep all existing shell/voice launch surfaces wired to this composer.
         self.owner.chat_input = self.composer; self.owner.chat_view = self.transcript
         self.owner.chat_model = self.connection_label; self.owner.chat_send_button = self.send_button
@@ -309,6 +316,8 @@ class ChatWorkspace(QWidget):
         self.load_chat(item.data(Qt.UserRole))
 
     def load_chat(self, chat_id, store=None):
+        if hasattr(self.owner, '_pause_wake_word'):
+            self.owner._pause_wake_word()
         if self.busy or self.io_busy or getattr(self.owner, "stt_task", None) is not None:
             return
         if hasattr(self, "draft_timer") and self._has_loaded:
@@ -654,6 +663,8 @@ class ChatWorkspace(QWidget):
         self.composer.setReadOnly(not enabled)
         self.stop_button.setEnabled(self.busy and not self._cancel_requested)
         self.owner.chat_busy = self.busy
+        if self.busy and hasattr(self.owner, '_pause_wake_word'):
+            self.owner._pause_wake_word()
         if not self.busy:
             self.active_core_tool = ""
         elif hasattr(self.owner, "_core_error"):
@@ -934,6 +945,32 @@ class ChatWorkspace(QWidget):
         answers = [m for m in self.session_store.messages(self.chat_id) if m["role"] == "assistant"]
         if answers:
             QApplication.clipboard().setText(answers[-1]["content"])
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        QTimer.singleShot(0, self._animate_chat_entry)
+
+    def _animate_chat_entry(self):
+        if not self.isVisible(): return
+        self.chat_fade.stop()
+        reduced = bool(getattr(self.owner, 'ui_state', {}).get('core_reduced_motion', False))
+        self.core_header.enter(getattr(self, '_entry_source', None), reduced)
+        if reduced:
+            self._finish_entry_fade(); return
+        self._entry_effect = QGraphicsOpacityEffect(self.splitter)
+        self._entry_effect.setOpacity(.05)
+        self.splitter.setGraphicsEffect(self._entry_effect)
+        self.chat_fade.setTargetObject(self._entry_effect); self.chat_fade.setPropertyName(b'opacity')
+        self.chat_fade.setStartValue(.05); self.chat_fade.setEndValue(1.0); self.chat_fade.start()
+
+    def _finish_entry_fade(self):
+        self.chat_fade.setTargetObject(None)
+        self.splitter.setGraphicsEffect(None)
+        self._entry_effect = None
+
+    def hideEvent(self, event):
+        self.chat_fade.stop(); self._finish_entry_fade()
+        super().hideEvent(event)
 
     def prepare_close(self):
         if self.busy:

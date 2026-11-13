@@ -141,6 +141,7 @@ class HomeCoreWidgetTests(unittest.TestCase):
         scope = {"time": time, "resolve_activity": resolve_activity}
         exec(compile(ast.fix_missing_locations(ast.Module(body=[method], type_ignores=[])), "main.py", "exec"), scope)
         host = Mock()
+        host.chat_wake = Mock(enabled=False, capturing=False)
         host.isMinimized.return_value = False
         host.home_core = self.panel; host._core_error = ("", 0); host._core_tool = ""
         host.chat_busy = True; host.speech_task = None; host.stt_task = None; host.speech_muted = False

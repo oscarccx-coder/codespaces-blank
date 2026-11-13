@@ -3,9 +3,9 @@ import math
 import random
 import time
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal, Property, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QPixmap, QRadialGradient
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget, QCheckBox
 
 from apollo_core_activity import CoreActivity, speech_motion_level
 
@@ -22,6 +22,7 @@ class ApolloCoreCanvas(QWidget):
         self.setAccessibleName("Apollo animated activity core")
         self.activity = CoreActivity()
         self.reduced_motion = False
+        self.show_side_labels = True
         self._phase = 0.0
         self._elapsed = 0.0
         self._ring_angle = 0.0
@@ -33,6 +34,12 @@ class ApolloCoreCanvas(QWidget):
 
     def sizeHint(self):
         return QSize(780, 310)
+
+    def copy_motion_from(self, other):
+        for name in ("_phase", "_elapsed", "_ring_angle", "_level"):
+            setattr(self, name, getattr(other, name))
+        self.activity = other.activity
+        self.update()
 
     def set_activity(self, activity):
         previous = self.activity
@@ -244,7 +251,7 @@ class ApolloCoreCanvas(QWidget):
             p.drawLine(QPointF(x, r * 1.72 - height), QPointF(x, r * 1.72 + height))
         p.restore()
 
-        if w > 650:
+        if w > 650 and self.show_side_labels:
             p.setFont(QFont("Segoe UI", 8))
             p.setPen(QColor("#5b896b"))
             p.drawText(QRectF(22, h * .46, 160, 20), Qt.AlignLeft, "Z S S  L A B O R A T O R I E S")
@@ -308,3 +315,73 @@ class ApolloHomeCore(QFrame):
         self.listen.setText("Listening…" if listening else "Dictate")
         self.listen.setToolTip("Dictate a message, then review it in Chat before sending." if available
                                else "Enable Speech I/O to use dictation.")
+
+
+class ApolloChatCore(QFrame):
+    """Same painted core, docked at the top of Chat and animated on entry."""
+    wake_changed = Signal(bool)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName('apolloChatCore')
+        self.setStyleSheet('QFrame#apolloChatCore{background:#020605;border:1px solid #193c27;border-radius:12px;} '
+                           'QFrame#apolloChatCore QLabel,QFrame#apolloChatCore QCheckBox{background:transparent;border:0;color:#a9d9b9;}')
+        self.canvas = ApolloCoreCanvas(self)
+        self.canvas.show_side_labels = False
+        self.canvas.setMinimumHeight(0)
+        self.canvas.lower()
+        layout = QHBoxLayout(self); layout.setContentsMargins(14, 8, 14, 8)
+        status = QVBoxLayout()
+        self.title = QLabel('APOLLO'); self.title.setStyleSheet('color:#8dffb3;font-size:16px;font-weight:600')
+        self.detail = QLabel('Ready when you are'); self.detail.setWordWrap(True); self.detail.setMaximumWidth(145)
+        status.addWidget(self.title); status.addWidget(self.detail)
+        layout.addLayout(status); layout.addStretch()
+        voice = QVBoxLayout()
+        self.wake = QCheckBox('Wake word: Apollo')
+        self.wake.setToolTip('Enable the microphone for this session. Say Apollo, pause, then speak. Review the captured message before sending.')
+        self.wake.toggled.connect(self.wake_changed)
+        self.wake_status = QLabel('Off · microphone closed')
+        self.wake_status.setWordWrap(True); self.wake_status.setMaximumWidth(155)
+        voice.addWidget(self.wake); voice.addWidget(self.wake_status)
+        layout.addLayout(voice)
+        self._core_height = 100
+        self.setFixedHeight(100)
+        self.entry_animation = QPropertyAnimation(self, b'coreHeight', self)
+        self.entry_animation.setDuration(480)
+        self.entry_animation.setEasingCurve(QEasingCurve.OutCubic)
+        self.entry_animation.valueChanged.connect(lambda _: self.canvas.update())
+
+    def _get_height(self): return self._core_height
+    def _set_height(self, value):
+        self._core_height = int(value); self.setFixedHeight(int(value))
+    coreHeight = Property(int, _get_height, _set_height)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.canvas.setGeometry(self.rect().adjusted(1, 1, -1, -1))
+
+    def set_activity(self, activity):
+        self.canvas.set_activity(activity)
+        if self.title.text() != activity.title: self.title.setText(activity.title)
+        if self.detail.text() != activity.detail: self.detail.setText(activity.detail)
+
+    def enter(self, source=None, reduced_motion=False):
+        self.entry_animation.stop()
+        self.canvas.set_reduced_motion(reduced_motion)
+        if source is not None: self.canvas.copy_motion_from(source)
+        if reduced_motion:
+            self._set_height(100); return
+        expanded = min(240, max(140, int(self.window().height() * .25)))
+        self._set_height(expanded)
+        self.entry_animation.setStartValue(expanded)
+        self.entry_animation.setEndValue(100)
+        self.entry_animation.start()
+
+    def hideEvent(self, event):
+        self.entry_animation.stop(); self._set_height(100)
+        super().hideEvent(event)
+
+    def set_wake_status(self, enabled, text, available=True):
+        self.wake.blockSignals(True); self.wake.setChecked(bool(enabled)); self.wake.blockSignals(False)
+        self.wake.setEnabled(bool(available) or bool(enabled))
+        if self.wake_status.text() != text: self.wake_status.setText(text)

@@ -39,6 +39,7 @@ from apollo_model_memory import PROFILES, normalize_profile, memory_advice
 from apollo_module_catalog import GROUPS, group_for, is_visible, main_app_for
 from apollo_core_activity import resolve_activity
 from apollo_home_core import ApolloHomeCore
+from apollo_chat_voice import ChatWakeController
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -673,6 +674,10 @@ class ApolloWindow(QMainWindow):
         self.speech_muted = bool(speech_state.get("muted", False))
         self.speech_task = None
         self.stt_task = None
+        self.chat_wake = ChatWakeController(self)
+        self._stt_waiting_for_wake = False
+        self._stt_wake_deadline = 0.0
+        self._closing = False
 
         # Use Qt's managed thread pool instead of manually owning QThread objects.
         # This removes the QThread destruction/lifecycle failure mode entirely.
@@ -700,6 +705,12 @@ class ApolloWindow(QMainWindow):
         self._build_ui()
         self.rebuild_module_ui()
         self._restore_ui_state()
+
+        self.wake_status_button = QPushButton("Stop wake word")
+        self.wake_status_button.setToolTip("Stop the wake-word microphone from any Apollo page.")
+        self.wake_status_button.clicked.connect(lambda: self._toggle_wake_word(False))
+        self.statusBar().addPermanentWidget(self.wake_status_button)
+        self.wake_status_button.hide()
 
         self.core_activity_timer = QTimer(self)
         self.core_activity_timer.setInterval(100)
@@ -1406,6 +1417,10 @@ class ApolloWindow(QMainWindow):
         widget = self.pages.get(name)
         if widget is None:
             return
+        if name == "Chat" and hasattr(self, "chat_workspace"):
+            self.chat_workspace._entry_source = self.home_core.canvas if self._current_page_key() == "Hub" else None
+        if name == "Hub" and hasattr(self, "chat_workspace"):
+            self.home_core.canvas.copy_motion_from(self.chat_workspace.core_header.canvas)
         self.stack.setCurrentWidget(widget)
         for n, b in self.nav_buttons.items():
             b.setChecked(n == name)
@@ -1665,16 +1680,32 @@ class ApolloWindow(QMainWindow):
 
     def _save_core_motion(self, reduced):
         self.ui_state["core_reduced_motion"] = bool(reduced)
+        if hasattr(self, "chat_workspace"):
+            self.chat_workspace.core_header.canvas.set_reduced_motion(reduced)
         self._queue_ui_state_save()
 
     def _report_core_error(self, message):
         self._core_error = (str(message)[:160], time.monotonic() + 12)
         self._refresh_home_core()
 
+    def _toggle_wake_word(self, enabled):
+        try:
+            self.chat_wake.enable(enabled)
+        except Exception as exc:
+            self._core_error = (str(exc), time.monotonic() + 12)
+            self.statusBar().showMessage(str(exc), 12000)
+        self._refresh_home_core()
+
+    def _pause_wake_word(self):
+        self.chat_wake.pause()
+
     def _refresh_home_core(self):
-        """Observe existing state only; never start tools/models or inspect audio devices."""
-        if (not hasattr(self, "home_core") or not self.home_core.isVisible()
-                or self.isMinimized() or self.home_core.visibleRegion().isEmpty()):
+        """Update visible cores and coordinate the owner's enabled wake service."""
+        workspace = getattr(self, "chat_workspace", None)
+        chat_core = getattr(workspace, "core_header", None)
+        home_visible = hasattr(self, "home_core") and self.home_core.isVisible() and not self.home_core.visibleRegion().isEmpty()
+        chat_visible = chat_core is not None and chat_core.isVisible()
+        if not (home_visible or chat_visible or self.chat_wake.enabled):
             return
         speech = {}
         for module_id in ("text_to_speech", "voice_imprint_trainer"):
@@ -1703,15 +1734,16 @@ class ApolloWindow(QMainWindow):
                 speech["level_available"] = playback.get("level_available", False)
         if self.speech_task is not None and not speech.get("playing"):
             speech["generating"] = True
-        workspace = getattr(self, "chat_workspace", None)
+        self.chat_wake.pump(speech)
         tool = getattr(workspace, "active_core_tool", "") if workspace is not None else self._core_tool
         error, expires = self._core_error
         activity = resolve_activity(
-            listening=self.stt_task is not None, speech=speech, thinking=self.chat_busy,
+            listening=self.stt_task is not None or self.chat_wake.capturing, speech=speech, thinking=self.chat_busy,
             tool=tool, working=self.runtime.active_capabilities(),
             error=error if time.monotonic() < expires else "", muted=self.speech_muted,
         )
-        self.home_core.set_activity(activity)
+        if home_visible: self.home_core.set_activity(activity)
+        if chat_visible: chat_core.set_activity(activity)
         available = self._speech_module_ready()
         temporary = workspace is not None and workspace.session_store.temporary
         self.home_core.set_voice(self.speech_muted, available and not temporary, self.stt_task is not None)
@@ -2336,6 +2368,8 @@ class ApolloWindow(QMainWindow):
         ):
             return
 
+        self.chat_wake.pause()
+        self.chat_wake.hold_until = time.monotonic() + .8
         # Pass Apollo's real response to Speech I/O. Voice Studio now owns the
         # speech-friendly renderer so displayed text stays precise while spoken text
         # can be more fluid, skip code and use natural pauses/contractions.
@@ -2365,8 +2399,23 @@ class ApolloWindow(QMainWindow):
 
     @Slot()
     def start_speech_to_text(self):
-        if self.stt_task is not None:
+        if self.stt_task is not None or self._closing:
             return
+        if hasattr(self, "chat_workspace") and self.chat_workspace.session_store.temporary:
+            return
+        self._pause_wake_word()
+        if self.chat_wake.microphone_open:
+            if not self._stt_wake_deadline:
+                self._stt_wake_deadline = time.monotonic() + 3
+            elif time.monotonic() > self._stt_wake_deadline:
+                self._stt_wake_deadline = 0
+                self._report_core_error("Microphone did not stop. Turn off Wake word and try dictation again.")
+                return
+            if not self._stt_waiting_for_wake:
+                self._stt_waiting_for_wake = True
+                QTimer.singleShot(100, self._retry_dictation_after_wake)
+            return
+        self._stt_wake_deadline = 0
 
         if not self._speech_module_ready():
             if hasattr(self, "online_text"):
@@ -2406,6 +2455,10 @@ class ApolloWindow(QMainWindow):
                 self.online_text.setText("Speech converted to text and voice sample saved when enabled — review it, then Send.")
         elif hasattr(self, "online_text"):
             self.online_text.setText("No speech was recognized.")
+
+    def _retry_dictation_after_wake(self):
+        self._stt_waiting_for_wake = False
+        if not self._closing: self.start_speech_to_text()
 
     @Slot(str)
     def _on_stt_failed(self, error):
@@ -6699,6 +6752,9 @@ class ApolloWindow(QMainWindow):
         if hasattr(self, "chat_workspace") and not self.chat_workspace.prepare_close():
             event.ignore()
             return
+        self._closing = True
+        self.core_activity_timer.stop()
+        self.chat_wake.close()
         # Persist UI and stop speech/background work before shutdown.
         try:
             self.stop_apollo_speech()

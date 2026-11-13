@@ -1,3 +1,11 @@
+## 2026-11-13 — Animated Chat core and local wake word
+
+- Chat keeps the green animated core above the conversation; opening Chat shrinks the core into its header as the transcript fades in.
+- The animation continues while typing and follows the existing speech/thinking/tool states. Reduce motion skips transitions.
+- Wake word is available as an explicit per-session microphone switch in Chat. Say Apollo, pause, then speak; review the captured message before Send.
+- Wake listening pauses during replies, temporary chats and dictation, and stops on shutdown or permission revocation.
+- See `docs/features/CHAT_CORE_AND_WAKE_WORD.md` for Windows setup, privacy, behavior and validation limits.
+
 ## 2026-11-12 — Green Home activity core
 
 - Added a green animated sphere and instrument rings over an almost-black galaxy/starfield.
