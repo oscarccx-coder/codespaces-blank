@@ -6,7 +6,7 @@
 |---|---|
 | `01_INSTALL_APOLLO.bat` | Install/repair core requirements, then open setup |
 | `02_START_APOLLO.bat` | Launch Apollo |
-| `03_UPDATE_APOLLO.bat` | Safely fast-forward a clean local Git checkout from `origin/main` only; `--check` is read-only |
+| `03_UPDATE_APOLLO.bat` | Safely fast-forward a `main` Git checkout from `origin/main`; protects changed private runtime data and refuses edited code or incoming private-data changes; `--check` is read-only |
 | `04_REPAIR_VOICE.bat` | Install/repair optional XTTS Python runtime |
 | `05_DIAGNOSE.bat` | Check Ollama, XTTS model files, packages and isolated XTTS imports |
 | `06_BACKUP.bat` | Create a local, unencrypted data backup ZIP |
@@ -55,4 +55,4 @@ If you see **Docker CLI found but engine unavailable**, open Docker Desktop and 
 
 The noninteractive Windows CI smoke tests mock Docker; they **never install Docker or pull/build a live image**. A real installation still requires testing on the owner's PC.
 
-**Updater self-test:** Double-click `18_TEST_APOLLO_UPDATER.bat`. It does **not** pull, install, upgrade models, create external accounts or change live Apollo code. It prints a check result, then runs offline signed-release and disposable Git regression tests using private Python. Failure logs are preserved under `%TEMP%\Apollo_Updater_Self_Test.log`. If the folder isn't a clean `main` Git checkout, the preflight correctly reports a warning. Fix checkout issues before attempting a real source update. CI uses `--tests-only` because pull request checkouts intentionally have detached HEAD.
+**Updater self-test:** Double-click `18_TEST_APOLLO_UPDATER.bat`. It does **not** pull, install, upgrade models, create external accounts or change live Apollo code. It prints a check result, then runs offline signed-release and disposable Git regression tests using private Python. Failure logs are preserved under `%TEMP%\Apollo_Updater_Self_Test.log`. If source code has local changes or the folder isn't on the `main` Git branch, preflight reports a warning. Changed private runtime data alone is allowed, but incoming data changes are refused to prevent accidental loss. Fix blocked code changes manually; never delete or reset private data to force an update. CI uses `--tests-only` because pull request checkouts intentionally have detached HEAD.
