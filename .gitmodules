@@ -1,0 +1,3 @@
+[submodule "apollo_ui/vendor/openjarvis"]
+	path = apollo_ui/vendor/openjarvis
+	url = https://github.com/open-jarvis/OpenJarvis.git

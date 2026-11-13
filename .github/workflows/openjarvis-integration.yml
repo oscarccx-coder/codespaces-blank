@@ -1,0 +1,32 @@
+name: OpenJarvis integration
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  integration:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install PyYAML PySide6
+      - name: Test real agent, broker, saved receipts and Qt app
+        working-directory: apollo_ui
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest -v tests.test_openjarvis
+      - name: Validate the app without starting a model
+        working-directory: apollo_ui
+        run: python module_validator.py modules/openjarvis

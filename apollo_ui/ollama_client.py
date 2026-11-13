@@ -29,6 +29,8 @@ class OllamaClient:
         self.keep_alive = options["keep_alive"]
         self.strict_model = False
         self.last_metrics = {}
+        self.num_predict = None
+        self.think = None
         self._cancel_event = threading.Event()
         self._connection_lock = threading.Lock()
         self._chat_connection = None
@@ -103,6 +105,10 @@ class OllamaClient:
         }
         if tools:
             payload["tools"] = tools
+        if self.num_predict is not None:
+            payload["options"]["num_predict"] = int(self.num_predict)
+        if self.think is not None:
+            payload["think"] = self.think
         return payload
 
     def chat_once(self, messages, tools=None):
@@ -132,7 +138,8 @@ class OllamaClient:
     @staticmethod
     def _metrics(result):
         return {key: result[key] for key in ("model", "eval_count", "prompt_eval_count",
-                "eval_duration", "total_duration") if key in result}
+                "eval_duration", "total_duration", "load_duration", "prompt_eval_duration",
+                "prompt_eval_cached_count") if key in result}
 
     def model_info(self):
         return self._cancellable(lambda: self._request_json("/api/show", {"model": self.model}, timeout=8))
