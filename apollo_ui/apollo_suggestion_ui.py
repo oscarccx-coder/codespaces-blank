@@ -42,7 +42,7 @@ def suggestion_view(module,parent=None):
         enabled=module.initiative is not None
         add_goal.setEnabled(enabled)
         next_step.setEnabled(enabled and goal_pick.count()>0 and next((g['status']=='active' for g in goals if g['id']==goal_pick.currentData()),False))
-        pause_goal.setEnabled(enabled and goal_pick.count()>0)
+        pause_goal.setEnabled(enabled and goal_pick.count()>0 and next((g['status'] in ('active','paused') for g in goals if g['id']==goal_pick.currentData()),False))
         ranked=data['ranked_proposals']
         goal_status.setText(f"{len(goals)} initiative goal(s) · {len(ranked)} ranked proposals. Planning is review-only; nothing starts without approval.")
 
