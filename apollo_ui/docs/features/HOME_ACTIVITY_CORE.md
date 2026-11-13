@@ -4,19 +4,26 @@ Home now includes a luminous green energy sphere, rotating instrument rings and
 a cached starfield/galaxy on an almost-black background. Existing pinned apps,
 layout editing and shortcuts remain below it.
 
+The sphere and glow breathe on a steady 5.6-second cycle. Instrument rings turn
+at 5–12 degrees per second depending on activity, independently of the plasma.
+Two opposing energy waves open and close like abstract lips during speech;
+measured silent audio closes them instead of inventing syllables. A short
+attack/release smooths volume changes. This is amplitude-driven motion, not
+phoneme-accurate lip synchronization.
+
 ![Home core in an illustrative speaking state](../images/home_activity_core.png)
 
 The display observes real application state:
 
 | State | Trigger | Visual response |
 | --- | --- | --- |
-| Ready | No observed foreground or runtime action | Slow green breathing and orbit |
+| Ready | No observed foreground or runtime action | 5.6-second green breathing and slow orbit |
 | Listening | Existing dictation task active | Expanding concentric rings |
 | Thinking | Chat generating a response | Faster counter-rotating rings and plasma |
 | Researching | Active search/fetch/research tool | Research label, tool name and active orbit |
 | Working | Other active tool or current-process runtime action | Working label and capability name |
 | Preparing voice | Speech request queued or local generation active | Moving core while audio is prepared |
-| Speaking | Windows speech or Voice Imprint playback process active | Pulsing plasma and signal bars |
+| Speaking | Windows speech or Voice Imprint playback process active | Opposing speech waves open/close; signal bars follow volume |
 | Needs attention | Recent chat/dictation/voice failure, when no work is active | Plain-language failure for 12 seconds |
 
 Voice Imprint PCM16 WAV playback supplies a bounded amplitude envelope computed

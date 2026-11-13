@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import Mock, patch
 import wave
 
-from apollo_core_activity import CoreActivity, PlaybackEnvelope, resolve_activity
+from apollo_core_activity import CoreActivity, PlaybackEnvelope, resolve_activity, speech_motion_level
 from apollo_runtime import ApolloRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,13 +45,26 @@ class ActivityTests(unittest.TestCase):
             self.assertGreater(levels[2], .5)
             proc = Mock(); proc.poll.return_value = None
             with patch("apollo_core_activity.time.monotonic", return_value=10): meter.start(proc, levels)
+            with patch("apollo_core_activity.time.monotonic", return_value=10.01):
+                silent = meter.snapshot()
+                self.assertTrue(silent["level_available"])
+                self.assertEqual(silent["level"], 0)
             with patch("apollo_core_activity.time.monotonic", return_value=10.12):
                 self.assertGreater(meter.snapshot()["level"], .5)
             proc.poll.return_value = 0
-            self.assertEqual(meter.snapshot(), {"playing": False, "level": 0.0})
+            self.assertEqual(meter.snapshot(), {"playing": False, "level": 0.0, "level_available": False})
             meter.stop()
             self.assertFalse(meter.snapshot()["playing"])
             self.assertEqual(meter.read(Path(folder) / "missing.wav"), ())
+
+    def test_measured_silence_never_becomes_an_invented_syllable(self):
+        for elapsed in (.1, .4, 1.5, 5.6):
+            self.assertEqual(speech_motion_level(0, elapsed, available=True), 0)
+            self.assertEqual(speech_motion_level(.7, elapsed, available=True), .7)
+        self.assertEqual(speech_motion_level(2, .2, available=True), 1)
+        self.assertGreater(speech_motion_level(0, .2, available=False), .5)
+        activity = resolve_activity(speech={"playing": True, "level": 0, "level_available": True})
+        self.assertTrue(activity.level_available)
 
     def test_only_in_flight_current_process_actions_animate_background_work(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -149,8 +162,9 @@ class HomeCoreWidgetTests(unittest.TestCase):
         speech._speech_status.return_value = {"worker_alive": True, "state": "generating"}
         refresh(); self.assertEqual(self.panel.canvas.activity.state, "voice")
         speech._speech_status.return_value = {"worker_alive": False, "state": "completed"}
-        trainer.playback_activity.return_value = {"playing": True, "level": .8}
+        trainer.playback_activity.return_value = {"playing": True, "level": .8, "level_available": True}
         refresh(); self.assertEqual(self.panel.canvas.activity.state, "speaking")
+        self.assertTrue(self.panel.canvas.activity.level_available)
         trainer.playback_activity.return_value = {"playing": False, "level": 0}
         refresh(); self.assertEqual(self.panel.canvas.activity.state, "idle")
         host._core_error = ("Voice failed", time.monotonic() + 10)
@@ -158,6 +172,25 @@ class HomeCoreWidgetTests(unittest.TestCase):
         host._core_error = ("Voice failed", 0)
         refresh(); self.assertEqual(self.panel.canvas.activity.state, "idle")
         host.module_manager.execute.assert_not_called()
+
+    def test_slow_rings_and_speech_waves_close_in_silence(self):
+        canvas = self.panel.canvas
+        canvas.timer.stop()
+        canvas.set_activity(CoreActivity("speaking", "Speaking", "", .9, True))
+        canvas._last_tick = 100
+        angle = canvas._ring_angle
+        with patch("apollo_home_core.time.monotonic", return_value=100.04): canvas._tick()
+        self.assertAlmostEqual(canvas._ring_angle - angle, .24, places=5)  # 6 degrees/second
+        for i in range(2, 12):
+            with patch("apollo_home_core.time.monotonic", return_value=100 + i * .04): canvas._tick()
+        self.assertGreater(canvas._level, .89)
+        elapsed = canvas._elapsed
+        canvas.set_activity(CoreActivity("speaking", "Speaking", "", 0, True))
+        for i in range(12, 30):
+            with patch("apollo_home_core.time.monotonic", return_value=100 + i * .04): canvas._tick()
+        self.assertLess(canvas._level, .001)
+        self.assertGreater(canvas._elapsed, elapsed)
+        self.assertFalse(canvas.grab().isNull())
 
 
 if __name__ == "__main__": unittest.main()

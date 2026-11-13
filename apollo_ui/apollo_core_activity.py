@@ -14,6 +14,15 @@ class CoreActivity:
     title: str = "Ready when you are"
     detail: str = "Ask a question. Start an experiment. Build something."
     level: float = 0.0
+    level_available: bool = False
+
+
+def speech_motion_level(level, elapsed, available=False):
+    """Preserve measured silence; use a syllabic pulse only without audio data."""
+    if available:
+        return max(0.0, min(1.0, float(level)))
+    syllable = max(0.0, math.sin(elapsed * 4.8))
+    return (syllable * (.55 + .45 * math.sin(elapsed * 13.7) ** 2)) ** .6
 
 
 def resolve_activity(*, listening=False, speech=None, thinking=False,
@@ -23,7 +32,8 @@ def resolve_activity(*, listening=False, speech=None, thinking=False,
     if listening:
         return CoreActivity("listening", "Listening", "Microphone active · dictating your message")
     if speech.get("playing"):
-        return CoreActivity("speaking", "Speaking", "Voice playback active", speech.get("level", 0.0))
+        return CoreActivity("speaking", "Speaking", "Voice playback active",
+                            speech.get("level", 0.0), bool(speech.get("level_available", False)))
     if speech.get("generating"):
         return CoreActivity("voice", "Preparing voice", "Generating speech locally")
     if tool:
@@ -91,4 +101,7 @@ class PlaybackEnvelope:
             process, levels, started = self._process, self._levels, self._started
         playing = process is not None and process.poll() is None
         index = int(max(0.0, time.monotonic() - started) / self.STEP)
-        return {"playing": playing, "level": levels[index] if playing and index < len(levels) else 0.0}
+        available = bool(playing and levels)
+        # After the bounded envelope ends, hold closed rather than invent speech.
+        return {"playing": playing, "level": levels[index] if available and index < len(levels) else 0.0,
+                "level_available": available}

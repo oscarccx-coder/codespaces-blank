@@ -7,10 +7,12 @@ from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QPixmap, QRadialGradient
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
-from apollo_core_activity import CoreActivity
+from apollo_core_activity import CoreActivity, speech_motion_level
 
 
 GREEN = "#65ff9c"
+RING_DEGREES_PER_SECOND = {"idle": 5, "listening": 7, "thinking": 12,
+                           "researching": 10, "working": 10, "voice": 8, "speaking": 6}
 
 
 class ApolloCoreCanvas(QWidget):
@@ -21,6 +23,8 @@ class ApolloCoreCanvas(QWidget):
         self.activity = CoreActivity()
         self.reduced_motion = False
         self._phase = 0.0
+        self._elapsed = 0.0
+        self._ring_angle = 0.0
         self._last_tick = time.monotonic()
         self._level = 0.0
         self._background = None
@@ -69,10 +73,14 @@ class ApolloCoreCanvas(QWidget):
         now = time.monotonic()
         speed = {"idle": .22, "thinking": 1.1, "voice": .7, "researching": .85,
                  "working": .9, "listening": .45, "speaking": .6}.get(self.activity.state, .25)
-        self._phase += min(.12, now - self._last_tick) * speed
+        dt = max(0.0, min(.12, now - self._last_tick))
+        self._phase += dt * speed
+        self._elapsed += dt
+        self._ring_angle = (self._ring_angle + dt * RING_DEGREES_PER_SECOND.get(self.activity.state, 5)) % 360
         self._last_tick = now
-        target = max(0.0, min(1.0, float(self.activity.level)))
-        self._level += (target - self._level) * .45
+        target = speech_motion_level(self.activity.level, self._elapsed, self.activity.level_available) if self.activity.state == "speaking" else 0.0
+        response = .055 if target > self._level else .09
+        self._level += (target - self._level) * (1 - math.exp(-dt / response))
         self.update()
 
     def _galaxy(self):
@@ -138,17 +146,20 @@ class ApolloCoreCanvas(QWidget):
         t = 0.0 if self.reduced_motion else self._phase
         state = self.activity.state
         speaking = state == "speaking"
-        pulse = .5 + .5 * math.sin(t * (12 if speaking else 3))
-        energy = max(self._level, .12 + .16 * pulse) if speaking else .12 * pulse
+        elapsed = 0.0 if self.reduced_motion else self._elapsed
+        breath = .5 + .5 * math.sin(elapsed * math.tau / 5.6)
+        voice_level = self._level if speaking else 0.0
+        energy = .06 + .10 * breath + .65 * voice_level
         r = min(h * .265, w * .19, 92)
         p.save(); p.translate(w / 2, h / 2 - 6)
 
-        halo = QRadialGradient(QPointF(0, 0), r * 1.9)
-        halo.setColorAt(0, QColor(39, 255, 120, 28))
-        halo.setColorAt(.5, QColor(37, 255, 123, 16 + int(energy * 35)))
+        halo_r = r * (1.82 + .18 * breath)
+        halo = QRadialGradient(QPointF(0, 0), halo_r)
+        halo.setColorAt(0, QColor(39, 255, 120, 22 + int(20 * breath)))
+        halo.setColorAt(.5, QColor(37, 255, 123, 12 + int(16 * breath + voice_level * 25)))
         halo.setColorAt(1, QColor(0, 0, 0, 0))
         p.setPen(Qt.NoPen); p.setBrush(halo)
-        p.drawEllipse(QPointF(0, 0), r * 1.9, r * 1.9)
+        p.drawEllipse(QPointF(0, 0), halo_r, halo_r)
 
         for radius in (1.18, 1.38, 1.57):
             self._circle(p, r * radius, "#17432a", .8)
@@ -161,7 +172,7 @@ class ApolloCoreCanvas(QWidget):
         for ring, direction in ((1.2, 1), (1.38, -1)):
             p.setPen(QPen(QColor(GREEN), 2 if ring == 1.2 else 1.1))
             for offset, length in ((0, 62), (125, 24), (224, 42)):
-                angle = (math.degrees(t) * direction * 25 + offset) % 360
+                angle = ((0.0 if self.reduced_motion else self._ring_angle) * direction + offset) % 360
                 p.drawArc(QRectF(-r * ring, -r * ring, r * ring * 2, r * ring * 2), int(angle * 16), length * 16)
 
         if state == "listening":
@@ -171,7 +182,7 @@ class ApolloCoreCanvas(QWidget):
                 radius = r * (1.05 + progress * .7)
                 p.drawEllipse(QPointF(0, 0), radius, radius)
 
-        sphere_r = r * (1 + energy * .07)
+        sphere_r = r * (.975 + .05 * breath + .025 * voice_level)
         sphere = QRadialGradient(QPointF(-r * .3, -r * .35), r * 1.5)
         sphere.setColorAt(0, QColor("#1a5633"))
         sphere.setColorAt(.5, QColor("#062519"))
@@ -198,13 +209,19 @@ class ApolloCoreCanvas(QWidget):
                 else: path.lineTo(x, y)
             p.setPen(QPen(QColor(95, 255, 151, 40 + band * 8 + int(energy * 45)), .8))
             p.drawPath(path)
-        # The bright plasma ribbon breathes with speech's PCM envelope.
-        for ribbon in range(3):
+        # Opposing energy waves open like abstract lips. Measured silence closes
+        # them; this is an amplitude response, not a phoneme/viseme prediction.
+        for side in (-1, 1):
             path = QPainterPath()
             for j in range(110):
-                x = (j / 109 * 2 - 1) * sphere_r
-                boundary = math.sqrt(max(0, sphere_r * sphere_r - x * x))
-                y = math.sin(x / sphere_r * 2.7 + t * 2 + ribbon * .23) * boundary * (.36 + energy * .28)
+                u = j / 109 * 2 - 1
+                x = u * sphere_r * .9
+                profile = max(0, 1 - u * u) ** .7
+                opening = sphere_r * (.014 + .34 * voice_level)
+                shape = .86 + .12 * math.cos(u * math.tau) if side < 0 else 1.1
+                ripple = math.sin(u * 8 + elapsed * 15) * sphere_r * .022 * voice_level * profile
+                resting_wave = math.sin(u * 3 + t * .5) * sphere_r * .018 * profile
+                y = side * opening * profile * shape + ripple + resting_wave
                 if j == 0: path.moveTo(x, y)
                 else: path.lineTo(x, y)
             for width, alpha in ((14, 12), (7, 25), (3, 65), (1.5, 225)):
@@ -223,7 +240,7 @@ class ApolloCoreCanvas(QWidget):
             x = (i - 17) * 3.5
             height = 1.2
             if speaking and not self.reduced_motion:
-                height += (3 + energy * 17) * (.3 + .7 * abs(math.sin(i * 1.7 + t * 18))) * (1 - abs(i - 17) / 20)
+                height += voice_level * 22 * (.3 + .7 * abs(math.sin(i * 1.7 + elapsed * 18))) * (1 - abs(i - 17) / 20)
             p.drawLine(QPointF(x, r * 1.72 - height), QPointF(x, r * 1.72 + height))
         p.restore()
 

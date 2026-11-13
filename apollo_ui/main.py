@@ -1700,6 +1700,7 @@ class ApolloWindow(QMainWindow):
                 playback = instance.playback_activity()
                 speech["playing"] = speech.get("playing", False) or playback.get("playing", False)
                 speech["level"] = playback.get("level", 0.0)
+                speech["level_available"] = playback.get("level_available", False)
         if self.speech_task is not None and not speech.get("playing"):
             speech["generating"] = True
         workspace = getattr(self, "chat_workspace", None)
