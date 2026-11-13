@@ -1127,11 +1127,18 @@ class Module:
     def _speak_kokoro(self, job):
         from apollo_capabilities import service
         result = service(self.base_dir, self.runtime).run("kokoro", "synthesize", {"text":job["text"]})
+        import winsound
         with self._imprint_worker_lock:
             if job["generation"] != self._imprint_generation: return
+            winsound.PlaySound(result["file"], winsound.SND_FILENAME | winsound.SND_ASYNC)
             self._imprint_status = {"state":"playing", "job_id":job["id"], "file":result["file"], "updated_at":time.time()}
-        import winsound
-        winsound.PlaySound(result["file"], winsound.SND_FILENAME)
+        deadline = time.monotonic() + float(result["seconds"])
+        while time.monotonic() < deadline:
+            with self._imprint_worker_lock:
+                if job["generation"] != self._imprint_generation:
+                    winsound.PlaySound(None, 0)
+                    return
+            time.sleep(0.04)
 
     def _speech_status(self):
         with self._imprint_worker_lock:

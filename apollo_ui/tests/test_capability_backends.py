@@ -93,6 +93,18 @@ class BackendTests(unittest.TestCase):
             self.assertEqual(result['engine'],'Kokoro')
             queue.assert_called_once_with('Hello Oscar',backend='kokoro')
 
+    def test_superseded_kokoro_output_never_starts_playback(self):
+        import types
+        from unittest.mock import Mock
+        speech=module('text_to_speech')({'base_dir':str(self.base)})
+        speech._imprint_generation=2
+        sound=types.SimpleNamespace(PlaySound=Mock(),SND_FILENAME=1,SND_ASYNC=2)
+        with patch.dict(sys.modules,{'winsound':sound}),patch('apollo_capabilities.service',return_value=self.svc),patch.object(self.svc,'run',return_value={'file':'speech.wav','seconds':0.01}):
+            speech._speak_kokoro({'text':'Old speech','id':'old','generation':1})
+            sound.PlaySound.assert_not_called()
+            speech._speak_kokoro({'text':'Current speech','id':'new','generation':2})
+            sound.PlaySound.assert_called_once_with('speech.wav',3)
+
     def test_model_cannot_install_configure_or_bypass_browser_permission(self):
         from apollo_runtime import ApolloRuntime
         core=module('capabilities')({'base_dir':str(self.base)})
