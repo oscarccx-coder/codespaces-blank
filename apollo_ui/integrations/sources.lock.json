@@ -1,0 +1,74 @@
+{
+  "kokoro": {
+    "repository": "hexgrad/kokoro",
+    "sha": "dfb907a02bba8152ca444717ca5d78747ccb4bec",
+    "package": "kokoro",
+    "import": "kokoro",
+    "license": "Apache-2.0",
+    "extras": "",
+    "license_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  "faster_whisper": {
+    "repository": "SYSTRAN/faster-whisper",
+    "sha": "6cb639e70786aea42b9233006ae60eaf07190bdb",
+    "package": "faster-whisper",
+    "import": "faster_whisper",
+    "license": "MIT",
+    "extras": "",
+    "license_sha256": "af6798135e729f8aa6c853936d037dfdea449734d26b8ea6a89805fca758c0d5"
+  },
+  "docling": {
+    "repository": "docling-project/docling",
+    "sha": "b9bf356f9763095ca9d51e7452a054a7db20f237",
+    "package": "docling-slim",
+    "import": "docling",
+    "license": "MIT",
+    "extras": "[standard]",
+    "license_sha256": "edb765d1e3e60d0c7a7d5fba5f2bb2c3c29f7465cecb5c22cf1185c884954e4c"
+  },
+  "crawl4ai": {
+    "repository": "unclecode/crawl4ai",
+    "sha": "cae74b203a33994f7e13b9052c3b0d5c93daa0e6",
+    "package": "Crawl4AI",
+    "import": "crawl4ai",
+    "license": "Apache-2.0",
+    "extras": "",
+    "license_sha256": "193fe32704bee15cd74f5153e569cdf830e26445e19798a55daee32da40758aa"
+  },
+  "browser_use": {
+    "repository": "browser-use/browser-use",
+    "sha": "48d9fe008bb98a8959279b495518652dfb934d6b",
+    "package": "browser-use",
+    "import": "browser_use",
+    "license": "MIT",
+    "extras": "",
+    "license_sha256": "135c57671b0ee957669b05a0ca00cc06f645496d351e2e732832c6e276da9a5e"
+  },
+  "graphiti": {
+    "repository": "getzep/graphiti",
+    "sha": "ebef986a0b2360211b65751c111cacb4a7d790eb",
+    "package": "graphiti-core",
+    "import": "graphiti_core",
+    "license": "Apache-2.0",
+    "extras": "",
+    "license_sha256": "2825300b20d7b951209835a4a331f29e24725a39d65168e4b831df53aa372650"
+  },
+  "gpt_researcher": {
+    "repository": "assafelovic/gpt-researcher",
+    "sha": "ddd4db36208d9c8e49f3b2436efda97baecb5433",
+    "package": "gpt-researcher",
+    "import": "gpt_researcher",
+    "license": "Apache-2.0",
+    "extras": "",
+    "license_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  "llama_cpp": {
+    "repository": "ggml-org/llama.cpp",
+    "sha": "8c2c4c39c5d61389dd04d5474a9ab1f68182a5f7",
+    "package": "llama.cpp",
+    "import": "",
+    "license": "MIT",
+    "extras": "",
+    "license_sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "id": "capabilities", "name": "Capability Backends", "version": "1.0.0",
+  "entrypoint": "module.py", "class": "Module",
+  "description": "Manage pinned open-source backends shared by voice, files, web, research, memory and local inference.",
+  "ui": {"default_placement": "apps"}
+}

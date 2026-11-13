@@ -83,6 +83,10 @@ class Module(KnowledgeNodesMixin):
 
     def tools(self):
         return [
+            {"name":"temporal_search","description":"Search explicitly indexed historical named-memory snapshots with Graphiti. These may differ from current Memory Bank entries.",
+             "parameters":{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}},
+            {"name":"index_temporal_memory","description":"Index one existing named-memory entry as a historical Graphiti snapshot; does not ingest private chats.",
+             "parameters":{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"]}},
             {"name":"store_memory","description":"Store useful information in Apollo's named Memory Bank.",
              "parameters":{"type":"object","properties":{
                  "name":{"type":"string"},"memory_type":{"type":"string"},
@@ -464,6 +468,18 @@ class Module(KnowledgeNodesMixin):
         arguments=arguments or {}
         if action in {tool["name"] for tool in self.knowledge_tools()}:
             return self.run_knowledge(action, arguments)
+        if action in {"temporal_search", "index_temporal_memory"}:
+            from apollo_capabilities import service
+            backend=service(self.base_dir)
+            if action == "temporal_search": return backend.run("graphiti", "graph_search", arguments)
+            with self._lock:
+                row=self.conn.execute("SELECT * FROM memories WHERE id=?",(int(arguments["id"]),)).fetchone()
+            if row is None: raise KeyError(arguments["id"])
+            import uuid, hashlib
+            record=dict(row)
+            identity=str(self.base_dir)+str(record["id"])+hashlib.sha256(record["content"].encode()).hexdigest()
+            return backend.run("graphiti", "graph_add", {"name":record["name"],"content":record["content"],
+                "source":"Apollo Memory Bank snapshot #"+str(record["id"]), "episode_id":str(uuid.uuid5(uuid.NAMESPACE_URL,identity))})
         if action=="store_memory":
             return self.store_memory(arguments.get("name"),arguments.get("content"),
                 arguments.get("memory_type","knowledge"),arguments.get("summary",""),

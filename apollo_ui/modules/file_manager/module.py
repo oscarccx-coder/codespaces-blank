@@ -40,6 +40,8 @@ class Module:
 
     def tools(self):
         return [
+            {"name":"read_document","description":"Read PDF, scanned document, Office file or paper with Docling; return structured extraction and a saved Markdown artifact.",
+             "parameters":{"type":"object","properties":{"root":{"type":"string"},"path":{"type":"string"}},"required":["root","path"]}},
             {
                 "name": "list_roots",
                 "description": "List Apollo file-manager roots and real OS paths.",
@@ -302,6 +304,11 @@ class Module:
                 "os_path": str(path),
                 "items": items,
             }
+
+        if action == "read_document":
+            from apollo_capabilities import service
+            path = self._resolve(x["root"], x["path"])
+            return service(self.base, self.runtime).run("docling", "document", {"path":str(path)})
 
         if action == "read_text":
             path = self._resolve(x["root"], x["path"])

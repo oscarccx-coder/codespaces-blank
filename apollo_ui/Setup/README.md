@@ -61,3 +61,7 @@ The noninteractive Windows CI smoke tests mock Docker; they **never install Dock
 ## OpenJarvis integration
 
 Run `19_SETUP_OPENJARVIS.bat` once after updating, then open **Apps → OpenJarvis** and choose **Check readiness**. The framework uses a separate environment on Apollo’s drive and preserves Ollama models, voice and existing settings. Optional `--full` and `--native` setup profiles are documented in `docs/architecture/OPENJARVIS_INTEGRATION.md`.
+
+### Optional shared open-source capability backends
+
+`20_SETUP_CAPABILITIES.bat` installs selected pinned GitHub sources in separate environments under Apollo's storage. Supply backend names, e.g. `20_SETUP_CAPABILITIES.bat kokoro docling crawl4ai`. Choices: `kokoro`, `faster_whisper`, `docling`, `crawl4ai`, `browser_use`, `graphiti`, `gpt_researcher`, `llama_cpp`. Git and Python 3.12/3.13 are required. The Capability Backends page explains installation state and lets the owner select voice, dictation and page-reader backends. Browser Use requires Docker; llama.cpp requires a C++ toolchain; graph/research need local services/models. See `docs/architecture/OPEN_SOURCE_BACKENDS.md` for setup, licences and validation limits.

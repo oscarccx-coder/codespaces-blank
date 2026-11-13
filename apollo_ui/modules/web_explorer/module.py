@@ -132,6 +132,8 @@ class Module:
 
     def tools(self):
         return [
+            {"name":"research_report","description":"Run bounded GPT Researcher analysis using a local model and 1–8 supplied evidence URLs. Save a report with source citations.",
+             "parameters":{"type":"object","properties":{"query":{"type":"string"},"sources":{"type":"array","items":{"type":"string"}}},"required":["query","sources"]}},
             {
                 "name": "search_web",
                 "description": (
@@ -332,7 +334,20 @@ class Module:
                 arguments.get("limit", 8),
             )
 
+        if action == "research_report":
+            from apollo_capabilities import service
+            return service(self.context.get("base_dir") or ".", self.context.get("runtime")).run("gpt_researcher", "research", arguments)
+
         if action in {"fetch_url", "explore_web"}:
+            from apollo_capabilities import service
+            backend = service(self.context.get("base_dir") or ".", self.context.get("runtime"))
+            if backend.settings()["web"] == "crawl4ai":
+                result = backend.run("crawl4ai", "crawl", {"url":self._public_url(arguments.get("url"))})
+                limit = max(1000, min(int(arguments.get("max_chars",30000)),100000))
+                result["truncated"] = result.get("truncated",False) or len(result.get("text","")) > limit
+                for field in ("text","content"):
+                    if field in result: result[field] = result[field][:limit]
+                return result
             return self._fetch_url(
                 arguments.get("url"),
                 arguments.get("max_chars", 30000),
