@@ -37,4 +37,5 @@ class Module:
         from apollo_capability_ui import build_view
         return build_view(self,parent)
 
-    def close(self): pass
+    def close(self):
+        self.service.cancel()
