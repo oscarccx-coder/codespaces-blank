@@ -82,7 +82,7 @@ def run_update(root: Path, *, check_only: bool = False, emit=print) -> int:
     try:
         if git(root, "rev-parse", "--is-inside-work-tree").strip() != b"true":
             raise RuntimeError("Not inside a Git checkout.")
-        if git(root, "rev-parse", "--show-toplevel").decode("utf-8", errors="replace").strip().casefold() != str(root).casefold():
+        if Path(git(root, "rev-parse", "--show-toplevel").decode("utf-8", errors="replace").strip()).resolve() != root:
             raise RuntimeError("Apollo path is not the root of this Git checkout.")
         branch = git(root, "branch", "--show-current").decode().strip()
         if branch != "main":
