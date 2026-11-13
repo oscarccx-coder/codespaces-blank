@@ -1,10 +1,10 @@
 {
   "id": "suggestion_center",
   "name": "Apollo Initiative Director",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "entrypoint": "module.py",
   "class": "Module",
-  "description": "Owner goals, priority-ranked proposals, bounded idle self-prompting and approval-gated research handoff.",
+  "description": "Owner-defined goals, one-shot/daily/weekly approved schedules, bounded local reflection, research mission handoff and ranked proposals.",
   "ui": {
     "enabled": true,
     "title": "Apollo Initiative Director",
