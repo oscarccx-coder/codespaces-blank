@@ -1,0 +1,9 @@
+{
+  "id": "openjarvis",
+  "name": "OpenJarvis",
+  "version": "1.0.0",
+  "entrypoint": "module.py",
+  "class": "Module",
+  "description": "Integrated local OpenJarvis agents, Apollo tools, skills, routing, execution traces and saved task receipts.",
+  "ui": {"default_placement": "apps"}
+}

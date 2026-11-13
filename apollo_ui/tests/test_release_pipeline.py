@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.serialization import (
     Encoding, PrivateFormat, PublicFormat, NoEncryption,
 )
 
-from apollo_release import ensure_signing_key, publish
+from apollo_release import ensure_signing_key, publish, iter_release_files
 from tools import release_ci
 
 
@@ -32,6 +32,21 @@ class SignedPipelineTests(unittest.TestCase):
             Encoding.PEM, PublicFormat.SubjectPublicKeyInfo,
         )
         self.fingerprint = hashlib.sha256(public).hexdigest()
+
+    def test_vendored_source_excludes_nested_git_metadata(self):
+        vendor = self.root / "vendor" / "framework"
+        vendor.mkdir(parents=True)
+        (vendor / "source.py").write_text("x = 1")
+        metadata = vendor / ".git"
+        metadata.mkdir()
+        (metadata / "config").write_text("private checkout metadata")
+        names = {rel.as_posix() for _, rel in iter_release_files(self.root)}
+        self.assertIn("vendor/framework/source.py", names)
+        self.assertNotIn("vendor/framework/.git/config", names)
+        (metadata / "config").unlink()
+        metadata.rmdir()
+        metadata.write_text("gitdir: private-path")
+        self.assertNotIn("vendor/framework/.git", {rel.as_posix() for _, rel in iter_release_files(self.root)})
 
     def test_tag_validation(self):
         self.assertEqual(release_ci.tag_for("7.5.13.3", "beta"), "v7.5.13.3-beta")

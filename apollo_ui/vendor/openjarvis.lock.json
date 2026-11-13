@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/open-jarvis/OpenJarvis",
+  "commit": "13706f2b5b5ba6cac9ad31bc575d9e115213784f",
+  "license": "Apache-2.0",
+  "verification_files": {
+    "LICENSE": "ac617ecddb7ffeb27a239c6c9c8145212306baa90e23ee694849bf3cefb10743",
+    "src/openjarvis/agents/orchestrator.py": "54d730bc9401dc07b1a7c0305883fb861fd501381bfce3aa738c3b0be87718e3",
+    "src/openjarvis/agents/_stubs.py": "d6ce81720d9d184408ef0d4df8e0848b519a9d65f59d7222833814b2ff784a87",
+    "src/openjarvis/tools/_stubs.py": "8f4f1f19ed26ee1d897abaa9e0b7bdbd134f96f7c7a3649b8e93fb3dbd0799b2",
+    "src/openjarvis/learning/routing/router.py": "96dd5075739d66ea558de740bbe6239293edd828d1c9c0a93d0c16b189419332",
+    "src/openjarvis/traces/collector.py": "53ecb78f0fc4ade1e30bb97984c7d424c59ec2183b811a0559ed4aff3c037d6f",
+    "pyproject.toml": "7f2d2a8de13152a901823a16d2831c21c0aa3b73af6216deee79c2448b0b09ee"
+  }
+}

@@ -56,3 +56,8 @@ If you see **Docker CLI found but engine unavailable**, open Docker Desktop and 
 The noninteractive Windows CI smoke tests mock Docker; they **never install Docker or pull/build a live image**. A real installation still requires testing on the owner's PC.
 
 **Updater self-test:** Double-click `18_TEST_APOLLO_UPDATER.bat`. It does **not** pull, install, upgrade models, create external accounts or change live Apollo code. It prints a check result, then runs offline signed-release and disposable Git regression tests using private Python. Failure logs are preserved under `%TEMP%\Apollo_Updater_Self_Test.log`. If the folder isn't a clean `main` Git checkout, the preflight correctly reports a warning. Fix checkout issues before attempting a real source update. CI uses `--tests-only` because pull request checkouts intentionally have detached HEAD.
+
+
+## OpenJarvis integration
+
+Run `19_SETUP_OPENJARVIS.bat` once after updating, then open **Apps → OpenJarvis** and choose **Check readiness**. The framework uses a separate environment on Apollo’s drive and preserves Ollama models, voice and existing settings. Optional `--full` and `--native` setup profiles are documented in `docs/architecture/OPENJARVIS_INTEGRATION.md`.

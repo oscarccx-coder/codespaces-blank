@@ -52,6 +52,9 @@ class ChatTask(QRunnable):
 
     def cancel(self):
         self._cancelled = True
+        bridge = getattr(self, "_openjarvis_bridge", None)
+        if bridge is not None:
+            bridge.cancel()
         if hasattr(self.client, "cancel_generation"):
             self.client.cancel_generation()
 
@@ -3125,6 +3128,13 @@ class ChatTask(QRunnable):
         )
 
         tools = self._select_tools(all_tools)
+
+        # Reuse the scoped Chat manager and current client. OpenJarvis cannot
+        # escape this chat's tool/memory boundary or select its own endpoint.
+        from apollo_openjarvis_chat import handle as openjarvis_handle
+        integrated = openjarvis_handle(self, owner_text)
+        if integrated is not None:
+            return integrated
 
         if not tools:
             return self._normal_stream(self.messages)

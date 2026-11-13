@@ -88,6 +88,8 @@ def iter_release_files(source):
         if path.is_symlink() or not path.is_file() or "__pycache__" in path.parts or path.suffix == ".pyc":
             continue
         rel = path.relative_to(source)
+        if ".git" in rel.parts:
+            continue
         if rel.parts and rel.parts[0] in EXCLUDED_TOP_LEVEL:
             continue
         if str(rel).replace("\\", "/") in EXCLUDED_TOP_LEVEL:
