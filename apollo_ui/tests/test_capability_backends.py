@@ -134,6 +134,7 @@ class BackendTests(unittest.TestCase):
 
     def test_shutdown_releases_child_and_preserves_cancelled_receipt(self):
         worker,path=self._fixture_worker(30);errors=[]
+        core=module('capabilities')({'base_dir':str(self.base)});core.service=self.svc
         def run():
             try:
                 with patch('apollo_capabilities.ROOT',worker):self.svc.run('docling','document',{'path':str(path)})
@@ -142,7 +143,6 @@ class BackendTests(unittest.TestCase):
         deadline=time.monotonic()+5
         while self.svc.process is None and time.monotonic()<deadline:time.sleep(.01)
         self.assertIsNotNone(self.svc.process)
-        core=module('capabilities')({'base_dir':str(self.base)});core.service=self.svc
         core.close();thread.join(5)
         self.assertFalse(thread.is_alive());self.assertTrue(errors)
         self.assertFalse(self.svc.lock.locked());self.assertIsNone(self.svc.process)
