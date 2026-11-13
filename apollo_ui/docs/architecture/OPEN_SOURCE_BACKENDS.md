@@ -65,3 +65,9 @@ Core tests cover native-system routing, blocked actions, local/path validation, 
 Maintainers must additionally validate real audio/microphone paths on Windows, first-use PDF/OCR model downloads, actual local inference and embedding quality, Neo4j ingestion/search, Chromium installation/crawling, Docker browser tasks and the C++/CUDA build on the owner's hardware. An adapter existing does not mean these optional systems are already installed or benchmarked there.
 
 Original licences apply to upstream code and model assets separately. In particular, this pinned GPT Researcher checkout's root LICENSE is Apache-2.0 even though its package metadata says MIT; the original root licence is preserved here. No upstream code has been renamed as Apollo-authored code.
+
+### Development verification for this change
+
+The exact source pins were cloned and the seven Python projects installed/imported in isolated environments. A real Docling conversion preserved Markdown content. Kokoro generated a 4.35-second, 24 kHz British-voice WAV on CPU; faster-whisper tiny.en transcribed that WAV as “Apollo integration test, the laboratory is ready.” This validates one generated-speech round trip, not general recognition accuracy or Windows playback.
+
+The Chromium binary download returned a truncated archive in the development environment. Docker, a local Neo4j/Ollama service and CMake/CUDA were unavailable there, so browser execution, graph ingestion, complete research reports and actual llama.cpp generation remain deployment checks. The local inference transport was exercised using real HTTP fixture responses, including tool calls and SSE. CI separately exercises Windows/Linux lifecycle/UI tests, the real source installer and pinned Docling conversion.

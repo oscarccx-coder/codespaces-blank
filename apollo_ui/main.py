@@ -1688,7 +1688,7 @@ class ApolloWindow(QMainWindow):
                     "starting", "queued", "generating"
                 }
                 process = instance._speech_process
-                speech["playing"] = process is not None and process.poll() is None
+                speech["playing"] = bool(status.get("worker_alive") and status.get("state") == "playing") or (process is not None and process.poll() is None)
                 if status.get("state") == "failed":
                     # Surface each failed synthesis once; it must not latch forever.
                     job_id = status.get("job_id")

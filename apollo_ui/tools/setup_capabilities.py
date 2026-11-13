@@ -37,7 +37,10 @@ def checkout(name, source, home):
         run(['git','-C',target,'fetch','--depth','1','origin',source['sha']])
         run(['git','-C',target,'checkout','--detach','FETCH_HEAD'])
     license_file=next((target/p for p in ('LICENSE','LICENSE.txt','LICENSE.md') if (target/p).is_file()),None)
-    if license_file is None or hashlib.sha256(license_file.read_bytes()).hexdigest()!=source['license_sha256']:
+    if license_file is None: raise RuntimeError('Upstream licence is missing')
+    # Hash the committed blob; Git for Windows may convert checkout newlines.
+    original=subprocess.check_output(['git','-C',str(target),'show','HEAD:'+license_file.name])
+    if hashlib.sha256(original).hexdigest()!=source['license_sha256']:
         raise RuntimeError('Upstream licence does not match reviewed source')
     return target
 
@@ -47,6 +50,9 @@ def install(name, *, base=BASE, cuda=False):
         raise RuntimeError('Run this installer with Python 3.12 or 3.13; Apollo itself is not replaced')
     if not shutil.which('git'): raise RuntimeError('Install Git for Windows first')
     svc=CapabilityService(base); source=svc.sources[name]; home=svc.home
+    cache=home/'cache';cache.mkdir(parents=True,exist_ok=True)
+    temporary=cache/'tmp';temporary.mkdir(exist_ok=True)
+    os.environ.update(PIP_CACHE_DIR=str(cache/'pip'),TMP=str(temporary),TEMP=str(temporary))
     target=checkout(name,source,home)
     # Removing the receipt makes a failed repair visible instead of claiming readiness.
     receipt=home/'receipts'/(name+'.json');receipt.unlink(missing_ok=True)

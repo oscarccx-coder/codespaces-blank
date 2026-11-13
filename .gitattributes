@@ -1,0 +1,3 @@
+
+# Preserve reviewed licence bytes across Windows checkouts.
+apollo_ui/integrations/licenses/*.txt text eol=lf

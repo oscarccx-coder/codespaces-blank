@@ -63,7 +63,7 @@ class BackendTests(unittest.TestCase):
         path=self.base/'workspace'/'paper.md';path.write_text('# Evidence')
         with patch('apollo_capabilities.service',return_value=self.svc),patch.object(self.svc,'run',return_value={'content':'actual'}) as execute:
             self.assertEqual(files.run('read_document',{'root':'workspace','path':'paper.md'})['content'],'actual')
-            self.assertEqual(execute.call_args.args,('docling','document',{'path':str(path)}))
+            self.assertEqual(execute.call_args.args,('docling','document',{'path':str(path.resolve())}))
             with self.assertRaises(PermissionError): files.run('read_document',{'root':'workspace','path':'../../escape'})
         web=module('web_explorer')({'base_dir':str(self.base)})
         self.svc.configure(web='crawl4ai')

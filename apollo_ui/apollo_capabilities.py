@@ -29,7 +29,10 @@ OWNER = contextvars.ContextVar("apollo_capability_owner", default=None)
 
 def cancel_owned(owner):
     with _SERVICES_LOCK: active = list(_SERVICES.values())
-    for backend in active: backend.cancel(expected_owner=owner)
+    for backend in active:
+        if backend.container:
+            threading.Thread(target=backend.cancel,kwargs={"expected_owner":owner},daemon=True).start()
+        else: backend.cancel(expected_owner=owner)
 
 
 _SERVICES = {}; _SERVICES_LOCK = threading.Lock()
@@ -147,12 +150,18 @@ class CapabilityService:
             if operation == 'crawl': args['url'] = public_url(args['url'])
             if operation in {'research','browser_task','graph_search','graph_add'}:
                 args['model_config'] = self.model_settings()
+            if operation in {'research','browser_task','graph_search','inference'}:
+                if not str(args.get('query','')).strip() or len(str(args['query']))>12000:
+                    raise ValueError('Supply a query of 1–12000 characters')
             if operation == 'research':
-                args['sources'] = [public_url(url) for url in args.get('sources', [])][:8]
-                if not args['sources']: raise ValueError('Supply 1–8 evidence URLs for bounded research')
+                sources=args.get('sources')
+                if not isinstance(sources,list) or not 1<=len(sources)<=8:
+                    raise ValueError('Supply 1–8 evidence URLs for bounded research')
+                args['sources'] = [public_url(url) for url in sources]
             if operation == 'browser_task':
                 # Browser Use 1.x executes generated Python. It must never run in Apollo's host process.
-                if not args.get('domains'): raise ValueError('Supply the public domains this browser task may visit')
+                if not isinstance(args.get('domains'),list) or not 1<=len(args['domains'])<=12:
+                    raise ValueError('Supply 1–12 public domains this browser task may visit')
                 args['domains'] = [__import__('urllib.parse', fromlist=['urlsplit']).urlsplit(public_url('https://' + str(d))).hostname for d in args['domains']][:12]
                 from urllib.parse import urlsplit
                 model_url = urlsplit(args['model_config']['url'])
@@ -195,7 +204,7 @@ class CapabilityService:
                     **({'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}))
                 with self.state_lock: self.process, self.active, self.container, self.active_backend = proc, ident, container, name
                 if self.cancelled.is_set(): proc.terminate()
-                limit = int(timeout or settings['research_timeout' if name == 'gpt_researcher' else 'timeout'])
+                limit = max(1, int(timeout or settings['research_timeout' if name == 'gpt_researcher' else 'timeout'])-int(time.time()-started))
                 wire = json.dumps({'backend': name, 'operation': operation, 'arguments': args})
                 try: stdout, _ = proc.communicate(wire, timeout=limit)
                 except subprocess.TimeoutExpired:

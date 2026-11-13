@@ -70,6 +70,9 @@ jobs:
         working-directory: apollo_ui
         shell: python
         run: |
+          import sys
+          from pathlib import Path
+          sys.path.insert(0,str(Path.cwd()))
           from tools.setup_capabilities import checkout
           from apollo_capabilities import CapabilityService
           from pathlib import Path
