@@ -654,6 +654,10 @@ class ChatWorkspace(QWidget):
         self.composer.setReadOnly(not enabled)
         self.stop_button.setEnabled(self.busy and not self._cancel_requested)
         self.owner.chat_busy = self.busy
+        if not self.busy:
+            self.active_core_tool = ""
+        elif hasattr(self.owner, "_core_error"):
+            self.owner._core_error = ("", 0.0)
         self._guidance_tick()
 
     def send(self):
@@ -728,6 +732,7 @@ class ChatWorkspace(QWidget):
 
     @Slot(str)
     def on_chunk(self, chunk):
+        self.active_core_tool = ""
         if not self._cancel_requested:
             self.current_text += chunk
 
@@ -761,16 +766,20 @@ class ChatWorkspace(QWidget):
 
     @Slot(str)
     def on_failed(self, error):
+        if hasattr(self.owner, "_report_core_error"):
+            self.owner._report_core_error("Chat: " + str(error))
         self.current_text = self.current_text or ("Request failed: " + str(error))
         self.session_store.update_message(self.answer_id, self.current_text, "failed", self._turn_metadata())
         self.status.setText(str(error))
 
     @Slot(str)
     def on_tool_started(self, name):
+        self.active_core_tool = name
         self.status.setText("Running " + name.replace("__", ".") + " · Stop waits for an active tool to reach its next boundary")
 
     @Slot(str, str)
     def on_tool(self, name, result):
+        self.active_core_tool = ""
         try:
             payload = json.loads(result)
         except ValueError:

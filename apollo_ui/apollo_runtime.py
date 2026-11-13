@@ -40,6 +40,7 @@ class ApolloRuntime:
         self.db_path = self.storage_layout.databases / "apollo_runtime.db"
         self._lock = threading.RLock()
         self._manager = None
+        self._active_capabilities = {}
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._init_db()
@@ -203,6 +204,7 @@ class ApolloRuntime:
             )
             task_id = cur.lastrowid
             self.conn.commit()
+            self._active_capabilities[task_id] = capability
         self.publish("action.started", actor, {"task_id": task_id, "capability": capability})
         try:
             result = manager._execute_tool_direct(capability, arguments)
@@ -217,11 +219,17 @@ class ApolloRuntime:
             raise
         finally:
             with self._lock:
+                self._active_capabilities.pop(task_id, None)
                 self.conn.execute(
                     "UPDATE tasks SET finished_at=?, status=?, detail=? WHERE id=?",
                     (_now(), status, detail, task_id),
                 )
                 self.conn.commit()
+
+    def active_capabilities(self):
+        """Current-process work for presentation, without querying persisted jobs."""
+        with self._lock:
+            return tuple(self._active_capabilities.values())
 
     def publish(self, topic, source, payload=None):
         payload = payload if isinstance(payload, dict) else {"value": payload}

@@ -1,3 +1,12 @@
+## 2026-11-12 — Green Home activity core
+
+- Added a green animated sphere and instrument rings over an almost-black galaxy/starfield.
+- Home reflects actual chat, dictation, tool, voice generation and playback state.
+- Voice Imprint playback uses a local WAV amplitude envelope; Windows speech uses a playback pulse.
+- Added a steady breathing rhythm, slower independent ring rotation and opposing speech waves that close during measured silence.
+- Added Chat/dictation/mute controls and a saved Reduce motion option; hidden Home stops animation.
+- See `docs/features/HOME_ACTIVITY_CORE.md` for states, performance limits and validation.
+
 ## 2026-11-12 — Native workflow intelligence and application practice
 
 - Workflows & Learning adds five finite graphs, stage receipts, pause/stop/retry, persistent handoffs and reports.
