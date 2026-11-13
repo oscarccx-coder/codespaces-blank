@@ -6,6 +6,7 @@ import time
 from urllib.parse import urlsplit
 from apollo_suggestions import SuggestionStore,validate_proposals
 from apollo_initiative import InitiativeDirector
+from apollo_initiative_scheduler import ScheduledMissionStore
 
 class Module:
     def __init__(self,context=None):
@@ -13,6 +14,8 @@ class Module:
         self.store=SuggestionStore(self.root,memory=self.validation); self.closed=threading.Event(); self.thread=None
         runtime=self.context.get('runtime')
         self.initiative=InitiativeDirector(runtime,self.store) if runtime is not None and hasattr(runtime,'conn') else None
+        self.schedules=ScheduledMissionStore(self.root,memory=self.validation)
+        self.schedules.recover()
         self.store.add('question','What should Apollo prioritise next?','Which project or skill should I focus on, and what would a useful result look like?',
                        'Your priorities help guide later suggestions. Answer when convenient; no work starts from this question.')
         if not self.validation:
@@ -76,11 +79,94 @@ class Module:
             return {'suggestions':len(added)}
         except Exception as exc:
             self.store.set_state('last_error',f'{type(exc).__name__}: {exc}'[:600]); return {'error':str(exc),'suggestions':len(added)}
+    def schedule_tick(self):
+        """Dispatch one explicitly approved due schedule; never execute arbitrary prompt text."""
+        from apollo_idle_learning import foreground_busy
+        manager=self._manager()
+        if self.closed.is_set() or manager is None or foreground_busy():
+            return None
+        service=self._missions()
+        # Avoid consuming a scheduled research run before the mission service is ready.
+        waiting=self.schedules.list()
+        if any(s['state']=='active' and s['task_kind']=='research'
+               and s['next_due'] is not None and s['next_due']<=time.time()
+               for s in waiting) and service is None:
+            # Maintenance tasks may still be dispatched if research is unavailable.
+            if not any(s['state']=='active' and s['task_kind']=='health'
+                       and s['next_due'] is not None and s['next_due']<=time.time()
+                       for s in waiting):
+                return None
+        task=self.schedules.reserve_due()
+        if not task: return None
+        try:
+            if self.schedules.get(task['id'])['state'] in ('paused','stopped','blocked'):
+                raise PermissionError('Scheduled task was paused, stopped or blocked before dispatch')
+            if task['task_kind']=='health':
+                result=manager.execute('background_intelligence','maintenance_pulse',{})
+                if not isinstance(result,dict):
+                    raise RuntimeError('Health check returned no verifiable receipt')
+                status='completed'; receipt={'health':result}
+            elif task['task_kind']=='research':
+                if not task['web_allowed']:
+                    raise PermissionError('Scheduled research has no public web grant')
+                service=self._missions()
+                if service is None:
+                    raise RuntimeError('Learning Missions is unavailable')
+                # The title records schedule and occurrence; never claim research completed here.
+                suffix=f"#{task['id']} {int(task['slot_ts'])}"
+                title=(task['task']['title'][:120]+' · scheduled '+suffix)[:180]
+                existing=next((m for m in service.store.list()
+                               if m['title']==title),None)
+                mission=existing or service.begin(
+                    title,task['task']['goal'],mode='fixed',steps=1,
+                    interval_seconds=120,web_allowed=True,
+                    practice=False,idle_only=False,owner_confirmed=True)
+                receipt={'mission_id':mission['id'],
+                         'mission_state':mission['state'],
+                         'note':'Research mission queued; result tracked in Learning Missions'}
+                status='queued'
+            else:
+                raise PermissionError('Unsupported scheduled task kind')
+            self.schedules.finish(task['run_id'],state=status,receipt=receipt)
+            return {'schedule_id':task['id'],'run_id':task['run_id'],
+                    'state':status,'receipt':receipt}
+        except Exception as exc:
+            error=f"{type(exc).__name__}: {exc}"[:600]
+            self.schedules.finish(task['run_id'],state='failed',error=error)
+            return {'schedule_id':task['id'],'run_id':task['run_id'],
+                    'state':'failed','error':error}
+
+    def owner_create_schedule(self, *, kind, name, goal='',start_day,local_time,
+                              repeat='once',max_runs=30,web_allowed=False):
+        if kind=='research':
+            task={'title':name,'goal':goal}
+        elif kind=='health':
+            task={}
+        else:
+            raise ValueError('Only public research and local health checks may be scheduled')
+        return self.schedules.create(name=name,kind=kind,task=task,
+                                     start_day=start_day,local_time=local_time,
+                                     repeat=repeat,max_runs=max_runs,
+                                     web_allowed=web_allowed,owner_confirmed=True)
+
+    def owner_control_schedule(self,schedule_id,action):
+        return self.schedules.control(schedule_id,action,owner_confirmed=True)
+
+    def schedules_status(self):
+        return self.schedules.list()
+
+    def schedule_history(self,schedule_id):
+        return self.schedules.runs(schedule_id)
+
     def _loop(self):
         while not self.closed.is_set():
+            try: self.schedule_tick()
+            except Exception as exc:
+                self.store.set_state('schedule_last_error',
+                                     f"{type(exc).__name__}: {exc}"[:600])
             try: self.pulse()
             except Exception as exc: self.store.set_state('last_error',f'{type(exc).__name__}: {exc}'[:600])
-            self.closed.wait(30)
+            self.closed.wait(15)
     def owner_answer(self,ident,answer,save_memory=False):
         item=self.store.answer(ident,answer); result={'saved_locally':True,'item':item}
         if save_memory:
@@ -136,4 +222,5 @@ class Module:
     def close(self):
         self.closed.set()
         if self.thread: self.thread.join(timeout=0.3)
+        if not self.thread or not self.thread.is_alive(): self.schedules.close()
         if self.validation: self.store.close()
