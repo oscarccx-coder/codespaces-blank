@@ -244,7 +244,11 @@ class Bridge:
                 try: process.wait(timeout=3)
                 except subprocess.TimeoutExpired: process.kill(); process.wait(timeout=3)
                 for pipe in (process.stdin, process.stdout):
-                    if pipe: pipe.close()
+                    if pipe:
+                        # Windows can report a broken pipe while flushing buffered
+                        # input after Stop terminated the worker. Still release state.
+                        try: pipe.close()
+                        except OSError: pass
             with self.state_lock: self.process, self.client = None, None
             if old_options is not None:
                 client.num_predict, client.think, client.keep_alive = old_options
