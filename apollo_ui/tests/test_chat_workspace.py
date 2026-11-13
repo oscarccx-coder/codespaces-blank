@@ -387,9 +387,26 @@ class WorkspaceQtTests(unittest.TestCase):
         self.pump()
         messages = self.view.store.messages(self.view.chat_id)
         self.assertEqual(len(messages), 2)
+
         self.assertEqual(messages[-1]["status"], "complete")
         self.assertIn("real test reply", self.view.transcript.toPlainText())
         self.assertEqual(messages[-1]["metadata"]["metrics"]["eval_count"], 12)
+
+    def test_core_docks_fade_finishes_and_typing_keeps_animation(self):
+        self.app.processEvents()
+        QTest.qWait(550)
+        self.assertEqual(self.view.core_header.height(), 100)
+        self.assertIsNone(self.view.splitter.graphicsEffect())
+        self.assertTrue(self.view.core_header.canvas.timer.isActive())
+        phase = self.view.core_header.canvas._phase
+        QTest.keyClicks(self.view.composer, 'Still animated')
+        QTest.qWait(150)
+        self.assertGreater(self.view.core_header.canvas._phase, phase)
+        self.owner.ui_state = {'core_reduced_motion': True}
+        self.view.hide(); self.view.show(); self.app.processEvents()
+        self.assertEqual(self.view.core_header.height(), 100)
+        self.assertFalse(self.view.core_header.canvas.timer.isActive())
+        self.assertIsNone(self.view.splitter.graphicsEffect())
 
     def test_temporary_does_not_write_history_or_learning(self):
         initial = len(self.view.store.list_chats())
