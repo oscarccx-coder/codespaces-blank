@@ -1,6 +1,6 @@
 # Apollo Initiative Director V2: integration slice 1
 
-**Status:** development branch / owner review required. This is an implemented *proposal and goal-planning slice*, not a completed general-purpose autonomous executor, and not a signed or deployed release.
+**Status:** development branch / owner review required. Implemented goal planning plus finite, approved scheduled research and local health checks, **not** a general-purpose autonomous computer executor, Windows background service, signed or deployed release.
 
 ## Purpose
 
@@ -23,6 +23,21 @@ Connect Apollo's existing Suggestions app and bounded idle reflection to durable
 5. Proposal ordering uses deterministic token overlap, goal priority and existing mission references. The score is a **heuristic priority**, not a confidence value or task-success metric.
 6. The **Propose next step** button creates one deduplicated review-only prompt linked to the goal. It does not start research, Foundry, a workflow, any OS action or a GPU model call.
 
+## Owner-approved scheduling (added in this revision)
+
+The Initiative Director now exposes **Scheduled tasks…** in the existing Apps page.
+
+- Choose **public research** or **Apollo health check**, the local Windows date and time, and **once**, **every day** or **every week**.
+- Research accepts an explicit owner-entered research topic or pre-populates the currently selected proposal. The user must tick web approval in the schedule dialog. Each due occurrence creates a distinct **one-step Learning Mission**, with a recorded mission ID; scheduling does not claim the research has already completed.
+- Health checks only call the existing **background_intelligence / maintenance_pulse** capability through the module manager (which retains normal permission checks). No arbitrary command execution.
+- Each schedule has a finite **1–365 run** limit, defaults to 30 repeated runs, and can be paused, resumed or stopped. Dispatch receipts and failures are retained in a separate SQLite schedule ledger; three consecutive dispatch failures block recurring schedules.
+- Scheduling follows the PC's **local wall clock** and OS daylight-saving rules. When Apollo is closed, jobs cannot execute. On reopening, missed occurrences coalesce into **at most one catch-up from the last 24 hours**; older one-time jobs expire without execution.
+- On restart, **reserved but unacknowledged** dispatch attempts are marked uncertain and blocked for owner review, rather than blindly duplicating a possibly completed action. Run records have a unique (schedule ID, occurrence timestamp) key.
+- Only explicit owner UI actions create or change schedules. Frozen tasks do not inherit permission to operate other tools, external services, purchases, installers, email or protected files.
+- The existing app-owned worker checks schedules approximately every **15 seconds** while Apollo is running. This is not a Windows startup service.
+
+The allowed types are deliberately limited. Future releases can add typed templates for other tasks after their permissions and recovery behaviour are verified.
+
 ## Permission boundary
 
 - The model-facing module tools remain read-only: \`list_suggestions\` only.
@@ -34,9 +49,12 @@ Connect Apollo's existing Suggestions app and bounded idle reflection to durable
 
 ## Verification
 
+New `tests/test_initiative_scheduler.py` exercises one-time/daily/weekly scheduling, explicit authorisation, local-time recurrence across DST, missed-run coalescing, concurrent reservations, uncertain crash recovery, pause/resume/stop, run limits and mocked research/health dispatch. Linux and Windows regression workflows include it.
+
+
 Focused independent regression cases are in \`tests/test_initiative_director.py\` and cover owner permission, validation, persistence, hierarchy, status, deduplication, ranking and active-goal limits.
 
-**Developer verification:** the eight isolated tests passed using a SQLite runtime stub on Python 3.13. They do not establish Windows/PySide6 UI correctness, Ollama interaction, updater reliability or an end-to-end production run. GitHub CI and the owner's Windows smoke test remain necessary.
+**Verification status:** The prior goal-only slice passed its isolated tests. New scheduler tests and full CI must pass before release. Real Windows/PySide6 UI correctness, Ollama research execution, updater reliability and an end-to-end workstation run remain unverified. GitHub CI and the owner's Windows smoke test remain necessary.
 
 Recommended integration testing:
 - Run new Initiative Director tests plus existing Suggestions, Learning Missions, Idle Learning and Workflow tests.
@@ -47,7 +65,7 @@ Recommended integration testing:
 
 ## Deliberately deferred V2 work
 
-- No universal Mission Director or unattended Windows service yet.
+- No universal Mission Director or unattended Windows service yet; only explicitly registered research/health schedule types run automatically while Apollo is open.
 - No dynamic execution of self-generated steps; owner approval remains required.
 - No cross-domain budget broker, semantic deduplication, independent outcome verifier or cross-app resource scheduler yet.
 - No automatic model fine-tuning, live core patching or self-assigned permissions.
