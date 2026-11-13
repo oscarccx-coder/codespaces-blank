@@ -52,6 +52,8 @@ class ChatTask(QRunnable):
 
     def cancel(self):
         self._cancelled = True
+        from apollo_capabilities import cancel_owned
+        cancel_owned(self)
         bridge = getattr(self, "_openjarvis_bridge", None)
         if bridge is not None:
             bridge.cancel()
@@ -2650,6 +2652,15 @@ class ChatTask(QRunnable):
             # tool families when the newest request clearly asks for an action.
             prefixes = []
 
+            if any(x in lower for x in ("browser task", "use the browser", "browse website", "capability backend", "benchmark inference")):
+                prefixes += ["capabilities__"]
+            if any(x in lower for x in ("read document", "read pdf", "analyse document", "analyze document", "scan document", "read paper")):
+                prefixes += ["file_manager__"]
+            if any(x in lower for x in ("research report", "deep research", "research these sources")):
+                prefixes += ["web_explorer__"]
+            if any(x in lower for x in ("temporal memory", "historical memory", "index memory")):
+                prefixes += ["memory_bank__"]
+
             if any(x in lower for x in (
                 "search the web", "search web", "look up", "look online",
                 "web search", "latest online", "current online",
@@ -3280,6 +3291,8 @@ class ChatTask(QRunnable):
 
     @Slot()
     def run(self):
+        from apollo_capabilities import OWNER
+        capability_owner = OWNER.set(self)
         try:
             if any(message.get("images") for message in self.messages):
                 info = self.client.model_info()
@@ -3295,6 +3308,7 @@ class ChatTask(QRunnable):
                 self.signals.failed.emit(str(exc))
 
         finally:
+            OWNER.reset(capability_owner)
             self.signals.completed.emit()
 
 

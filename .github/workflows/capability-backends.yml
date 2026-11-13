@@ -1,0 +1,78 @@
+name: Apollo capability backends
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  core:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Linux Qt runtime
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libopengl0
+      - run: python -m pip install PySide6
+      - name: Check lifecycle, native routing, permission gates and SSE transport
+        working-directory: apollo_ui
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest -v tests.test_capability_backends
+      - name: Validate capability module
+        working-directory: apollo_ui
+        run: python module_validator.py modules/capabilities
+  real-docling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install actual pinned Docling source with lightweight document extras
+        working-directory: apollo_ui
+        shell: python
+        run: |
+          import json, subprocess, sys
+          source=json.load(open('integrations/sources.lock.json'))['docling']
+          target=f"docling-slim[convert-core,format-markdown] @ git+https://github.com/{source['repository']}.git@{source['sha']}"
+          subprocess.run([sys.executable,'-m','pip','install',target],check=True)
+      - name: Convert real document through upstream library
+        working-directory: apollo_ui
+        run: python -m unittest -v tests.test_capability_backends.RealDocumentTests
+  real-source-setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned faster-whisper through the actual isolated installer
+        working-directory: apollo_ui
+        run: python tools/setup_capabilities.py faster_whisper
+      - name: Verify installation did not modify upstream checkout
+        working-directory: apollo_ui
+        shell: python
+        run: |
+          from tools.setup_capabilities import checkout
+          from apollo_capabilities import CapabilityService
+          from pathlib import Path
+          svc=CapabilityService(Path.cwd())
+          checkout('faster_whisper',svc.sources['faster_whisper'],svc.home)
+          assert svc.status('faster_whisper')['installed']

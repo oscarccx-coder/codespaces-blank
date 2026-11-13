@@ -86,6 +86,7 @@ class Module:
 
         add_module_tab("text_to_speech", "Voice Control & Selection")
         add_module_tab("voice_imprint_trainer", "Voice Imprint Lab")
+        add_module_tab("capabilities", "Open-source Backends")
 
         perf = QWidget()
         perf_layout = QVBoxLayout(perf)

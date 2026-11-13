@@ -55,14 +55,21 @@ class OllamaClient:
             detail = exc.read().decode("utf-8", errors="replace")
             raise OllamaError(f"Ollama error {exc.code}: {detail}") from exc
 
+    @property
+    def openai_compatible(self):
+        return self.base_url.endswith("/v1")
+
     def is_running(self):
         try:
-            self._request_json("/api/tags", timeout=3)
+            self._request_json("/models" if self.openai_compatible else "/api/tags", timeout=3)
             return True
         except Exception:
             return False
 
     def models(self):
+        if self.openai_compatible:
+            data = self._request_json("/models", timeout=5)
+            return [str(item["id"]) for item in data.get("data", [])]
         data = self._request_json("/api/tags", timeout=5)
         out = []
         for item in data.get("models", []):
@@ -73,6 +80,8 @@ class OllamaClient:
 
     def loaded_models(self):
         """Report Ollama model/RAM/VRAM residency, without loading models."""
+        if self.openai_compatible:
+            return [{"name":name,"residency_unavailable":True} for name in self.models()]
         result = self._request_json("/api/ps", timeout=4)
         return [{
             "name": str(model.get("name") or model.get("model") or ""),
@@ -91,7 +100,38 @@ class OllamaClient:
             return models[0]
         return self.model
 
+    @staticmethod
+    def _openai_messages(messages):
+        converted = []; pending = []
+        for index, original in enumerate(messages):
+            item = dict(original)
+            if item.get("images"):
+                raise OllamaError("Vision attachments require a separately validated llama.cpp vision configuration")
+            if item.get("tool_calls"):
+                calls=[]
+                for number, call in enumerate(item["tool_calls"]):
+                    call=dict(call); fn=dict(call["function"])
+                    if not isinstance(fn.get("arguments"),str): fn["arguments"]=json.dumps(fn.get("arguments") or {})
+                    call.update(id=call.get("id") or f"call_{index}_{number}",type="function",function=fn)
+                    calls.append(call);pending.append((call["id"],fn["name"]))
+                item["tool_calls"]=calls
+            if item.get("role")=="tool":
+                if not item.get("tool_call_id"):
+                    name=item.get("tool_name") or item.get("name")
+                    match=next((c for c in pending if c[1]==name),pending[0] if pending else None)
+                    if match is None: raise OllamaError("Tool reply has no matching model tool call")
+                    item["tool_call_id"]=match[0];pending.remove(match)
+                item.pop("tool_name",None)
+            converted.append(item)
+        return converted
+
     def _chat_payload(self, messages, stream, tools=None):
+        if self.openai_compatible:
+            payload={"model":self.best_model(),"messages":self._openai_messages(messages),"stream":bool(stream),
+                     "temperature":self.temperature,"max_tokens":int(self.num_predict or 1024)}
+            if tools: payload["tools"]=tools
+            if stream: payload["stream_options"]={"include_usage":True}
+            return payload
         payload = {
             "model": self.best_model(),
             "messages": messages,
@@ -133,15 +173,27 @@ class OllamaClient:
         with self._chat_response(payload) as response:
             result = json.loads(response.read().decode("utf-8"))
             self.last_metrics = self._metrics(result)
+            if self.openai_compatible:
+                message=dict(result["choices"][0]["message"])
+                for call in message.get("tool_calls",[]):
+                    fn=call["function"]
+                    if isinstance(fn.get("arguments"),str): fn["arguments"]=json.loads(fn["arguments"] or "{}")
+                return {"message":message,"done":True,"model":result.get("model",self.model),**self.last_metrics}
             return result
 
     @staticmethod
     def _metrics(result):
+        if "usage" in result:
+            usage=result["usage"] or {}
+            return {"model":result.get("model",""),"eval_count":usage.get("completion_tokens",0),
+                    "prompt_eval_count":usage.get("prompt_tokens",0),"timings":result.get("timings",{})}
         return {key: result[key] for key in ("model", "eval_count", "prompt_eval_count",
                 "eval_duration", "total_duration", "load_duration", "prompt_eval_duration",
                 "prompt_eval_cached_count") if key in result}
 
     def model_info(self):
+        if self.openai_compatible:
+            return {"capabilities":["completion","tools"],"backend":"llama.cpp-compatible server", "vision_validated":False}
         return self._cancellable(lambda: self._request_json("/api/show", {"model": self.model}, timeout=8))
 
     def cancel_generation(self):
@@ -184,7 +236,7 @@ class OllamaClient:
             if self._cancel_event.is_set():
                 raise OllamaError("Generation stopped.")
             connection.sock.settimeout(600)
-            connection.request("POST", parts.path.rstrip("/") + "/api/chat",
+            connection.request("POST", parts.path.rstrip("/") + ("/chat/completions" if self.openai_compatible else "/api/chat"),
                 body=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
             response = connection.getresponse()
             if response.status >= 400:
@@ -231,6 +283,17 @@ class OllamaClient:
                     raw = response.readline()
                     if not raw:
                         break
+                    if self.openai_compatible:
+                        line=raw.decode("utf-8").strip()
+                        if not line.startswith("data:"): continue
+                        line=line[5:].strip()
+                        if line=="[DONE]": break
+                        item=json.loads(line)
+                        if item.get("usage"): self.last_metrics=self._metrics(item)
+                        choices=item.get("choices") or []
+                        chunk=(choices[0].get("delta",{}).get("content","") if choices else "")
+                        if chunk: yield chunk
+                        continue
                     try:
                         item = json.loads(raw.decode("utf-8"))
                     except json.JSONDecodeError:

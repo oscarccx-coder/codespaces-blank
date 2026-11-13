@@ -809,6 +809,11 @@ class Module:
         return duration
 
     def _recognize_wave_file(self, wav_path, timeout_seconds=30, culture=""):
+        from apollo_capabilities import service
+        backend = service(self.base_dir, self.runtime)
+        if backend.settings()["transcription"] == "faster_whisper":
+            result = backend.run("faster_whisper", "transcribe", {"path":str(wav_path), "language":str(culture).split("-")[0] or None})
+            return result["text"]
         env = {
             "APOLLO_STT_WAV": str(wav_path),
             "APOLLO_STT_CULTURE": str(culture or ""),
@@ -953,6 +958,7 @@ class Module:
         assert names == [
             "speak_text",
             "stop_speaking",
+            "speech_status",
             "save_wav",
             "list_voices",
             "list_voice_profiles",
@@ -1045,13 +1051,13 @@ class Module:
             dict(arguments or {}),
         )
 
-    def _queue_voice_imprint(self, text):
+    def _queue_voice_imprint(self, text, backend="voice_imprint"):
         """Run voice on a daemon worker; keep only the newest queued request.
 
         Every request has an ID and a visible terminal state. A cancelled or
         superseded worker cannot mark the newer job as complete.
         """
-        job = {"text": str(text or ""), "id": uuid.uuid4().hex}
+        job = {"text": str(text or ""), "id": uuid.uuid4().hex, "backend": backend}
         with self._imprint_worker_lock:
             self._imprint_generation += 1
             job["generation"] = self._imprint_generation
@@ -1084,7 +1090,10 @@ class Module:
                                     "updated_at": time.time(),
                                 }
                         try:
-                            self._voice_imprint_call("speak", {"text": current["text"]})
+                            if current["backend"] == "kokoro":
+                                self._speak_kokoro(current)
+                            else:
+                                self._voice_imprint_call("speak", {"text": current["text"]})
                         except Exception as exc:
                             error = f"{type(exc).__name__}: {exc}"
                             with self._imprint_worker_lock:
@@ -1114,6 +1123,15 @@ class Module:
             worker.start()
         return {"started": True, "queued": False, "generating": True,
                 "job_id": job["id"], "characters": len(job["text"])}
+
+    def _speak_kokoro(self, job):
+        from apollo_capabilities import service
+        result = service(self.base_dir, self.runtime).run("kokoro", "synthesize", {"text":job["text"]})
+        with self._imprint_worker_lock:
+            if job["generation"] != self._imprint_generation: return
+            self._imprint_status = {"state":"playing", "job_id":job["id"], "file":result["file"], "updated_at":time.time()}
+        import winsound
+        winsound.PlaySound(result["file"], winsound.SND_FILENAME)
 
     def _speech_status(self):
         with self._imprint_worker_lock:
@@ -1207,6 +1225,14 @@ class Module:
             return self._speech_status()
 
         if action == "stop_speaking":
+            from apollo_capabilities import service
+            backend = service(self.base_dir, self.runtime)
+            if getattr(backend, "active_backend", None) == "kokoro": backend.cancel()
+            if backend.settings()["voice"] == "kokoro":
+                try:
+                    import winsound
+                    winsound.PlaySound(None, 0)
+                except ImportError: pass
             with self._imprint_worker_lock:
                 self._imprint_generation += 1
                 self._imprint_pending = None
@@ -1226,6 +1252,10 @@ class Module:
 
         if action in {"speak_text", "preview_voice"}:
             text = self._text(arguments)
+            from apollo_capabilities import service
+            if service(self.base_dir, self.runtime).settings()["voice"] == "kokoro":
+                self._require_windows()
+                return {**self._queue_voice_imprint(text, backend="kokoro"), "engine":"Kokoro", "voice_imprint":False}
             if action == "speak_text" and arguments.get("use_voice_imprint", True):
                 try:
                     imprint = self._queue_voice_imprint(text) if self._voice_imprint_active() else None
@@ -1265,6 +1295,10 @@ class Module:
             return result
 
         if action == "save_wav":
+            from apollo_capabilities import service
+            backend = service(self.base_dir, self.runtime)
+            if backend.settings()["voice"] == "kokoro":
+                return backend.run("kokoro", "synthesize", {"text":self._text(arguments)})
             text = self._text(arguments)
             if arguments.get("use_voice_imprint", True):
                 try:

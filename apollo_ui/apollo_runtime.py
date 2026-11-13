@@ -22,7 +22,7 @@ class ApolloRuntime:
     """
 
     HIGH_RISK_WORDS = {
-        "terminate", "kill", "install_package", "install_into_env", "run_command", "write_serial",
+        "browser_task", "terminate", "kill", "install_package", "install_into_env", "run_command", "write_serial",
         "capture_screen", "capture_camera", "list_cameras", "research_image", "set_permission", "apply_core", "self_modify",
     }
     MEDIUM_WORDS = {
