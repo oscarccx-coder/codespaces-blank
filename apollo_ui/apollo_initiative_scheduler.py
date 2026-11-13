@@ -240,7 +240,7 @@ class ScheduledMissionStore:
                 )
                 self.db.executemany(
                     "UPDATE schedules SET state='blocked',last_error=?,updated_at=? WHERE id=? "
-                    "AND state='active'",
+                    "AND state IN ('active','completed')",
                     [("An earlier scheduled dispatch is uncertain; review its result",_utc(),i) for i in pending],
                 )
             return pending
@@ -316,7 +316,7 @@ class ScheduledMissionStore:
                 "UPDATE schedule_runs SET state=?,receipt_json=?,error=?,finished_at=? WHERE id=?",
                 (state,payload,message,_utc(),int(run_id)),
             )
-            should_block = count >= 3 and row["state"]=="active"
+            should_block = (state=='failed' and row['state']=='completed') or (count >= 3 and row['state']=='active')
             self.db.execute(
                 "UPDATE schedules SET consecutive_failures=?,last_error=?,"
                 "state=CASE WHEN ? THEN 'blocked' ELSE state END,updated_at=? WHERE id=?",
