@@ -42,7 +42,7 @@ if not exist ".venv\Scripts\python.exe" (
   goto :DONE
 )
 echo [TEST] Testing safe signed install, rollback, process launch, and Git BAT updates...
-".venv\Scripts\python.exe" -m unittest -v tests.test_updater_launch_and_restart tests.test_git_updater_windows tests.test_update_preflight tests.test_update_backup_failure tests.test_github_updates >"%TEST_LOG%" 2>&1
+".venv\Scripts\python.exe" -m unittest -v tests.test_updater_launch_and_restart tests.test_git_updater_windows tests.test_git_source_updater tests.test_update_preflight tests.test_update_backup_failure tests.test_github_updates >"%TEST_LOG%" 2>&1
 if errorlevel 1 (
   echo [ERROR] One or more updater tests FAILED.
   set "EXIT_CODE=4"

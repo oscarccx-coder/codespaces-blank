@@ -2,7 +2,7 @@
 
 ## Simple Git code updates (developers and source checkouts)
 
-Close Apollo, then run `UPDATE_APOLLO_CODE.bat`, or the equivalent `Setup/03_UPDATE_APOLLO.bat`, or click **Update from Git (main)** in the Update Centre. They share one guarded updater (`Setup/13_UPDATE_GIT_MAIN.bat`). It only fast-forwards the checked-out `main` branch. It rejects an unclean checkout, an unconfigured remote, a detached head and other branches rather than switching branches or force-resetting changes. It does not download XTTS weights. Run `INSTALL_REQUIREMENTS.bat` after a change to core requirements.
+Close Apollo, then run `UPDATE_APOLLO_CODE.bat`, or the equivalent `Setup/03_UPDATE_APOLLO.bat`, or click **Update Apollo (Git main)** or **Update from Git (main)** in the Update Centre. They share one guarded updater (`Setup/13_UPDATE_GIT_MAIN.bat`). It only fast-forwards the checked-out `main` branch through `apollo_git_source_update.py`. It refuses modified or untracked source code, an unconfigured remote, a detached head and other branches rather than switching branches or force-resetting changes. Historically committed runtime data under `apollo_ui/storage`, `Audio`, `workspace`, and local configuration may be dirty without blocking a code-only fast-forward. The updater first checks that the incoming commit does **not** change any of those private data paths; otherwise it stops for a reviewed migration. It never automatically stashes, resets, cleans or replaces private data. It does not download XTTS weights. Run `INSTALL_REQUIREMENTS.bat` after a change to core requirements.
 
 ## Verified signed releases (end-user installations)
 
@@ -33,7 +33,7 @@ cd /d "F:\Apollo\apollo 1\apollo_ui"
 call "Setup\03_UPDATE_APOLLO.bat" --check
 ```
 
-Adjust the path to your real installation. This read-only preflight prints the detected repository, branch, Git availability, dirty-file status and a result code. It **does not download or replace source**. Normal double-click launches stay open to display results. The Git updater's summary log is `%TEMP%\Apollo_Git_Main_Update.log`.
+Adjust the path to your real installation. This read-only preflight prints the detected repository, branch, Git availability, dirty-file status and a result code. It **does not download or replace source**. A passing check does not guarantee a later fetch will be safe: the updater still checks the incoming changes and refuses any that touch private runtime paths. Normal double-click launches stay open to display results. The Git updater's summary log is `%TEMP%\Apollo_Git_Main_Update.log`.
 
 After reviewing/merging the changes you actually want into **main**, close Apollo and run the same script **without** `--check` to fast-forward from `origin/main`. Never bypass the dirty-check by discarding saved files. Running the script in a ZIP/download rather than a real Git checkout will give an informative error and cannot update via Git.
 
@@ -44,3 +44,7 @@ GitHub Actions exercises a disposable signed source release using ephemeral test
 The signed updater launches in Apollo's private Python environment when available, writes external installer stdout/stderr to `storage/updates/logs/installer-*.log`, waits for Apollo to close, verifies the signature and file digests, saves a backup, installs files, runs a health check and only then attempts a restart. If code is healthy but restart fails, the update remains installed and you can start Apollo manually. A failed code health check still triggers rollback.
 
 **Important:** until an actual signed GitHub Release asset exists and you trust the correct public key (verified independently), the one-click `Update Apollo` release flow cannot install a new release. Commit/PR updates alone do not create that asset. Never use a test key as Apollo's production trust anchor.
+
+## Current release status (13 November 2026)
+
+The repository has only a historical test GitHub Release, with no signed Apollo ZIP asset. The signed-release installer cannot update from a GitHub commit alone. Source checkouts use the main-branch Git button; a signed package and independently verified production signing key must be published before packaged installs can use the signed one-click path. This source update change is not itself an installed release.
