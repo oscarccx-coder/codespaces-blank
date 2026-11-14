@@ -68,6 +68,9 @@ def build_view(base, runtime=None, parent=None):
         actions.addWidget(btn)
     layout.addLayout(actions)
 
+    dictation = QCheckBox("Also use VoiceStudio for Apollo microphone transcription")
+    dictation.setChecked(conf.get("transcription") == "voicestudio")
+    layout.addWidget(dictation)
     layout.addWidget(QLabel("Create a reusable voice clone (authorized recordings only)"))
     clone_name = QLineEdit()
     clone_name.setPlaceholderText("Name for your new voice profile")
@@ -133,7 +136,8 @@ def build_view(base, runtime=None, parent=None):
                           voicestudio_checkout=source.text().strip(),
                           voicestudio_voice=str(voices.currentData() or "default"),
                           voicestudio_model=str(models.currentData() or "tts-1"),
-                          voice="voicestudio")
+                          voice="voicestudio",
+                          transcription="voicestudio" if dictation.isChecked() else "existing")
             report("VoiceStudio is selected for Apollo's spoken replies. XTTS remains available but is not loaded for these requests.")
         except Exception as exc:
             report(f"Voice selection failed: {exc}")
@@ -159,9 +163,9 @@ def build_view(base, runtime=None, parent=None):
                                 "Confirm that you own this voice or have the speaker's permission.")
             return
         audio, name = clone_path.text(), clone_name.text().strip()
-        address = url.text().strip()
+        address, transcript = url.text().strip(), ref_text.text()
         work("Creating profile", lambda: create_clone(address, audio, name,
-             transcript=ref_text.text(), consent_confirmed=True))
+             transcript=transcript, consent_confirmed=True))
 
     def test_tts():
         configure_voice()
@@ -239,9 +243,14 @@ def build_view(base, runtime=None, parent=None):
     browse.clicked.connect(choose_folder)
     choose_audio.clicked.connect(choose_file)
     refresh.clicked.connect(load_catalogue)
-    connect.clicked.connect(lambda: work("Testing connection", lambda: probe(url.text().strip())))
-    start.clicked.connect(lambda: work("Starting backend", lambda: start_backend(
-        source.text().strip(), Path(base) / "storage" / "logs")))
+    def test_connection():
+        address = url.text().strip()
+        work("Testing connection", lambda: probe(address))
+    def launch_checkout():
+        folder = source.text().strip()
+        work("Starting backend", lambda: start_backend(folder, Path(base) / "storage" / "logs"))
+    connect.clicked.connect(test_connection)
+    start.clicked.connect(launch_checkout)
     stop_backend_btn.clicked.connect(lambda: work("Stopping backend", stop_backend))
     use.clicked.connect(configure_voice)
     preview.clicked.connect(test_tts)
