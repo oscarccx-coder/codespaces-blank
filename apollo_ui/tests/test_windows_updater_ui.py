@@ -21,7 +21,7 @@ class UpdateCentreButtonTests(unittest.TestCase):
         from PySide6.QtWidgets import QApplication
         cls.app = QApplication.instance() or QApplication([])
 
-    def test_git_update_button_fast_forwards_disposable_checkout(self):
+    def test_primary_update_button_fast_forwards_disposable_checkout(self):
         from PySide6.QtCore import QProcess
         from PySide6.QtWidgets import QPushButton, QMessageBox, QLabel
         from modules.update_manager.module import Module
@@ -41,6 +41,7 @@ class UpdateCentreButtonTests(unittest.TestCase):
         self.addCleanup(panel.close)
         buttons = {button.text(): button for button in panel.findChildren(QPushButton)}
         self.assertIn("Update from Git (main)", buttons)
+        self.assertIn("Update Apollo (Git main)", buttons)
         qprocesses = panel.findChildren(QProcess)
         self.assertEqual(len(qprocesses), 1)
         qprocess = qprocesses[0]
@@ -49,7 +50,7 @@ class UpdateCentreButtonTests(unittest.TestCase):
             QMessageBox.StandardButton.Yes,  # Authorize disposable Git fast-forward
             QMessageBox.StandardButton.No,   # Don't relaunch any application
         ]) as approved, patch.object(QMessageBox, "warning") as warned:
-            buttons["Update from Git (main)"].click()
+            buttons["Update Apollo (Git main)"].click()
             deadline = time.monotonic() + 20
             observed_running = False
             while time.monotonic() < deadline:
