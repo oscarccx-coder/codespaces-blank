@@ -232,7 +232,7 @@ def _force_remove(binary, name):
         return False
 
 
-def _execute_bounded(argv, binary, name, timeout):
+def _execute_bounded(argv, binary, name, timeout, cancelled=None):
     """Run Docker with capped on-disk output, never an unlimited RAM pipe."""
     with tempfile.TemporaryFile() as output:
         proc = subprocess.Popen(
@@ -242,9 +242,13 @@ def _execute_bounded(argv, binary, name, timeout):
         expires = time.monotonic() + timeout
         timed_out = False
         overflow = False
+        interrupted = False
         cleanup_ok = None
         try:
             while proc.poll() is None:
+                if cancelled is not None and cancelled():
+                    interrupted = True
+                    break
                 size = os.fstat(output.fileno()).st_size
                 if size > MAX_LOG_BYTES:
                     overflow = True
@@ -255,7 +259,7 @@ def _execute_bounded(argv, binary, name, timeout):
                 time.sleep(0.05)
             if os.fstat(output.fileno()).st_size > MAX_LOG_BYTES:
                 overflow = True
-            if timed_out or overflow:
+            if timed_out or overflow or interrupted:
                 cleanup_ok = _force_remove(binary, name)
                 if proc.poll() is None:
                     proc.kill()
@@ -279,14 +283,15 @@ def _execute_bounded(argv, binary, name, timeout):
             "output": text,
             "timeout": timed_out,
             "overflow": overflow,
+            "interrupted": interrupted,
             "cleanup_ok": cleanup_ok,
         }
 
 
-def run_sandbox(project_folder, kind, *, docker_bin=None):
+def run_sandbox(project_folder, kind, *, docker_bin=None, cancelled=None):
     """Attempt Docker-only testing; return an auditable structured result.
 
-    Caller must show a human confirmation first. This method will never
+    Caller must obtain an owner grant (per-run or bounded standing mission). This method will never
     execute project code outside a container, even when Docker is missing.
     """
     if kind not in SANDBOX_KINDS:
@@ -296,6 +301,8 @@ def run_sandbox(project_folder, kind, *, docker_bin=None):
             "created_at": _now(), "executed_project_code": False,
             "passed_ui_interactions": False, "status": "unavailable",
             "output": "", "reason": "", "image": SANDBOX_KINDS[kind]}
+    if cancelled is not None and cancelled():
+        return {**base, "status": "cancelled", "reason": "Owner activity or stop"}
     check = availability(kind, docker_bin=docker_bin)
     if not check["ok"]:
         return {**base, "reason": check["reason"], "duration_seconds": round(time.monotonic()-start, 2)}
@@ -322,9 +329,12 @@ def run_sandbox(project_folder, kind, *, docker_bin=None):
         # A file-backed log is polled while Docker runs. A generated app
         # cannot consume unlimited Apollo RAM by flooding stdout.
         try:
-            proc = _execute_bounded(argv, binary, name, RUN_TIMEOUTS[kind])
+            proc = (_execute_bounded(argv, binary, name, RUN_TIMEOUTS[kind]) if cancelled is None
+                    else _execute_bounded(argv, binary, name, RUN_TIMEOUTS[kind], cancelled=cancelled))
             code = proc["returncode"]
-            if proc["timeout"]:
+            if proc.get("interrupted"):
+                status, reason = "cancelled", "Yielded to user activity or stop"
+            elif proc["timeout"]:
                 status, reason = "timeout", "Container exceeded its time limit"
             elif proc["overflow"]:
                 status, reason = "failed", "Test log output exceeded the bounded output quota"

@@ -1,10 +1,10 @@
 {
   "id": "self_improvement_lab",
   "name": "Self-Improvement Lab",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "entrypoint": "module.py",
   "class": "Module",
-  "description": "Audits Apollo and stages coordinated multi-file improvement candidates; application remains user-approved.",
+  "description": "Idle autonomous open-source study with pinned provenance, bounded isolated comparisons, durable findings and owner release control.",
   "ui": {
     "enabled": true,
     "title": "Self-Improvement Lab",
