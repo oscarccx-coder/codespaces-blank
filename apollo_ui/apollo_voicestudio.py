@@ -172,3 +172,58 @@ def transcribe(base_url: str, path: str | Path, *, language: str = "",
     if not isinstance(result, dict) or not isinstance(result.get("text"), str):
         raise RuntimeError("VoiceStudio transcription returned no text.")
     return result["text"]
+
+
+
+def create_clone(base_url: str, sample: str | Path, name: str, *,
+                 transcript: str = "", language: str = "en",
+                 consent_confirmed: bool = False, timeout: int = 150) -> dict:
+    """Create a locally stored clone from a user-authorized recording.
+
+    The consumer UI must require separate explicit voice-owner consent. The
+    reference clip is never automatically copied into Apollo's Git checkout.
+    """
+    if not consent_confirmed:
+        raise PermissionError("Explicit consent is required to clone this voice.")
+    source = Path(sample).resolve()
+    extensions = {".wav": "audio/wav", ".mp3": "audio/mpeg", ".flac": "audio/flac",
+                  ".ogg": "audio/ogg", ".m4a": "audio/mp4"}
+    media_type = extensions.get(source.suffix.lower())
+    if not media_type:
+        raise ValueError("Choose a WAV, MP3, FLAC, OGG or M4A reference clip.")
+    if not source.is_file() or not (1000 <= source.stat().st_size <= 32 * 1024 * 1024):
+        raise ValueError("Reference recording must be 1 KiB to 32 MiB.")
+    name = " ".join(str(name).split())
+    if not 1 <= len(name) <= 80 or any(ord(x) < 32 for x in name):
+        raise ValueError("Voice profile name must be 1 to 80 printable characters.")
+    if len(transcript) > 4000:
+        raise ValueError("Reference transcript is too long.")
+    boundary = "ApolloClone" + uuid.uuid4().hex
+    def field(field_name: str, value: str) -> bytes:
+        return (f"--{boundary}\r\nContent-Disposition: form-data; name=\"{field_name}\"\r\n"
+                f"\r\n{value}\r\n").encode("utf-8")
+    body = bytearray()
+    body.extend(field("name", name))
+    body.extend(field("kind", "clone"))
+    body.extend(field("ref_text", transcript))
+    body.extend(field("language", language))
+    body.extend((f"--{boundary}\r\nContent-Disposition: form-data; "
+                 f"name=\"ref_audio\"; filename=\"reference{source.suffix.lower()}\"\r\n"
+                 f"Content-Type: {media_type}\r\n\r\n").encode("ascii"))
+    body.extend(source.read_bytes())
+    body.extend(f"\r\n--{boundary}--\r\n".encode("ascii"))
+    request = urllib.request.Request(_endpoint(base_url, "/profiles"),
+                                     method="POST", data=bytes(body), headers={
+        "Content-Type": f"multipart/form-data; boundary={boundary}",
+        "Accept": "application/json", "Authorization": "Bearer local",
+    })
+    with _open(request, timeout) as response:
+        if response.status != 200:
+            raise RuntimeError(f"VoiceStudio clone status {response.status}")
+        raw = response.read(512 * 1024 + 1)
+    if len(raw) > 512 * 1024:
+        raise ValueError("VoiceStudio clone response too large.")
+    result = json.loads(raw.decode("utf-8"))
+    if not isinstance(result, dict) or not result.get("id"):
+        raise RuntimeError("VoiceStudio did not return the new voice profile ID.")
+    return {"ok": True, "id": str(result["id"]), "name": result.get("name", name)}
