@@ -32,6 +32,50 @@ def _validate_checkout(checkout) -> Path:
     return folder
 
 
+def find_downloaded_checkout(apollo_base, configured=""):
+    """Find a user-supplied VoiceStudio checkout without downloading or moving it.
+
+    Accept a configured checkout first, then look in a small number of sibling
+    locations on Apollo's drive. A GitHub ZIP commonly adds a '-main' directory.
+    Do not recursively traverse unrelated projects or execute any source code.
+    """
+    base = Path(apollo_base).resolve()
+    roots = [base.parent, base.parent.parent]
+    names = ("VoiceStudio", "VoiceStudio-main", "VoiceStudio-master",
+             "voice-studio", "voice-studio-main", "OmniVoice", "OmniVoice-main")
+    candidates = []
+    if str(configured or "").strip():
+        candidates.append(Path(configured).expanduser())
+    for parent in roots:
+        for name in names:
+            candidates.append(parent / name)
+    seen = set()
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        if str(candidate).casefold() in seen:
+            continue
+        seen.add(str(candidate).casefold())
+        try:
+            return str(_validate_checkout(candidate))
+        except (OSError, ValueError):
+            pass
+        # Accept one additional GitHub-archive wrapper layer, not a recursive scan.
+        if candidate.is_dir():
+            try:
+                children = list(candidate.iterdir())
+                if len(children) > 30:
+                    continue
+                for child in children:
+                    if child.is_dir() and not child.is_symlink():
+                        try:
+                            return str(_validate_checkout(child))
+                        except (OSError, ValueError):
+                            continue
+            except OSError:
+                continue
+    return ""
+
+
 def prepare_backend(checkout, logs_dir):
     """Explicit owner-initiated install of VoiceStudio's source dependencies.
 
