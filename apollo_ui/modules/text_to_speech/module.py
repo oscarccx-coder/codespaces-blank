@@ -811,6 +811,12 @@ class Module:
     def _recognize_wave_file(self, wav_path, timeout_seconds=30, culture=""):
         from apollo_capabilities import service
         backend = service(self.base_dir, self.runtime)
+        if backend.settings()["transcription"] == "voicestudio":
+            from apollo_voicestudio import transcribe
+            return transcribe(
+                backend.settings()["voicestudio_url"], wav_path,
+                language=str(culture or "").split("-")[0], timeout=max(30, int(timeout_seconds) + 15),
+            )
         if backend.settings()["transcription"] == "faster_whisper":
             result = backend.run("faster_whisper", "transcribe", {"path":str(wav_path), "language":str(culture).split("-")[0] or None})
             return result["text"]
@@ -1092,16 +1098,30 @@ class Module:
                         try:
                             if current["backend"] == "kokoro":
                                 self._speak_kokoro(current)
+                            elif current["backend"] == "voicestudio":
+                                self._speak_voicestudio(current)
                             else:
                                 self._voice_imprint_call("speak", {"text": current["text"]})
                         except Exception as exc:
                             error = f"{type(exc).__name__}: {exc}"
+                            fallback = False
+                            if current["backend"] == "voicestudio":
+                                try:
+                                    with self._imprint_worker_lock:
+                                        still_current = current["generation"] == self._imprint_generation
+                                    if still_current:
+                                        self._speak_windows_fallback(current)
+                                        fallback = True
+                                except Exception as fallback_exc:
+                                    error += f"; Windows fallback: {type(fallback_exc).__name__}: {fallback_exc}"
                             with self._imprint_worker_lock:
-                                self._imprint_last_error = error
+                                self._imprint_last_error = "" if fallback else error
                                 if current["generation"] == self._imprint_generation:
                                     self._imprint_status = {
-                                        "state": "failed", "job_id": current["id"],
-                                        "updated_at": time.time(), "error": error,
+                                        "state": "completed" if fallback else "failed",
+                                        "job_id": current["id"], "updated_at": time.time(),
+                                        "fallback_engine": "Windows System.Speech" if fallback else None,
+                                        "voice_studio_error": error,
                                     }
                         else:
                             with self._imprint_worker_lock:
@@ -1123,6 +1143,61 @@ class Module:
             worker.start()
         return {"started": True, "queued": False, "generating": True,
                 "job_id": job["id"], "characters": len(job["text"])}
+
+    def _voicestudio_synthesize(self, text, filename=None, cancelled=None):
+        from apollo_capabilities import service
+        from apollo_voicestudio import synthesize
+        conf = service(self.base_dir, self.runtime).settings()
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        filename = str(filename or ("voicestudio_" + uuid.uuid4().hex + ".wav"))
+        if not _SAFE_FILENAME.fullmatch(filename) or not filename.lower().endswith(".wav") or filename in {".", ".."}:
+            raise ValueError("VoiceStudio WAV filename must be a simple .wav basename.")
+        return synthesize(conf["voicestudio_url"], text, self.output_dir / filename,
+                          voice=conf["voicestudio_voice"], model=conf["voicestudio_model"],
+                          cancelled=cancelled)
+
+    def _speak_windows_fallback(self, job):
+        """Recover speech without XTTS if a selected VoiceStudio request fails."""
+        self._require_windows()
+        _profile, env = self._speech_env({}, job["text"])
+        script = self._speech_script("$s.SpeakSsml($ssml);")
+        with self._imprint_worker_lock:
+            if job["generation"] != self._imprint_generation:
+                return
+            proc = self._start_powershell(script, env)
+            with self._lock:
+                self._speech_process = proc
+            self._imprint_status = {
+                "state": "playing", "job_id": job["id"],
+                "fallback_engine": "Windows System.Speech", "updated_at": time.time(),
+            }
+        try:
+            code = proc.wait(timeout=150)
+            if code != 0:
+                raise RuntimeError(f"Windows speech returned code {code}")
+        finally:
+            with self._lock:
+                if self._speech_process is proc:
+                    self._speech_process = None
+
+    def _speak_voicestudio(self, job):
+        import winsound
+        def cancelled():
+            with self._imprint_worker_lock:
+                return job["generation"] != self._imprint_generation
+        result = self._voicestudio_synthesize(job["text"], cancelled=cancelled)
+        with self._imprint_worker_lock:
+            if cancelled():
+                return
+            winsound.PlaySound(result["file"], winsound.SND_FILENAME | winsound.SND_ASYNC)
+            self._imprint_status = {"state": "playing", "job_id": job["id"],
+                                    "file": result["file"], "updated_at": time.time()}
+        deadline = time.monotonic() + float(result["seconds"])
+        while time.monotonic() < deadline:
+            if cancelled():
+                winsound.PlaySound(None, 0)
+                return
+            time.sleep(0.04)
 
     def _speak_kokoro(self, job):
         from apollo_capabilities import service
@@ -1235,7 +1310,7 @@ class Module:
             from apollo_capabilities import service
             backend = service(self.base_dir, self.runtime)
             if getattr(backend, "active_backend", None) == "kokoro": backend.cancel()
-            if backend.settings()["voice"] == "kokoro":
+            if backend.settings()["voice"] in {"kokoro", "voicestudio"}:
                 try:
                     import winsound
                     winsound.PlaySound(None, 0)
@@ -1260,9 +1335,12 @@ class Module:
         if action in {"speak_text", "preview_voice"}:
             text = self._text(arguments)
             from apollo_capabilities import service
-            if service(self.base_dir, self.runtime).settings()["voice"] == "kokoro":
+            selected = service(self.base_dir, self.runtime).settings()["voice"]
+            if selected in {"kokoro", "voicestudio"}:
                 self._require_windows()
-                return {**self._queue_voice_imprint(text, backend="kokoro"), "engine":"Kokoro", "voice_imprint":False}
+                return {**self._queue_voice_imprint(text, backend=selected),
+                        "engine": "Kokoro" if selected == "kokoro" else "VoiceStudio",
+                        "voice_imprint": False, "offline": True}
             if action == "speak_text" and arguments.get("use_voice_imprint", True):
                 try:
                     imprint = self._queue_voice_imprint(text) if self._voice_imprint_active() else None
@@ -1306,6 +1384,8 @@ class Module:
             backend = service(self.base_dir, self.runtime)
             if backend.settings()["voice"] == "kokoro":
                 return backend.run("kokoro", "synthesize", {"text":self._text(arguments)})
+            if backend.settings()["voice"] == "voicestudio":
+                return self._voicestudio_synthesize(self._text(arguments), filename=arguments.get("filename"))
             text = self._text(arguments)
             if arguments.get("use_voice_imprint", True):
                 try:
