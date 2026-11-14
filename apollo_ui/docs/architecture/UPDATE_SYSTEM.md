@@ -4,6 +4,12 @@
 
 Close Apollo, then run `UPDATE_APOLLO_CODE.bat`, or the equivalent `Setup/03_UPDATE_APOLLO.bat`, or click **Update Apollo (Git main)** or **Update from Git (main)** in the Update Centre. They share one guarded updater (`Setup/13_UPDATE_GIT_MAIN.bat`). It only fast-forwards the checked-out `main` branch through `apollo_git_source_update.py`. It refuses modified or untracked source code, an unconfigured remote, a detached head and other branches rather than switching branches or force-resetting changes. Historically committed runtime data under `apollo_ui/storage`, `Audio`, `workspace`, and local configuration may be dirty without blocking a code-only fast-forward. The updater first checks that the incoming commit does **not** change any of those private data paths; otherwise it stops for a reviewed migration. It never automatically stashes, resets, cleans or replaces private data. It does not download XTTS weights. Run `INSTALL_REQUIREMENTS.bat` after a change to core requirements.
 
+### Internal Update Centre behavior
+
+When Apollo starts from a real Git checkout, **Update Apollo (Git main)** performs a guarded fast-forward from `origin/main`. **Check Git main** fetches the latest remote commit, checks source and private-data conflicts, and reports `[AVAILABLE]` or `[UP-TO-DATE]` without installing code. You can run the equivalent from Command Prompt with `Setup\\13_UPDATE_GIT_MAIN.bat --check-remote`. Unlike `--check` (strictly read-only), `--check-remote` updates Git's fetched metadata but does not alter application files.
+
+When Apollo starts from a ZIP/packaged installation without a `.git` checkout, the Update Centre only offers signed release installation. It now explains when no signed release exists, rather than claiming an empty release channel is up to date. Do not download and execute unverified ZIP content as a workaround; migrate to a separate Git checkout or publish an owner-approved signed release.
+
 ## Verified signed releases (end-user installations)
 
 The Update Centre checks GitHub Releases, verifies an explicit trusted Ed25519 signing key and every package hash, stages code, creates a backup, and uses an external installer with rollback on failed health checks. No signing key or application update may be trusted/installed by the AI itself. A stable release is published deliberately through the GitHub Actions `Publish signed Apollo Release` workflow with the required secrets, pinned public-key fingerprint, passing regression tests, and manual `PUBLISH` confirmation.
