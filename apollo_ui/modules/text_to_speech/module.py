@@ -1104,12 +1104,24 @@ class Module:
                                 self._voice_imprint_call("speak", {"text": current["text"]})
                         except Exception as exc:
                             error = f"{type(exc).__name__}: {exc}"
+                            fallback = False
+                            if current["backend"] == "voicestudio":
+                                try:
+                                    with self._imprint_worker_lock:
+                                        still_current = current["generation"] == self._imprint_generation
+                                    if still_current:
+                                        self._speak_windows_fallback(current)
+                                        fallback = True
+                                except Exception as fallback_exc:
+                                    error += f"; Windows fallback: {type(fallback_exc).__name__}: {fallback_exc}"
                             with self._imprint_worker_lock:
-                                self._imprint_last_error = error
+                                self._imprint_last_error = "" if fallback else error
                                 if current["generation"] == self._imprint_generation:
                                     self._imprint_status = {
-                                        "state": "failed", "job_id": current["id"],
-                                        "updated_at": time.time(), "error": error,
+                                        "state": "completed" if fallback else "failed",
+                                        "job_id": current["id"], "updated_at": time.time(),
+                                        "fallback_engine": "Windows System.Speech" if fallback else None,
+                                        "voice_studio_error": error,
                                     }
                         else:
                             with self._imprint_worker_lock:
@@ -1143,6 +1155,30 @@ class Module:
         return synthesize(conf["voicestudio_url"], text, self.output_dir / filename,
                           voice=conf["voicestudio_voice"], model=conf["voicestudio_model"],
                           cancelled=cancelled)
+
+    def _speak_windows_fallback(self, job):
+        """Recover speech without XTTS if a selected VoiceStudio request fails."""
+        self._require_windows()
+        _profile, env = self._speech_env({}, job["text"])
+        script = self._speech_script("$s.SpeakSsml($ssml);")
+        with self._imprint_worker_lock:
+            if job["generation"] != self._imprint_generation:
+                return
+            proc = self._start_powershell(script, env)
+            with self._lock:
+                self._speech_process = proc
+            self._imprint_status = {
+                "state": "playing", "job_id": job["id"],
+                "fallback_engine": "Windows System.Speech", "updated_at": time.time(),
+            }
+        try:
+            code = proc.wait(timeout=150)
+            if code != 0:
+                raise RuntimeError(f"Windows speech returned code {code}")
+        finally:
+            with self._lock:
+                if self._speech_process is proc:
+                    self._speech_process = None
 
     def _speak_voicestudio(self, job):
         import winsound
