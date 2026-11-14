@@ -73,7 +73,7 @@ def incoming_paths(root: Path) -> list[str]:
     return [part for part in data.decode("utf-8", errors="surrogateescape").split("\0") if part]
 
 
-def run_update(root: Path, *, check_only: bool = False, emit=print) -> int:
+def run_update(root: Path, *, check_only: bool = False, check_remote: bool = False, emit=print) -> int:
     root = root.resolve()
     emit("=========================================================")
     emit(" APOLLO SAFE GIT MAIN UPDATE")
@@ -121,6 +121,10 @@ def run_update(root: Path, *, check_only: bool = False, emit=print) -> int:
         if not changed:
             emit("[UP-TO-DATE] Apollo source is already up to date.")
             return 0
+        if check_remote:
+            emit(f"[AVAILABLE] {len(changed)} code path(s) can be fast-forwarded from origin/main.")
+            emit("[CHECK] This fetched upstream changes for comparison but did not merge them.")
+            return 0
         emit(f"[UPDATE] Fast-forwarding {len(changed)} code path(s)...")
         git(root, "merge", "--ff-only", "FETCH_HEAD", timeout=360)
         after = git(root, "rev-parse", "HEAD").decode().strip()
@@ -138,9 +142,12 @@ def run_update(root: Path, *, check_only: bool = False, emit=print) -> int:
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Apollo guarded main-branch source updater")
     parser.add_argument("--check", action="store_true", help="Read-only local preflight")
+    parser.add_argument("--check-remote", action="store_true", help="Fetch and assess origin/main without installing")
     parser.add_argument("--no-pause", action="store_true", help="Accepted for BAT compatibility")
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
     args = parser.parse_args(argv)
+    if args.check and args.check_remote:
+        parser.error("--check and --check-remote cannot be combined")
     log = Path(tempfile.gettempdir()) / "Apollo_Git_Main_Update.log"
     with log.open("a", encoding="utf-8", errors="replace") as handle:
         handle.write(f"\nApollo updater {datetime.now(timezone.utc).isoformat()}\n")
@@ -148,7 +155,7 @@ def main(argv=None):
             print(message, flush=True)
             handle.write(message + "\n")
             handle.flush()
-        result = run_update(args.root, check_only=args.check, emit=emit)
+        result = run_update(args.root, check_only=args.check, check_remote=args.check_remote, emit=emit)
         emit(f"[RESULT] Git update result code {result}.")
         emit(f"[LOG] {log}")
     return result
