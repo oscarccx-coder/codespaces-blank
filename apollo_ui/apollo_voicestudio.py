@@ -1,7 +1,7 @@
 """Local VoiceStudio speech bridge. No VoiceStudio dependency in Apollo's venv.
 
-VoiceStudio is a separate owner-launched service. Apollo can reach loopback
-only; it never launches third-party Git source or discovers remote services.
+VoiceStudio runs in its own environment. Apollo contacts loopback only.
+An owner-approved local source checkout may be launched by the separate runtime manager.
 """
 from __future__ import annotations
 
@@ -105,3 +105,70 @@ def synthesize(base_url: str, text: str, destination: str | Path, *,
                 "file": str(destination), "seconds": seconds, "voice": voice, "model": model}
     finally:
         tmp.unlink(missing_ok=True)
+
+
+
+def list_voices(base_url: str, timeout: int = 8) -> dict:
+    """Discover installed VoiceStudio engines, presets, and saved cloned voices."""
+    request = urllib.request.Request(_endpoint(base_url, "/v1/audio/voices"),
+                                     headers={"Accept": "application/json", "Authorization": "Bearer local"})
+    with _open(request, timeout) as response:
+        if response.status != 200:
+            raise RuntimeError(f"VoiceStudio voices status {response.status}")
+        raw = response.read(1024 * 1024 + 1)
+    if len(raw) > 1024 * 1024:
+        raise ValueError("VoiceStudio voice catalogue exceeds 1 MiB.")
+    result = json.loads(raw.decode("utf-8"))
+    if not isinstance(result, dict):
+        raise ValueError("Invalid VoiceStudio voice catalogue response.")
+    voices = result.get("voices", [])
+    engines = result.get("engines", [])
+    if not isinstance(voices, list) or not isinstance(engines, list):
+        raise ValueError("VoiceStudio returned an invalid voice or engine list.")
+    return {"ok": True, "voices": voices[:500], "engines": engines[:100]}
+
+
+def transcribe(base_url: str, path: str | Path, *, language: str = "",
+               model: str = "whisper-1", timeout: int = 120) -> str:
+    """Send a bounded audio sample to the loopback-only VoiceStudio ASR endpoint."""
+    source = Path(path).resolve()
+    extensions = {".wav": "audio/wav", ".mp3": "audio/mpeg", ".flac": "audio/flac",
+                  ".ogg": "audio/ogg", ".m4a": "audio/mp4"}
+    if source.suffix.lower() not in extensions:
+        raise ValueError("VoiceStudio only accepts an audio file (WAV, MP3, FLAC, OGG, M4A).")
+    if not source.is_file() or source.stat().st_size > 24 * 1024 * 1024:
+        raise ValueError("VoiceStudio transcription audio is missing or exceeds 24 MiB.")
+    if not 1 <= len(str(model)) <= 100:
+        raise ValueError("Invalid VoiceStudio transcription model.")
+    boundary = "ApolloVS" + uuid.uuid4().hex
+    def field(name: str, value: str) -> bytes:
+        return (f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n"
+                f"\r\n{value}\r\n").encode("utf-8")
+    body = bytearray()
+    body.extend(field("model", str(model)))
+    body.extend(field("response_format", "json"))
+    if language:
+        lang = str(language).lower().split("-")[0]
+        if not lang.isascii() or not lang.isalpha() or len(lang) not in {2, 3}:
+            raise ValueError("Invalid transcription language.")
+        body.extend(field("language", lang))
+    body.extend((f"--{boundary}\r\nContent-Disposition: form-data; "
+                 f"name=\"file\"; filename=\"speech{source.suffix.lower()}\"\r\n"
+                 f"Content-Type: {extensions[source.suffix.lower()]}\r\n\r\n").encode("ascii"))
+    body.extend(source.read_bytes())
+    body.extend(f"\r\n--{boundary}--\r\n".encode("ascii"))
+    request = urllib.request.Request(_endpoint(base_url, "/v1/audio/transcriptions"),
+                                     method="POST", data=bytes(body), headers={
+        "Content-Type": f"multipart/form-data; boundary={boundary}",
+        "Accept": "application/json", "Authorization": "Bearer local",
+    })
+    with _open(request, timeout) as response:
+        if response.status != 200:
+            raise RuntimeError(f"VoiceStudio transcription status {response.status}")
+        raw = response.read(512 * 1024 + 1)
+    if len(raw) > 512 * 1024:
+        raise ValueError("VoiceStudio transcription result exceeds 512 KiB.")
+    result = json.loads(raw.decode("utf-8"))
+    if not isinstance(result, dict) or not isinstance(result.get("text"), str):
+        raise RuntimeError("VoiceStudio transcription returned no text.")
+    return result["text"]
