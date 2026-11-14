@@ -7,6 +7,7 @@
 | `01_INSTALL_APOLLO.bat` | Install/repair core requirements, then open setup |
 | `02_START_APOLLO.bat` | Launch Apollo |
 | `03_UPDATE_APOLLO.bat` | Safely fast-forward a clean local Git checkout from `origin/main` only; `--check` is read-only |
+| `21_INSTALL_GIT_SOURCE.bat` | Bootstrap a separate Git-connected Apollo next to an existing ZIP installation; `--check` is read-only |
 | `04_REPAIR_VOICE.bat` | Install/repair optional XTTS Python runtime |
 | `05_DIAGNOSE.bat` | Check Ollama, XTTS model files, packages and isolated XTTS imports |
 | `06_BACKUP.bat` | Create a local, unencrypted data backup ZIP |
@@ -65,3 +66,11 @@ Run `19_SETUP_OPENJARVIS.bat` once after updating, then open **Apps → OpenJarv
 ### Optional shared open-source capability backends
 
 `20_SETUP_CAPABILITIES.bat` installs selected pinned GitHub sources in separate environments under Apollo's storage. Supply backend names, e.g. `20_SETUP_CAPABILITIES.bat kokoro docling crawl4ai`. Choices: `kokoro`, `faster_whisper`, `docling`, `crawl4ai`, `browser_use`, `graphiti`, `gpt_researcher`, `llama_cpp`. Git and Python 3.12/3.13 are required. The Capability Backends page explains installation state and lets the owner select voice, dictation and page-reader backends. Browser Use requires Docker; llama.cpp requires a C++ toolchain; graph/research need local services/models. See `docs/architecture/OPEN_SOURCE_BACKENDS.md` for setup, licences and validation limits.
+
+## Install Git source without a published release
+
+If Apollo was extracted from a ZIP, use **Install Git source (no release)** in Update Centre or run `21_INSTALL_GIT_SOURCE.bat` from this folder. Git for Windows is required. The script clones the latest main branch into a sibling folder named `Apollo-Git` and refuses to overwrite any existing destination.
+
+Your original installation, memory, voice profiles, XTTS weights and workspaces are not touched or automatically migrated. In the new `Apollo-Git\apollo_ui` folder run `Setup\01_INSTALL_APOLLO.bat` once, then launch with `Setup\02_START_APOLLO.bat`. Once Apollo is running from this real Git checkout, the Update Centre button becomes **Update from Git (main)** for future fast-forward source updates.
+
+Use explicit Apollo Backup / Restore to move private data after confirming the new installation works. Source checkouts are not signed packages and should only be used for code you deliberately approve. Do not delete the original Apollo until its data is safely restored and verified.
