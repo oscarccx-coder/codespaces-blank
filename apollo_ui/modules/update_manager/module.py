@@ -124,7 +124,7 @@ class Module:
         combined_btn = QPushButton("Update Apollo")
         combined_btn.setMinimumHeight(44)
         combined_btn.setObjectName("primaryAction")
-        combined_btn.setToolTip("Check, download, verify and install a newer signed release.")
+        combined_btn.setToolTip("In a Git checkout: safely fast-forward main. In packaged installs: download and verify a signed release.")
         actions.addWidget(combined_btn)
         git_btn = QPushButton("Update from Git (main)")
         git_btn.setMinimumHeight(44)
@@ -194,6 +194,9 @@ class Module:
         def pretty(data):
             output.setPlainText(json.dumps(data, indent=2, default=str))
 
+        def is_git_checkout():
+            return (self.base.parent / ".git").exists() or (self.base / ".git").exists()
+
         def refresh():
             info = self.service.status()
             settings = info["settings"]
@@ -202,9 +205,11 @@ class Module:
             server.setText(str(settings.get("server_url", "")))
             channel.setCurrentText(str(settings.get("channel", "stable")))
             auto_check.setChecked(bool(settings.get("auto_check", False)))
+            combined_btn.setText("Update Apollo (Git main)" if is_git_checkout() else "Update Apollo (Signed)")
             status.setText(
                 f"Installed: Apollo {info['current_version']}\n"
-                f"Source: {'GitHub Releases' if settings.get('source') == 'github' else 'Local server'}"
+                f"Update mode: {'Git source checkout' if is_git_checkout() else 'Signed release'}\n"
+                f"Release source: {'GitHub Releases' if settings.get('source') == 'github' else 'Local server'}"
                 f"  •  Signing: {'Trusted key' if info['trusted_key'] else 'Setup needed'}"
             )
             latest = info.get("last_install")
@@ -381,13 +386,13 @@ class Module:
             if state["busy"]:
                 return
             checkout = self.base
-            if not (checkout.parent / ".git").exists() and not (checkout / ".git").exists():
+            if not is_git_checkout():
                 QMessageBox.warning(page, "Git update unavailable",
                                     "Apollo is not running from a Git checkout. Use signed releases instead.")
                 return
             if QMessageBox.question(
                 page, "Update Apollo source",
-                "Pull verified Git objects from origin/main into this local checkout?\\n"
+                "Fast-forward origin/main into this local Git checkout?\\n"
                 "This is a source-development update, not a signed Apollo release. "
                 "Uncommitted local changes will not be overwritten.",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
@@ -424,11 +429,11 @@ class Module:
         def git_output():
             chunk = bytes(git_process.readAllStandardOutput()).decode("utf-8", errors="replace")
             git_state["output"] = (git_state["output"] + chunk)[-24000:]
-            lines = git_state["output"].replace("\\r", "\\n").splitlines()
+            lines = git_state["output"].replace("\r", "\n").splitlines()
             if lines:
                 progress.setText(lines[-1][:220])
-                output.setPlainText("\\n".join(lines[-120:]))
-            if "Updating " in git_state["output"] or "Fast-forward" in git_state["output"]:
+                output.setPlainText("\n".join(lines[-120:]))
+            if "[UPDATED]" in git_state["output"]:
                 git_state["changed"] = True
 
         def git_finished(exit_code, _status):
@@ -443,8 +448,11 @@ class Module:
                                     "Local files were not intentionally discarded.")
                 advanced_panel.show()
                 return
-            if "Already up to date." in git_state["output"] and not git_state["changed"]:
+            if "[UP-TO-DATE]" in git_state["output"] and not git_state["changed"]:
                 progress.setText("Apollo source is already up to date.")
+                return
+            if not git_state["changed"]:
+                progress.setText("Git check completed without source changes. Review the details.")
                 return
             progress.setText("New Apollo source received. Restart required to load changes.")
             answer = QMessageBox.question(page, "Restart Apollo?",
@@ -482,6 +490,12 @@ class Module:
                 launch_installer()
 
         def do_combined():
+            # A source checkout has no signed-release dependency. The main
+            # button runs the same guarded Git updater as the dedicated button.
+            # Packaged installations continue using signed release verification.
+            if is_git_checkout():
+                git_update()
+                return
             if not self.service.status().get("trusted_key"):
                 advanced_panel.setVisible(True)
                 advanced_toggle.setText("Advanced options ▾")
