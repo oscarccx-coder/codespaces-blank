@@ -27,7 +27,7 @@ class Module:
                  "auto_check": {"type": "boolean"},
              }}},
             {"name": "check_for_updates",
-             "description": "Check if a newer signed Apollo release is offered.",
+             "description": "Check whether an Apollo Git source update or signed release is available.",
              "parameters": {"type": "object", "properties": {}}},
         ]
 
@@ -44,6 +44,14 @@ class Module:
                 device_name=arguments.get("device_name"),
             )
         if action == "check_for_updates":
+            if (self.base.parent / ".git").exists() or (self.base / ".git").exists():
+                from apollo_git_source_update import run_update
+                messages = []
+                exit_code = run_update(self.base.parent, check_remote=True, emit=messages.append)
+                return {"ok": exit_code == 0, "mode": "git-main",
+                        "available": exit_code == 0 and any("[AVAILABLE]" in item for item in messages),
+                        "error": None if exit_code == 0 else "\n".join(messages[-8:]),
+                        "details": messages[-16:]}
             return self.service.check_for_updates()
         if action in {"install_staged_update", "import_update_public_key", "stage_update"}:
             raise PermissionError("Installing, trusting and staging updates requires direct user interaction in Update Manager.")
@@ -186,7 +194,7 @@ class Module:
             transferred = Signal(int, int)
 
         signals = UpdateSignals(page)
-        state = {"busy": False}
+        state = {"busy": False, "git_check": False}
         controls = (git_btn, save_btn, check_btn, stage_btn, install_btn,
                     combined_btn, trust_github_btn, trust_local_btn)
         window = (ui_context or {}).get("apollo_window") if isinstance(ui_context, dict) else None
@@ -206,11 +214,17 @@ class Module:
             channel.setCurrentText(str(settings.get("channel", "stable")))
             auto_check.setChecked(bool(settings.get("auto_check", False)))
             combined_btn.setText("Update Apollo (Git main)" if is_git_checkout() else "Update Apollo (Signed)")
+            check_btn.setText("Check Git main" if is_git_checkout() else "Check signed releases")
+            combined_btn.setToolTip(
+                "Safely fast-forward origin/main without touching runtime data."
+                if is_git_checkout() else
+                "Install a signed release with a verified trusted key; requires a published release package."
+            )
             status.setText(
                 f"Installed: Apollo {info['current_version']}\n"
                 f"Update mode: {'Git source checkout' if is_git_checkout() else 'Signed release'}\n"
                 f"Release source: {'GitHub Releases' if settings.get('source') == 'github' else 'Local server'}"
-                f"  •  Signing: {'Trusted key' if info['trusted_key'] else 'Setup needed'}"
+                f"  •  Signing: {'not needed for Git main' if is_git_checkout() else ('Trusted key' if info['trusted_key'] else 'Setup needed')}"
             )
             latest = info.get("last_install")
             if latest and latest.get("ok") is False:
@@ -382,7 +396,7 @@ class Module:
         git_process.setProcessChannelMode(QProcess.MergedChannels)
         git_state = {"output": "", "changed": False}
 
-        def git_update():
+        def git_update(check_remote=False):
             if state["busy"]:
                 return
             checkout = self.base
@@ -390,7 +404,7 @@ class Module:
                 QMessageBox.warning(page, "Git update unavailable",
                                     "Apollo is not running from a Git checkout. Use signed releases instead.")
                 return
-            if QMessageBox.question(
+            if not check_remote and QMessageBox.question(
                 page, "Update Apollo source",
                 "Fast-forward origin/main into this local Git checkout?\\n"
                 "This is a source-development update, not a signed Apollo release. "
@@ -401,9 +415,11 @@ class Module:
             set_busy(True)
             git_state["output"] = ""
             git_state["changed"] = False
+            state["git_check"] = bool(check_remote)
             progress_bar.setRange(0, 0)  # Git provides no reliable byte total.
             progress_bar.setVisible(True)
-            progress.setText("Updating Apollo from origin/main...")
+            progress.setText("Checking origin/main without installing..." if check_remote
+                             else "Updating Apollo from origin/main...")
             script = self.base / "Setup" / "13_UPDATE_GIT_MAIN.bat"
             if not script.is_file():
                 set_busy(False)
@@ -418,7 +434,8 @@ class Module:
             # Windows forbids literal quotes in filesystem path components.
             git_process.setArguments([])
             git_process.setNativeArguments(
-                '/d /s /c ""' + str(script) + '" --no-pause"'
+                '/d /s /c ""' + str(script) + '" ' +
+                ('--check-remote ' if check_remote else '') + '--no-pause"'
             )
             git_process.start()
             if not git_process.waitForStarted(1500):
@@ -442,11 +459,15 @@ class Module:
             progress_bar.setRange(0, 100)
             progress_bar.setValue(100 if exit_code == 0 else 0)
             if exit_code != 0:
-                progress.setText("Git update failed. See the details below.")
+                progress.setText("Git check failed. See the details below." if state["git_check"]
+                                 else "Git update failed. See the details below.")
                 QMessageBox.warning(page, "Apollo update failed",
                                     "Git did not update Apollo. Check the output under Advanced options. "
                                     "Local files were not intentionally discarded.")
                 advanced_panel.show()
+                return
+            if state["git_check"] and "[AVAILABLE]" in git_state["output"]:
+                progress.setText("New Apollo code available from GitHub main. Click Update Apollo to install.")
                 return
             if "[UP-TO-DATE]" in git_state["output"] and not git_state["changed"]:
                 progress.setText("Apollo source is already up to date.")
@@ -537,7 +558,7 @@ class Module:
                     QMessageBox.warning(page, "Signing key", str(exc))
 
         save_btn.clicked.connect(save)
-        check_btn.clicked.connect(lambda: run_async("check"))
+        check_btn.clicked.connect(lambda: git_update(check_remote=True) if is_git_checkout() else run_async("check"))
         stage_btn.clicked.connect(lambda: run_async("stage"))
         install_btn.clicked.connect(do_install)
         combined_btn.clicked.connect(do_combined)
@@ -545,5 +566,5 @@ class Module:
         trust_local_btn.clicked.connect(local_trust)
         refresh()
         if self.service.settings().get("auto_check"):
-            QTimer.singleShot(300, lambda: run_async("check"))
+            QTimer.singleShot(300, lambda: git_update(check_remote=True) if is_git_checkout() else run_async("check"))
         return page
