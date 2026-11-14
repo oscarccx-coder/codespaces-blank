@@ -152,6 +152,27 @@ class ApolloRoutingTests(unittest.TestCase):
             self.assertEqual(speech._recognize_wave_file(self.root / "dummy.wav"), "recognized")
             self.assertTrue(asr.called)
 
+    def test_prepare_runs_only_pinned_commands_in_selected_checkout(self):
+        from unittest.mock import Mock
+        from apollo_voicestudio_runtime import prepare_backend
+        folder = self.root / "VoiceStudio"
+        (folder / "scripts").mkdir(parents=True)
+        (folder / "backend").mkdir()
+        (folder / "backend" / "main.py").write_text("pass")
+        (folder / "scripts" / "dev-backend.mjs").write_text("")
+        (folder / "package.json").write_text(json.dumps({
+            "name": "omnivoice-studio-monorepo",
+            "scripts": {"dev:api": "bun scripts/dev-backend.mjs"},
+        }))
+        with patch("apollo_voicestudio_runtime.shutil.which", side_effect=lambda name: name), \
+             patch("apollo_voicestudio_runtime.subprocess.run", return_value=Mock(returncode=0)) as runner:
+            outcome = prepare_backend(folder, self.root / "logs")
+            self.assertTrue(outcome["prepared"])
+            self.assertEqual(runner.call_count, 2)
+            self.assertEqual(runner.call_args_list[0].args[0], ["bun", "install", "--frozen-lockfile"])
+            self.assertEqual(runner.call_args_list[1].args[0], ["bun", "run", "setup:api"])
+            self.assertEqual(runner.call_args_list[0].kwargs["cwd"], str(folder))
+
     def test_checkout_requires_matching_upstream_entrypoint(self):
         folder = self.root / "VoiceStudio"
         (folder / "scripts").mkdir(parents=True)
