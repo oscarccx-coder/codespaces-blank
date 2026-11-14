@@ -173,6 +173,25 @@ class ApolloRoutingTests(unittest.TestCase):
             self.assertEqual(runner.call_args_list[1].args[0], ["bun", "run", "setup:api"])
             self.assertEqual(runner.call_args_list[0].kwargs["cwd"], str(folder))
 
+    def test_auto_detect_uses_downloaded_source_without_copying(self):
+        from apollo_voicestudio_runtime import find_downloaded_checkout
+        install = self.root / "Apollo" / "apollo 1" / "apollo_ui"
+        install.mkdir(parents=True)
+        downloaded = self.root / "Apollo" / "VoiceStudio" / "VoiceStudio-main"
+        (downloaded / "scripts").mkdir(parents=True)
+        (downloaded / "backend").mkdir()
+        (downloaded / "backend" / "main.py").write_text("pass")
+        (downloaded / "scripts" / "dev-backend.mjs").write_text("")
+        (downloaded / "package.json").write_text(json.dumps({
+            "name": "omnivoice-studio-monorepo",
+            "scripts": {"dev:api": "bun scripts/dev-backend.mjs"},
+        }))
+        self.assertEqual(find_downloaded_checkout(install), str(downloaded.resolve()))
+        self.assertEqual(find_downloaded_checkout(install, str(downloaded)), str(downloaded.resolve()))
+        self.assertFalse((install / "VoiceStudio").exists())
+        (downloaded / "package.json").write_text(json.dumps({"name": "unrelated-project"}))
+        self.assertEqual(find_downloaded_checkout(install), "")
+
     def test_checkout_requires_matching_upstream_entrypoint(self):
         folder = self.root / "VoiceStudio"
         (folder / "scripts").mkdir(parents=True)
