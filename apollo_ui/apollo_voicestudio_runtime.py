@@ -32,6 +32,33 @@ def _validate_checkout(checkout) -> Path:
     return folder
 
 
+def prepare_backend(checkout, logs_dir):
+    """Explicit owner-initiated install of VoiceStudio's source dependencies.
+
+    Runs external upstream setup scripts in the chosen checkout, never in
+    Apollo's own Python venv. This action must not be model-callable.
+    """
+    folder = _validate_checkout(checkout)
+    bun = shutil.which("bun")
+    uv = shutil.which("uv")
+    if not bun or not uv:
+        raise RuntimeError("Install Bun and uv before preparing VoiceStudio.")
+    logs = Path(logs_dir).resolve()
+    logs.mkdir(parents=True, exist_ok=True)
+    logfile = logs / "voicestudio-setup.log"
+    with logfile.open("a", encoding="utf-8") as output:
+        for command in ([bun, "install", "--frozen-lockfile"], [bun, "run", "setup:api"]):
+            output.write("Running: " + " ".join(command[1:]) + "\n")
+            output.flush()
+            completed = subprocess.run(command, cwd=str(folder), stdin=subprocess.DEVNULL,
+                                       stdout=output, stderr=subprocess.STDOUT, check=False,
+                                       timeout=2400)
+            if completed.returncode != 0:
+                raise RuntimeError(f"VoiceStudio setup failed (exit {completed.returncode}). Check {logfile}")
+    return {"ok": True, "prepared": True, "checkout": str(folder),
+            "log": str(logfile), "notice": "Choose and install voice models in VoiceStudio before use."}
+
+
 def backend_status():
     with _OWNER_LOCK:
         proc = _OWNED
