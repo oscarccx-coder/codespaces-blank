@@ -202,6 +202,14 @@ class Module:
             server.setText(str(settings.get("server_url", "")))
             channel.setCurrentText(str(settings.get("channel", "stable")))
             auto_check.setChecked(bool(settings.get("auto_check", False)))
+            git_checkout = (self.base.parent / ".git").exists() or (self.base / ".git").exists()
+            git_btn.setText("Update from Git (main)" if git_checkout
+                            else "Install Git source (no release)")
+            git_btn.setToolTip(
+                "Fast-forward this checkout from origin/main without a signed release."
+                if git_checkout else
+                "Download a separate Git-connected Apollo next to the existing ZIP installation."
+            )
             status.setText(
                 f"Installed: Apollo {info['current_version']}\n"
                 f"Source: {'GitHub Releases' if settings.get('source') == 'github' else 'Local server'}"
@@ -375,15 +383,63 @@ class Module:
         # Run the trusted local Git client without a shell; never execute remote scripts.
         git_process = QProcess(page)
         git_process.setProcessChannelMode(QProcess.MergedChannels)
-        git_state = {"output": "", "changed": False}
+        git_state = {"output": "", "changed": False, "mode": "update"}
+
+        def git_install():
+            if state["busy"]:
+                return
+            destination = self.base.parent.parent / "Apollo-Git"
+            script = self.base / "Setup" / "21_INSTALL_GIT_SOURCE.bat"
+            if not script.is_file():
+                QMessageBox.warning(
+                    page, "Git source installer missing",
+                    "This Apollo version does not include the Git source installer: " + str(script)
+                )
+                return
+            if destination.exists():
+                QMessageBox.warning(
+                    page, "Git source folder already exists",
+                    f"{destination} already exists. No files will be overwritten. "
+                    "If it is an existing Git checkout, open that installation and use "
+                    "Update from Git (main)."
+                )
+                return
+            if QMessageBox.question(
+                page, "Install Apollo Git source",
+                f"Download the latest Apollo source from the canonical GitHub main branch to:\n"
+                f"{destination}\n\n"
+                "The current Apollo installation and all its memories, voice profiles, "
+                "models and projects will remain untouched. This is NOT a signed release. "
+                "The new source will require its own Python requirements installation "
+                "before first launch. Continue?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            ) != QMessageBox.Yes:
+                return
+            set_busy(True)
+            git_state["mode"] = "install"
+            git_state["output"] = ""
+            git_state["changed"] = False
+            progress_bar.setRange(0, 0)
+            progress_bar.setVisible(True)
+            progress.setText("Downloading Apollo Git source beside the current installation...")
+            git_process.setWorkingDirectory(str(self.base))
+            git_process.setProgram("cmd.exe")
+            git_process.setArguments([])
+            git_process.setNativeArguments(
+                '/d /s /c ""' + str(script) + '" --no-pause"'
+            )
+            git_process.start()
+            if not git_process.waitForStarted(1500):
+                set_busy(False)
+                progress_bar.hide()
+                progress.setText("Could not start Git source installation.")
 
         def git_update():
             if state["busy"]:
                 return
             checkout = self.base
             if not (checkout.parent / ".git").exists() and not (checkout / ".git").exists():
-                QMessageBox.warning(page, "Git update unavailable",
-                                    "Apollo is not running from a Git checkout. Use signed releases instead.")
+                git_install()
                 return
             if QMessageBox.question(
                 page, "Update Apollo source",
@@ -394,6 +450,7 @@ class Module:
             ) != QMessageBox.Yes:
                 return
             set_busy(True)
+            git_state["mode"] = "update"
             git_state["output"] = ""
             git_state["changed"] = False
             progress_bar.setRange(0, 0)  # Git provides no reliable byte total.
@@ -437,11 +494,27 @@ class Module:
             progress_bar.setRange(0, 100)
             progress_bar.setValue(100 if exit_code == 0 else 0)
             if exit_code != 0:
-                progress.setText("Git update failed. See the details below.")
-                QMessageBox.warning(page, "Apollo update failed",
-                                    "Git did not update Apollo. Check the output under Advanced options. "
-                                    "Local files were not intentionally discarded.")
+                operation = "Git source download" if git_state["mode"] == "install" else "Git update"
+                progress.setText(operation + " failed. See the details below.")
+                QMessageBox.warning(page, "Apollo source operation failed",
+                                    operation + " did not complete. Check the output under Advanced options. "
+                                    "Existing Apollo files were not intentionally discarded.")
                 advanced_panel.show()
+                return
+            if git_state["mode"] == "install":
+                destination = self.base.parent.parent / "Apollo-Git"
+                progress.setText("Git source downloaded to " + str(destination) +
+                                 ". Install dependencies before starting that copy.")
+                advanced_panel.show()
+                QMessageBox.information(
+                    page, "Git source ready",
+                    "The Git-connected Apollo source is available at:\n"
+                    + str(destination) +
+                    "\n\nRun apollo_ui\\Setup\\01_INSTALL_APOLLO.bat there once, "
+                    "then apollo_ui\\Setup\\02_START_APOLLO.bat. "
+                    "Future updates use Update from Git (main) inside the new installation. "
+                    "Your previous Apollo data was not migrated or modified."
+                )
                 return
             if "Already up to date." in git_state["output"] and not git_state["changed"]:
                 progress.setText("Apollo source is already up to date.")
