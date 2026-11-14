@@ -18,7 +18,7 @@ def build_view(base, runtime=None, parent=None):
     )
     from apollo_capabilities import service
     from apollo_voicestudio import probe, list_voices, create_clone
-    from apollo_voicestudio_runtime import start_backend, stop_backend, backend_status, prepare_backend
+    from apollo_voicestudio_runtime import start_backend, stop_backend, backend_status, prepare_backend, find_downloaded_checkout
 
     svc = service(base, runtime)
     conf = svc.settings()
@@ -35,11 +35,14 @@ def build_view(base, runtime=None, parent=None):
     url.setPlaceholderText("http://127.0.0.1:3900")
     layout.addWidget(QLabel("VoiceStudio local backend address"))
     layout.addWidget(url)
-    source = QLineEdit(conf.get("voicestudio_checkout", ""))
-    source.setPlaceholderText("Folder containing your VoiceStudio Git checkout")
-    browse = QPushButton("Locate VoiceStudio Git folder")
+    initial_path = find_downloaded_checkout(base, conf.get("voicestudio_checkout", ""))
+    source = QLineEdit(initial_path or conf.get("voicestudio_checkout", ""))
+    source.setPlaceholderText("e.g. F:\\Apollo\\VoiceStudio")
+    browse = QPushButton("Browse…")
+    auto_find = QPushButton("Find downloaded files")
     source_row = QHBoxLayout()
     source_row.addWidget(source, 1)
+    source_row.addWidget(auto_find)
     source_row.addWidget(browse)
     layout.addLayout(source_row)
 
@@ -148,6 +151,16 @@ def build_view(base, runtime=None, parent=None):
         if folder:
             source.setText(folder)
 
+    def find_folder():
+        folder = find_downloaded_checkout(base, source.text())
+        if folder:
+            source.setText(folder)
+            report("Found your existing VoiceStudio source: " + folder +
+                   ". Nothing was downloaded or copied.")
+        else:
+            report("No matching VoiceStudio folder found beside Apollo. "
+                   "Extract it to F:\\Apollo\\VoiceStudio, or use Browse to point to its package.json folder.")
+
     def choose_file():
         file, _ = QFileDialog.getOpenFileName(panel, "Choose authorized reference audio", "",
                                             "Audio files (*.wav *.mp3 *.flac *.ogg *.m4a)")
@@ -244,6 +257,7 @@ def build_view(base, runtime=None, parent=None):
     signals.finished.connect(done)
     signals.failed.connect(failed)
     browse.clicked.connect(choose_folder)
+    auto_find.clicked.connect(find_folder)
     choose_audio.clicked.connect(choose_file)
     refresh.clicked.connect(load_catalogue)
     def test_connection():
@@ -270,6 +284,8 @@ def build_view(base, runtime=None, parent=None):
     use.clicked.connect(configure_voice)
     preview.clicked.connect(test_tts)
     clone.clicked.connect(begin_clone)
-    report("Backend owned by Apollo: " + str(backend_status()) +
-           ". Start your downloaded source from this tab, or connect to an already running VoiceStudio.")
+    report(("Detected VoiceStudio at " + initial_path + ". " if initial_path else
+           "Place the extracted VoiceStudio Git files beside Apollo, e.g. F:\\Apollo\\VoiceStudio. ") +
+           "Apollo-owned backend: " + str(backend_status()) +
+           ". No files will be copied into Apollo's Git repository.")
     return panel
