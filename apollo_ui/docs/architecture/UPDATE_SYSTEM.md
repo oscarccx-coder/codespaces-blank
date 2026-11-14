@@ -4,6 +4,12 @@
 
 Close Apollo, then run `UPDATE_APOLLO_CODE.bat`, or the equivalent `Setup/03_UPDATE_APOLLO.bat`, or click **Update from Git (main)** in the Update Centre. They share one guarded updater (`Setup/13_UPDATE_GIT_MAIN.bat`). It only fast-forwards the checked-out `main` branch. It rejects an unclean checkout, an unconfigured remote, a detached head and other branches rather than switching branches or force-resetting changes. It does not download XTTS weights. Run `INSTALL_REQUIREMENTS.bat` after a change to core requirements.
 
+## ZIP-to-Git bootstrap (no signed release needed)
+
+For ZIP installations that cannot use the Git update button, select **Install Git source (no release)** in Update Centre or run `Setup/21_INSTALL_GIT_SOURCE.bat`. The batch clones the canonical GitHub `main` branch into a new sibling `Apollo-Git` directory, leaves existing user data and voice models untouched and refuses to overwrite a destination that already exists. The shallow clone is not an Ed25519-signed release.
+
+Then run `Apollo-Git/apollo_ui/Setup/01_INSTALL_APOLLO.bat` to install the new private Python requirements, start with `Setup/02_START_APOLLO.bat` and explicitly migrate private data with Apollo Backup / Restore if needed. Future source updates use **Update from Git (main)** within that Git installation. A code commit must be merged to main before it becomes available. Do not delete the ZIP installation until data restoration and testing are complete.
+
 ## Verified signed releases (end-user installations)
 
 The Update Centre checks GitHub Releases, verifies an explicit trusted Ed25519 signing key and every package hash, stages code, creates a backup, and uses an external installer with rollback on failed health checks. No signing key or application update may be trusted/installed by the AI itself. A stable release is published deliberately through the GitHub Actions `Publish signed Apollo Release` workflow with the required secrets, pinned public-key fingerprint, passing regression tests, and manual `PUBLISH` confirmation.

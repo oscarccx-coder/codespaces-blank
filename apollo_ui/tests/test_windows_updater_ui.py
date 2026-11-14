@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import shutil
+import tempfile
 import time
 import unittest
 from unittest.mock import patch
@@ -77,6 +78,34 @@ class UpdateCentreButtonTests(unittest.TestCase):
 
         output = "\n".join(label.text() for label in panel.findChildren(QLabel))
         self.assertIn("Restart required", output)
+
+
+    def test_zip_install_offers_bootstrap_and_requires_approval(self):
+        from PySide6.QtWidgets import QPushButton, QMessageBox
+        from modules.update_manager.module import Module
+        with tempfile.TemporaryDirectory(prefix="Apollo original ZIP ") as location:
+            root = Path(location)
+            base = root / "Old Apollo" / "apollo_ui"
+            base.mkdir(parents=True)
+            (base / "main.py").write_text("# old install\n", encoding="utf-8")
+            (base / "storage").mkdir()
+            (base / "storage" / "memory.txt").write_text("preserved", encoding="utf-8")
+            (base / "Setup").mkdir()
+            (base / "Setup" / "21_INSTALL_GIT_SOURCE.bat").write_text("@echo off\n")
+            page = Module({"base_dir": base}).build_ui()
+            try:
+                buttons = {button.text(): button for button in page.findChildren(QPushButton)}
+                self.assertIn("Install Git source (no release)", buttons)
+                with patch.object(QMessageBox, "question", return_value=QMessageBox.No) as question:
+                    buttons["Install Git source (no release)"].click()
+                self.assertEqual(question.call_count, 1)
+                self.assertFalse((root / "Apollo-Git").exists())
+                self.assertEqual(
+                    (base / "storage" / "memory.txt").read_text(encoding="utf-8"),
+                    "preserved"
+                )
+            finally:
+                page.close()
 
 
 if __name__ == "__main__":

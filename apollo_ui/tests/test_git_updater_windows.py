@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MAIN_BAT = ROOT / "Setup" / "13_UPDATE_GIT_MAIN.bat"
 SETUP_BAT = ROOT / "Setup" / "03_UPDATE_APOLLO.bat"
 LEGACY_BAT = ROOT / "UPDATE_APOLLO_CODE.bat"
+SOURCE_BAT = ROOT / "Setup" / "21_INSTALL_GIT_SOURCE.bat"
 
 
 class EntryPointTests(unittest.TestCase):
@@ -32,6 +33,18 @@ class EntryPointTests(unittest.TestCase):
         self.assertIn("git branch --show-current", main)
         self.assertIn("pause >nul", main)
         self.assertIn("[LOG]", main)
+
+    def test_source_bootstrap_is_explicit_and_non_destructive(self):
+        script = SOURCE_BAT.read_text(encoding="utf-8")
+        self.assertIn("git clone --depth 1 --single-branch --branch main", script)
+        self.assertIn("https://github.com/oscarccx-coder/codespaces-blank.git", script)
+        self.assertIn(r'set "DEST=%SOURCE_PARENT%\Apollo-Git"', script)
+        self.assertIn(r'if exist "%DEST%\" (', script)
+        self.assertIn('if /I "%~1"=="--check"', script)
+        self.assertIn("Existing memory, voices, models and projects are untouched.", script)
+        self.assertIn("01_INSTALL_APOLLO.bat", script)
+        self.assertNotIn("git reset --hard", script)
+        self.assertNotIn("rmdir /s", script)
 
 
 @unittest.skipUnless(os.name == "nt" and shutil.which("git"), "Windows + Git required")
@@ -140,6 +153,78 @@ class WindowsMainGitUpdateTests(unittest.TestCase):
         result = self.invoke("apollo_ui/UPDATE_APOLLO_CODE.bat")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.install / "README.md").read_text(), "version two\n")
+
+
+
+@unittest.skipUnless(os.name == "nt" and shutil.which("git"), "Windows + Git required")
+class WindowsSourceBootstrapTests(unittest.TestCase):
+    """The actual installer clones a disposable local origin, not GitHub."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="Apollo Git source test (spaces) ")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.original = self.root / "Old Apollo ZIP (test)"
+        self.source_ui = self.original / "apollo_ui"
+        (self.source_ui / "Setup").mkdir(parents=True)
+        (self.source_ui / "main.py").write_text("# old installation\n", encoding="utf-8")
+        (self.source_ui / "storage").mkdir()
+        (self.source_ui / "storage" / "memory.txt").write_text("keep me", encoding="utf-8")
+        shutil.copyfile(SOURCE_BAT, self.source_ui / "Setup" / SOURCE_BAT.name)
+        self.bare = self.root / "local-origin.git"
+        self.author = self.root / "author"
+        self._git("init", "--bare", "--initial-branch=main", str(self.bare))
+        self._git("clone", str(self.bare), str(self.author))
+        (self.author / "apollo_ui" / "Setup").mkdir(parents=True)
+        (self.author / "apollo_ui" / "main.py").write_text("# new main\n", encoding="utf-8")
+        (self.author / "apollo_ui" / "Setup" / "01_INSTALL_APOLLO.bat").write_text("@echo off\n")
+        self._git("-C", str(self.author), "add", ".")
+        self._git("-C", str(self.author), "-c", "user.name=Apollo CI",
+                  "-c", "user.email=apollo-ci@example.invalid",
+                  "commit", "-m", "new source")
+        self._git("-C", str(self.author), "push", "-u", "origin", "main")
+        self.wrapper = self.root / "invoke-source.bat"
+        self.dest = self.root / "Apollo-Git"
+        self.env = os.environ.copy()
+        self.env["CI"] = "1"
+        # Git's official config environment rewrites exactly the canonical
+        # repository URL to a disposable local origin. No network access.
+        self.env["GIT_CONFIG_COUNT"] = "1"
+        self.env["GIT_CONFIG_KEY_0"] = "url." + self.bare.as_uri() + ".insteadOf"
+        self.env["GIT_CONFIG_VALUE_0"] = "https://github.com/oscarccx-coder/codespaces-blank.git"
+
+    def _git(self, *args):
+        return subprocess.run(["git", *args], cwd=self.root,
+                              capture_output=True, text=True, timeout=25, check=True)
+
+    def invoke(self, arg="--no-pause"):
+        self.wrapper.write_text(
+            '@echo off\n'
+            + f'call "{self.source_ui / "Setup" / SOURCE_BAT.name}" {arg}\n'
+            + "exit /b %errorlevel%\n", encoding="utf-8"
+        )
+        return subprocess.run(["cmd.exe", "/d", "/c", self.wrapper.name],
+                              cwd=self.root, env=self.env, capture_output=True,
+                              text=True, timeout=40, check=False)
+
+    def test_check_only_does_not_clone(self):
+        result = self.invoke("--check")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("[CHECK]", result.stdout)
+        self.assertFalse(self.dest.exists())
+
+    def test_clone_and_replay_refuse_to_overwrite(self):
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.dest / ".git").exists())
+        self.assertEqual((self.dest / "apollo_ui" / "main.py").read_text(), "# new main\n")
+        self.assertFalse((self.dest / "apollo_ui" / ".venv").exists())
+        self.assertEqual((self.source_ui / "storage" / "memory.txt").read_text(), "keep me")
+        second = self.invoke()
+        self.assertEqual(second.returncode, 2, second.stdout + second.stderr)
+        self.assertIn("[STOPPED]", second.stdout)
+        self.assertEqual((self.dest / "apollo_ui" / "main.py").read_text(), "# new main\n")
+
 
 
 if __name__ == "__main__":
