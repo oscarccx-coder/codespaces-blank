@@ -18,7 +18,7 @@ def build_view(base, runtime=None, parent=None):
     )
     from apollo_capabilities import service
     from apollo_voicestudio import probe, list_voices, create_clone
-    from apollo_voicestudio_runtime import start_backend, stop_backend, backend_status
+    from apollo_voicestudio_runtime import start_backend, stop_backend, backend_status, prepare_backend
 
     svc = service(base, runtime)
     conf = svc.settings()
@@ -43,11 +43,12 @@ def build_view(base, runtime=None, parent=None):
     source_row.addWidget(browse)
     layout.addLayout(source_row)
 
+    setup = QPushButton("Prepare VoiceStudio runtime (Bun / uv)")
     start = QPushButton("Start VoiceStudio backend (prepared source)")
     stop_backend_btn = QPushButton("Stop Apollo-owned VoiceStudio backend")
     connect = QPushButton("Test connection")
     lifecycle = QHBoxLayout()
-    for btn in (start, stop_backend_btn, connect):
+    for btn in (setup, start, stop_backend_btn, connect):
         lifecycle.addWidget(btn)
     layout.addLayout(lifecycle)
 
@@ -103,7 +104,7 @@ def build_view(base, runtime=None, parent=None):
         failed = Signal(str, str)
     signals = Signals(panel)
     busy = {"value": False}
-    operation_buttons = (start, stop_backend_btn, connect, refresh, use, preview, clone)
+    operation_buttons = (setup, start, stop_backend_btn, connect, refresh, use, preview, clone)
 
     def report(message):
         output.appendPlainText(str(message))
@@ -225,6 +226,8 @@ def build_view(base, runtime=None, parent=None):
             consent.setChecked(False)
         elif action == "Testing connection":
             report("VoiceStudio online: " + str(result))
+        elif action == "Preparing backend":
+            report("VoiceStudio runtime setup: " + str(result))
         elif action == "Starting backend":
             report("VoiceStudio backend launch: " + str(result))
         elif action == "Stopping backend":
@@ -250,6 +253,18 @@ def build_view(base, runtime=None, parent=None):
         folder = source.text().strip()
         work("Starting backend", lambda: start_backend(folder, Path(base) / "storage" / "logs"))
     connect.clicked.connect(test_connection)
+    def install_checkout():
+        folder = source.text().strip()
+        if QMessageBox.question(
+            panel, "Install third-party runtime",
+            "Run VoiceStudio's own Bun and Python setup scripts in the chosen folder?\n"
+            "These scripts can download several gigabytes of dependencies and execute "
+            "third-party code on this PC. Apollo's Python environment will not be changed.",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        ) != QMessageBox.Yes:
+            return
+        work("Preparing backend", lambda: prepare_backend(folder, Path(base) / "storage" / "logs"))
+    setup.clicked.connect(install_checkout)
     start.clicked.connect(launch_checkout)
     stop_backend_btn.clicked.connect(lambda: work("Stopping backend", stop_backend))
     use.clicked.connect(configure_voice)
