@@ -361,8 +361,12 @@ class Module:
                 progress.setText(result.get("reason") or "No newer signed update available.")
                 return
             if kind == "check":
-                progress.setText("New release available." if result.get("available")
-                                 else "Apollo is up to date for the chosen channel.")
+                if result.get("available"):
+                    progress.setText("New signed release available.")
+                elif result.get("reason"):
+                    progress.setText(str(result["reason"]))
+                else:
+                    progress.setText("No newer signed release is available on this channel.")
                 return
             if kind == "stage":
                 progress.setText("Signed update downloaded and verified. Ready to install.")
@@ -522,8 +526,11 @@ class Module:
                 advanced_toggle.setText("Advanced options ▾")
                 QMessageBox.information(
                     page, "Set up secure updates",
-                    "Before the first update, use Advanced options to trust the "
-                    "verified Apollo release-signing public key. This is a one-time step."
+                    "This is a packaged Apollo installation, not a Git source checkout. "
+                    "It can update only from a published, cryptographically signed release. "
+                    "First use 'Check signed releases' to see whether a package exists. "
+                    "If one is available, verify its signing-key fingerprint independently "
+                    "before importing the trusted public key. No unsigned update will be installed."
                 )
                 return
             confirmation = QMessageBox.question(
