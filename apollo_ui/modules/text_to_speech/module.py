@@ -811,6 +811,12 @@ class Module:
     def _recognize_wave_file(self, wav_path, timeout_seconds=30, culture=""):
         from apollo_capabilities import service
         backend = service(self.base_dir, self.runtime)
+        if backend.settings()["transcription"] == "voicestudio":
+            from apollo_voicestudio import transcribe
+            return transcribe(
+                backend.settings()["voicestudio_url"], wav_path,
+                language=str(culture or "").split("-")[0], timeout=max(30, int(timeout_seconds) + 15),
+            )
         if backend.settings()["transcription"] == "faster_whisper":
             result = backend.run("faster_whisper", "transcribe", {"path":str(wav_path), "language":str(culture).split("-")[0] or None})
             return result["text"]
