@@ -43,9 +43,9 @@ class SourceUpdateTests(unittest.TestCase):
                  "user.email=test@example.invalid", "commit", "-m", "remote update")
         self.git(self.author, "push", "origin", "main")
 
-    def update(self, check=False):
+    def update(self, check=False, remote=False):
         messages = []
-        code = run_update(self.install, check_only=check, emit=messages.append)
+        code = run_update(self.install, check_only=check, check_remote=remote, emit=messages.append)
         return code, "\n".join(messages)
 
     def test_runtime_data_can_be_dirty_without_blocking_code_update(self):
@@ -64,6 +64,32 @@ class SourceUpdateTests(unittest.TestCase):
         self.assertEqual(code, 0, trace)
         self.assertIn("[CHECK]", trace)
         self.assertEqual((self.install / "apollo_ui/module.py").read_text(), "version = 1\n")
+
+    def test_remote_check_reports_available_without_installing(self):
+        private = self.install / "apollo_ui/storage/databases/apollo_memory.db"
+        private.write_bytes(b"LOCAL PRIVATE")
+        self.remote_edit("apollo_ui/module.py", "version = 2\n")
+        code, trace = self.update(remote=True)
+        self.assertEqual(code, 0, trace)
+        self.assertIn("[AVAILABLE]", trace)
+        self.assertNotIn("[UPDATED]", trace)
+        self.assertEqual(private.read_bytes(), b"LOCAL PRIVATE")
+        self.assertEqual((self.install / "apollo_ui/module.py").read_text(), "version = 1\n")
+
+    def test_remote_check_refuses_upstream_changes_to_data(self):
+        private = self.install / "apollo_ui/storage/databases/apollo_memory.db"
+        private.write_bytes(b"LOCAL PRIVATE")
+        self.remote_edit("apollo_ui/storage/databases/apollo_memory.db", "REMOTE DATA")
+        code, trace = self.update(remote=True)
+        self.assertEqual(code, 3, trace)
+        self.assertIn("[PRIVATE]", trace)
+        self.assertEqual(private.read_bytes(), b"LOCAL PRIVATE")
+
+    def test_remote_check_reports_up_to_date(self):
+        code, trace = self.update(remote=True)
+        self.assertEqual(code, 0, trace)
+        self.assertIn("[UP-TO-DATE]", trace)
+        self.assertNotIn("[AVAILABLE]", trace)
 
     def test_dirty_code_blocks_update(self):
         (self.install / "apollo_ui/module.py").write_text("local edit\n")
