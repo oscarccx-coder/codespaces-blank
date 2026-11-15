@@ -36,3 +36,30 @@ apollo_ui/*.sqlite3
 
 # Locally installed XTTS weights live here or in %LOCALAPPDATA%; never commit.
 apollo_ui/models/**
+
+# Runtime data at every depth, including legacy module-local storage.
+**/storage/
+**/recordings/
+**/Audio/
+**/audio/
+**/workspace/
+**/models/
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.log
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.ogg
+*.pcm
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
