@@ -103,7 +103,7 @@ def preflight_manifest(stage, target, manifest):
     return checked, removed
 
 
-def apply_update(target, stage, restart=False, wait_pid=None):
+def apply_update(target, stage, restart=False, wait_pid=None, assessed_manifest_sha256=None):
     target = Path(target).resolve()
     stage = Path(stage).resolve()
     manifest = json.loads((stage / "manifest.json").read_text(encoding="utf-8"))
@@ -114,45 +114,81 @@ def apply_update(target, stage, restart=False, wait_pid=None):
     if not ok:
         return {"ok": False, "stage": "signature", "error": detail}
 
+    # The signed installer must operate against a closed application.
+    # Wait before repeating stage hashes and backup checks to minimise races.
+    if wait_pid and not wait_for_pid(wait_pid):
+        return {"ok": False, "stage": "wait", "error": "Apollo did not exit before updater timeout."}
+
+    # The external updater independently repeats the assessment AFTER the
+    # GUI has closed and BEFORE any installed file is changed. A cached
+    # assessment JSON, even with "ok": true, has no installer authority.
+    if assessed_manifest_sha256 is not None:
+        try:
+            from apollo_assessed_update import AssessedUpdate
+            AssessedUpdate(target).require(stage, assessed_manifest_sha256)
+        except (OSError, ValueError, TypeError) as exc:
+            return {"ok": False, "stage": "assessment", "error": str(exc)[:400]}
     # Validate all files before creating a backup or changing a single byte.
     try:
         update_files, remove_files = preflight_manifest(stage, target, manifest)
     except (OSError, ValueError) as exc:
         return {"ok": False, "stage": "preflight", "error": str(exc)}
 
-    if wait_pid and not wait_for_pid(wait_pid):
-        return {"ok": False, "stage": "wait", "error": "Apollo did not exit before updater timeout."}
-
     version = str(manifest.get("version", "unknown"))
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup = storage.backups / "core_updates" / f"before-{version}-{stamp}"
     config_path = target / "config.json"
-    # A full disk, denied folder or locked config must refuse installation
-    # before *any* live application source file is modified.
+    # BACKUP PHASE: finish and hash-check the entire rollback set before
+    # replacing or deleting ANY installed Apollo file. A partial backup
+    # must fail closed without attempting to apply a single update.
+    transaction = {"version": version, "created": [], "replaced": [], "removed": []}
     try:
         backup.mkdir(parents=True, exist_ok=True)
         if config_path.exists():
             shutil.copy2(config_path, backup / "config.json")
+            if sha256_file(config_path) != sha256_file(backup / "config.json"):
+                raise OSError("Backup config verification failed.")
+
+        for rel, _source in update_files:
+            destination = target / rel
+            label = rel.as_posix()
+            if not destination.exists():
+                transaction["created"].append(label)
+                continue
+            backup_path = backup / "files" / rel
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(destination, backup_path)
+            if sha256_file(destination) != sha256_file(backup_path):
+                raise OSError("Backup verification failed for " + label)
+            transaction["replaced"].append(label)
+
+        for rel in remove_files:
+            destination = target / rel
+            if destination.exists() and destination.is_file():
+                label = rel.as_posix()
+                backup_path = backup / "files" / rel
+                backup_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(destination, backup_path)
+                if sha256_file(destination) != sha256_file(backup_path):
+                    raise OSError("Backup verification failed for " + label)
+                transaction["replaced"].append(label)
+                transaction["removed"].append(label)
+        # Preserve memory and user settings without touching their sources.
+        # SQLite uses a consistent backup, not a raw copy of a live WAL file.
+        from apollo_update_backup import checkpoint
+        personal_snapshot = checkpoint(target, backup)
+
     except OSError as exc:
         return {
             "ok": False, "stage": "backup", "restored": True,
-            "error": f"Backup failed; no live files changed: {type(exc).__name__}: {exc}",
+            "error": "Backup failed; no live files changed: %s: %s" %
+                     (type(exc).__name__, exc),
         }
-    transaction = {"version": version, "created": [], "replaced": [], "removed": []}
 
-    def backup_existing(rel):
-        dest = target / rel
-        if not dest.exists():
-            transaction["created"].append(str(rel).replace("\\", "/"))
-            return
-        backup_path = backup / "files" / rel
-        backup_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(dest, backup_path)
-        transaction["replaced"].append(str(rel).replace("\\", "/"))
-
+    # APPLY PHASE: all affected pre-existing code and config have verified
+    # backups. Existing rollback restores from this complete transaction.
     try:
         for rel, source in update_files:
-            backup_existing(rel)
             destination = target / rel
             destination.parent.mkdir(parents=True, exist_ok=True)
             temp = destination.with_name(destination.name + ".apollo-update-tmp")
@@ -162,9 +198,7 @@ def apply_update(target, stage, restart=False, wait_pid=None):
         for rel in remove_files:
             destination = target / rel
             if destination.exists() and destination.is_file():
-                backup_existing(rel)
                 destination.unlink()
-                transaction["removed"].append(str(rel).replace("\\", "/"))
 
         config = json.loads(config_path.read_text(encoding="utf-8"))
         config["version"] = version
@@ -183,6 +217,10 @@ def apply_update(target, stage, restart=False, wait_pid=None):
         log_dir.mkdir(parents=True, exist_ok=True)
         (log_dir / f"installed-{version}-{stamp}.json").write_text(json.dumps({
             "ok": True, "transaction": transaction, "backup": str(backup),
+            "personal_checkpoint": {
+                "files": personal_snapshot["files"],
+                "estimated_bytes": personal_snapshot["estimated_bytes"]
+            },
             "health": health.stdout[-4000:],
         }, indent=2) + "\n", encoding="utf-8")
 
@@ -221,6 +259,7 @@ def apply_update(target, stage, restart=False, wait_pid=None):
     # The signed source is already installed and health-checked. Relaunching
     # the UI is a SEPARATE best-effort action, never a reason to restore code.
     result = {"ok": True, "version": version, "backup": str(backup),
+              "personal_checkpoint_files": personal_snapshot["files"],
               "restart_started": False}
     if restart:
         try:
@@ -246,7 +285,10 @@ if __name__ == "__main__":
     parser.add_argument("--stage", required=True)
     parser.add_argument("--wait-pid", type=int, default=0)
     parser.add_argument("--restart", action="store_true")
+    parser.add_argument("--assessed-manifest-sha256", default=None)
     args = parser.parse_args()
-    result = apply_update(args.target, args.stage, restart=args.restart, wait_pid=args.wait_pid or None)
+    result = apply_update(args.target, args.stage, restart=args.restart,
+                          wait_pid=args.wait_pid or None,
+                          assessed_manifest_sha256=args.assessed_manifest_sha256)
     print(json.dumps(result, indent=2))
     raise SystemExit(0 if result.get("ok") else 1)
