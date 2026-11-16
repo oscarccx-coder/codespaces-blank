@@ -23,6 +23,43 @@ discard local changes, or bypass an updater that refuses incoming data changes.
 Restore/reconcile the current local data from the backup after adoption; never
 substitute the old public database for newer private data.
 
+## Verified owner-run backup before adopting the cleanup
+
+The existing general Apollo backup excludes some module-local databases, audio and
+private keys. It is **not sufficient by itself** to protect all previously tracked
+runtime files that a normal Git pull might remove.
+
+Before merging PR #66, run the dedicated
+`tools/backup_runtime_before_merge.py` from a separately downloaded copy of this
+reviewed security branch, on the **current old Git checkout**. The tool only
+reads and copies private files. It never changes Git state or Apollo data.
+
+1. Close Apollo and stop its Device Agent, voice worker and other processes
+   writing Apollo storage.
+2. Inventory with
+   `py -3 backup_runtime_before_merge.py --root "F:\Apollo\Apollo-Git" --check`
+   (adjust root to the actual Git checkout's top-level directory).
+3. Choose a new, private backup directory **outside** the Git checkout, with
+   sufficient disk space. For example, use:
+   `py -3 backup_runtime_before_merge.py --root "F:\Apollo\Apollo-Git" --destination "E:\Private-Apollo-Backup-Nov2026" --confirm-stopped`
+4. Require `verified: true`, check the file count and size, retain the
+   `manifest.json` and make a separate trusted copy. An
+   `INCOMPLETE-BACKUP.txt` file means **STOP**; the backup did not verify.
+5. Keep this backup **private**. It is not encrypted and may include
+   recordings, credentials and sensitive information. Do not upload it.
+
+This only verifies copies of discoverable private files while the user
+confirms all Apollo writers are stopped. It does not prove the backup covers
+external Ollama installations, unrelated personal folders, historical Git
+objects, or open SQLite transactions. The original checkout remains intact.
+
+**Safer adoption:** After review/approval and merging the cleanup, create a
+*separate* fresh Git clone and explicitly restore/reconcile needed private data
+from the verified backup into the new installation. Do not force a Git pull
+through the existing updater's incoming-data protection; do not delete the old
+installation. This also avoids an automatic tracked-file deletion in the old
+checkout. Test the restored instance on Windows before designating it primary.
+
 ## Immediate device credential action
 
 On every installation sharing the exposed token, stop the Device Agent, use
