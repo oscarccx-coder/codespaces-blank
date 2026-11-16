@@ -396,6 +396,13 @@ class Module:
                                  ". Credential stored in Windows Credential Manager.")
                 token_help.setText("Connected: " + result["account"] +
                     ". Public source updates still require no token.")
+                # Continue the owner's setup workflow, never silently overwrite
+                # an existing ZIP or install unapproved code.
+                if is_git_checkout():
+                    git_update(check_remote=True)
+                else:
+                    progress.setText("GitHub connected. Choose the separate source install to receive main updates.")
+                    git_install()  # This asks for explicit approval before cloning.
                 return
             if kind == "key":
                 fingerprint = result["fingerprint"]
