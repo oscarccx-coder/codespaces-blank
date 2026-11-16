@@ -24,6 +24,9 @@ class SourceUpdateTests(unittest.TestCase):
         (self.author / "apollo_ui" / "storage" / "databases").mkdir(parents=True)
         (self.author / "apollo_ui" / "storage" / "databases" / "apollo_memory.db").write_bytes(b"initial")
         (self.author / "apollo_ui" / "module.py").write_text("version = 1\n")
+        nested = self.author / "apollo_ui/modules/task_engine/storage"
+        nested.mkdir(parents=True)
+        (nested / "task_engine.db").write_bytes(b"original nested private data")
         self.git(self.author, "add", ".")
         self.git(self.author, "-c", "user.name=Apollo Tests", "-c",
                  "user.email=test@example.invalid", "commit", "-m", "initial")
@@ -135,7 +138,22 @@ class SourceUpdateTests(unittest.TestCase):
         self.assertEqual(code, 1, trace)
         self.assertIn("not main", trace)
 
+    def test_remote_deletion_of_module_local_database_is_refused(self):
+        nested = "apollo_ui/modules/task_engine/storage/task_engine.db"
+        private = self.install / nested
+        private.write_bytes(b"workstation-only data")
+        self.git(self.author, "rm", nested)
+        self.git(self.author, "-c", "user.name=Apollo Tests", "-c",
+                 "user.email=test@example.invalid", "commit", "-m", "drop old tracked database")
+        self.git(self.author, "push", "origin", "main")
+        code, trace = self.update()
+        self.assertEqual(code, 3, trace)
+        self.assertIn("[PRIVATE]", trace)
+        self.assertEqual(private.read_bytes(), b"workstation-only data")
+
     def test_protected_paths(self):
+        self.assertTrue(protected("apollo_ui/modules/task_engine/storage/task_engine.db"))
+        self.assertTrue(protected("apollo_ui/modules/knowledge_graph/storage/knowledge_graph.db"))
         self.assertTrue(protected("apollo_ui/storage/databases/foo.db"))
         self.assertTrue(protected("apollo_ui/Audio/output.wav"))
         self.assertTrue(protected("apollo_ui/config.local.json"))
