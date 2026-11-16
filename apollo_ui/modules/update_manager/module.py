@@ -416,7 +416,8 @@ class Module:
                     " private file(s), " + f'{result["estimated_bytes"] / (1024 ** 3):.2f}' +
                     " GiB. Destination: " + result["backup_parent"] +
                     ". Recoverable old launchers: " +
-                    (", ".join(result["recovery_files"]) or "none")
+                    (", ".join(result["recovery_files"]) or "none") +
+                    ". Other code blockers: " + str(result["blocked_code_count"])
                 )
                 advanced_panel.setVisible(True)
                 return
