@@ -113,8 +113,13 @@ def preview_backup(root: Path, backup_parent=None) -> dict:
         and _is_untracked(root, rel)
     ]
     extra_bytes = sum((root / rel).stat().st_size for rel in recoveries)
+    from apollo_git_source_update import changed_worktree_paths
+    blocked_code = [rel for rel in changed_worktree_paths(root)
+                    if not _private(rel) and rel not in set(recoveries)]
     return {
         "backup_parent": str(parent), "private_files": len(files),
+        "blocked_code": blocked_code[:50],
+        "blocked_code_count": len(blocked_code),
         "private_bytes": sum(row[2] for row in files),
         "recovery_files": recoveries,
         "estimated_bytes": sum(row[2] for row in files) + extra_bytes,
