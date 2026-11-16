@@ -17,6 +17,7 @@ MAIN_BAT = ROOT / "Setup" / "13_UPDATE_GIT_MAIN.bat"
 SETUP_BAT = ROOT / "Setup" / "03_UPDATE_APOLLO.bat"
 LEGACY_BAT = ROOT / "UPDATE_APOLLO_CODE.bat"
 SOURCE_BAT = ROOT / "Setup" / "21_INSTALL_GIT_SOURCE.bat"
+PY_HELPER = ROOT / "apollo_git_source_update.py"
 
 
 class EntryPointTests(unittest.TestCase):
@@ -26,13 +27,15 @@ class EntryPointTests(unittest.TestCase):
         main = MAIN_BAT.read_text(encoding="utf-8")
         self.assertIn("UPDATE_APOLLO_CODE.bat", setup)
         self.assertIn("13_UPDATE_GIT_MAIN.bat", legacy)
-        self.assertIn('if /I "%~1"=="--check"', main)
         self.assertIn('if /I "%~1"=="--no-pause"', main)
-        self.assertIn("git status --porcelain", main)
-        self.assertIn("git merge --ff-only FETCH_HEAD", main)
-        self.assertIn("git branch --show-current", main)
+        self.assertIn("apollo_git_source_update.py", main)
+        helper = PY_HELPER.read_text(encoding="utf-8")
+        self.assertIn("status\", \"--porcelain=v1", helper)
+        self.assertIn("merge\", \"--ff-only", helper)
+        self.assertIn("branch\", \"--show-current", helper)
+        self.assertIn("No reset or destructive", helper)
         self.assertIn("pause >nul", main)
-        self.assertIn("[LOG]", main)
+        self.assertIn("[LOG]", helper)
 
     def test_source_bootstrap_is_explicit_and_non_destructive(self):
         script = SOURCE_BAT.read_text(encoding="utf-8")
@@ -62,6 +65,7 @@ class WindowsMainGitUpdateTests(unittest.TestCase):
         shutil.copyfile(MAIN_BAT, self.author / "apollo_ui" / "Setup" / MAIN_BAT.name)
         shutil.copyfile(SETUP_BAT, self.author / "apollo_ui" / "Setup" / SETUP_BAT.name)
         shutil.copyfile(LEGACY_BAT, self.author / "apollo_ui" / LEGACY_BAT.name)
+        shutil.copyfile(PY_HELPER, self.author / "apollo_ui" / PY_HELPER.name)
         (self.author / ".gitignore").write_text("apollo_ui/storage/\n", encoding="utf-8")
         (self.author / "apollo_ui" / "config.json").write_text('{"version":"1.0.0"}', encoding="utf-8")
         (self.author / "README.md").write_text("version one\n", encoding="utf-8")
