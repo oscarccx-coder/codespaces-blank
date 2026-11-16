@@ -17,20 +17,29 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 
-DATA_DIRECTORIES = (
-    "apollo_ui/storage/", "apollo_ui/audio/", "apollo_ui/workspace/",
-    "apollo_ui/models/",
-)
-DATA_FILES = {"apollo_ui/config.local.json"}
-DATA_SUFFIXES = (".db", ".sqlite", ".sqlite3", ".log")
+PRIVATE_PARTS = {"storage", "recordings", "audio", "workspace", "models"}
+DATA_FILES = {"apollo_ui/config.local.json", "apollo_ui/config.json",
+              "apollo_ui/settings.json"}
+DATA_SUFFIXES = (".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm",
+                 ".sqlite-wal", ".sqlite-shm", ".log", ".wav", ".mp3",
+                 ".m4a", ".flac", ".ogg", ".key", ".pem", ".p12", ".pfx")
 
 
 def protected(path: str) -> bool:
-    path = path.replace("\\", "/").lower().lstrip("./")
-    return (path in DATA_FILES or path.startswith(DATA_DIRECTORIES)
-            or (path.startswith("apollo_ui/") and "/" not in path[len("apollo_ui/"):]
-                and path.endswith(DATA_SUFFIXES)))
+    """Protect nested per-module runtime files, not only top-level storage.
 
+    This must include all files that a future security-hygiene commit can
+    remove, or a fast-forward could discard workstation-specific data.
+    """
+    value = path.replace("\\", "/").lower().lstrip("./")
+    parts = tuple(part for part in value.split("/") if part)
+    if not parts:
+        return False
+    name = parts[-1]
+    return (bool(set(parts) & PRIVATE_PARTS)
+            or name.endswith(DATA_SUFFIXES)
+            or name == ".env" or name.startswith(".env.")
+            or value in DATA_FILES)
 
 def git(root: Path, *args: str, timeout: int = 180) -> bytes:
     result = subprocess.run(["git", "-C", str(root), *args],
