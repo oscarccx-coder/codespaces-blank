@@ -117,7 +117,13 @@ def guided_install(checkout, logs_dir, *, approved: bool = False,
                 checkout, logs_dir, approved=True)
         # Keep upstream setup in its own checkout and own .venv.
         result = prepare_backend(checkout, logs_dir)
-        return {"ok": True, "prepared": bool(result.get("prepared")),
+        ready = diagnose(checkout)
+        if not ready["backend_venv"]:
+            raise RuntimeError(
+                "VoiceStudio scripts exited successfully, but the separate Python "
+                "environment was not created. Check " + str(result.get("log") or "setup log")
+            )
+        return {"ok": True, "prepared": ready["prepared"],
                 "checkout": result.get("checkout"), "installed_tools": prereq["installed"],
                 "setup_log": result.get("log"),
                 "prerequisite_log": prereq.get("log"),
