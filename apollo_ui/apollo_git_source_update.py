@@ -31,7 +31,9 @@ def protected(path: str) -> bool:
     This must include all files that a future security-hygiene commit can
     remove, or a fast-forward could discard workstation-specific data.
     """
-    value = path.replace("\\", "/").lower().lstrip("./")
+    value = path.replace("\\", "/").lower()
+    while value.startswith("./"):
+        value = value[2:]
     parts = tuple(part for part in value.split("/") if part)
     if not parts:
         return False
