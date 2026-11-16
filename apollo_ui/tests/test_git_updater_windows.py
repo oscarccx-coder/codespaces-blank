@@ -112,11 +112,11 @@ class WindowsMainGitUpdateTests(unittest.TestCase):
         self._make_remote_update()
         result = self.invoke("apollo_ui/Setup/03_UPDATE_APOLLO.bat")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("[OK] Git main update completed.", result.stdout)
+        self.assertIn("[UPDATED]", result.stdout)
         self.assertEqual((self.install / "README.md").read_text(), "version two\n")
         again = self.invoke()
         self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
-        self.assertIn("[OK]", again.stdout)
+        self.assertIn("[UP-TO-DATE]", again.stdout)
 
     def test_read_only_check_does_not_fetch_remote_changes(self):
         self._make_remote_update()
