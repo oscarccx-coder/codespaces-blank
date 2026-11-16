@@ -56,6 +56,13 @@ def git(root: Path, *args: str, timeout: int = 180) -> bytes:
     return result.stdout
 
 
+def _generated_bytecode(path: str) -> bool:
+    """Python's compiled import cache is neither source code nor user state."""
+    normalized = path.replace("\\", "/").lower()
+    parts = normalized.split("/")
+    return "__pycache__" in parts and normalized.endswith((".pyc", ".pyo"))
+
+
 def changed_worktree_paths(root: Path) -> list[str]:
     """Parse Git's NUL-delimited porcelain status, including renames."""
     data = git(root, "status", "--porcelain=v1", "--untracked-files=all", "-z")
@@ -76,7 +83,7 @@ def changed_worktree_paths(root: Path) -> list[str]:
                 raise ValueError("Truncated Git rename status; update stopped.")
             paths.append(rows[idx])
             idx += 1
-    return paths
+    return [path for path in paths if not _generated_bytecode(path)]
 
 
 def incoming_paths(root: Path) -> list[str]:
