@@ -1519,6 +1519,11 @@ class ApolloWindow(QMainWindow):
         quick_updates.clicked.connect(lambda: self.open_module_app("update_manager"))
         quick_actions.addWidget(quick_projects)
         quick_actions.addWidget(quick_updates)
+        self_upgrade = QPushButton('Self Upgrade Plan')
+        self_upgrade.setObjectName('self_upgrade_plan')
+        self_upgrade.setToolTip('Start Apollo’s standing improvement plan and bounded public funding research; review progress in Developer Lab.')
+        self_upgrade.clicked.connect(self._start_self_upgrade_plan)
+        quick_actions.addWidget(self_upgrade)
         quick_actions.addStretch(1)
         hv.addLayout(quick_actions)
         main.addWidget(hero)
@@ -1698,6 +1703,18 @@ class ApolloWindow(QMainWindow):
 
     def _pause_wake_word(self):
         self.chat_wake.pause()
+
+    def _start_self_upgrade_plan(self):
+        record = self.module_manager.get_module('self_improvement_lab')
+        instance = record.get('instance') if record and record.get('enabled') else None
+        if instance is None:
+            QMessageBox.information(self, 'Self Upgrade Plan', 'Enable Self-Improvement Lab to start this mission.')
+            return
+        try:
+            instance.source_learning.start_upgrade_plan()
+            self.open_module_app('self_improvement_lab')
+        except Exception as exc:
+            QMessageBox.warning(self, 'Self Upgrade Plan', str(exc))
 
     def _refresh_home_core(self):
         """Update visible cores and coordinate the owner's enabled wake service."""

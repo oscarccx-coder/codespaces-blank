@@ -2,8 +2,21 @@ import ast,hashlib,json
 from datetime import datetime
 from pathlib import Path
 class Module:
- def __init__(self,context=None):self.base=Path((context or {}).get('base_dir','.')).resolve();self.runtime=(context or {}).get('runtime');self.root=self.base/'workspace'/'self_improvement';self.root.mkdir(parents=True,exist_ok=True)
+ def __init__(self,context=None):
+  context=context or {};self.base=Path(context.get('base_dir','.')).resolve();self.runtime=context.get('runtime');self.root=self.base/'workspace'/'self_improvement';self.root.mkdir(parents=True,exist_ok=True)
+  from apollo_source_learning import SourceLearning
+  self.source_learning=SourceLearning(self.base,validation=bool(context.get('validation')),notify=getattr(self.runtime,'notify',None),missions=self._missions,evidence_reader=self._read_evidence)
+  if not context.get('validation'):self.source_learning.start()
+ def _missions(self):
+  manager=getattr(self.runtime,'_manager',None);record=manager.get_module('learning_missions') if manager else None
+  return record['instance'].service if record and record.get('enabled') and record.get('instance') else None
+ def _read_evidence(self,filename):
+  manager=getattr(self.runtime,'_manager',None);record=manager.get_module('training_module') if manager else None
+  if not record or not record.get('enabled') or not record.get('instance'):return ''
+  return record['instance'].read_from_file(filename)
+ def close(self):self.source_learning.close()
  def tools(self):return [
+  {'name':'source_learning_status','description':'Read Apollo standing self-improvement prompt, pinned source-study findings and actual sandbox receipts. Findings are provisional; cannot enable or release changes.','parameters':{'type':'object','properties':{}}},
   {'name':'audit_apollo','description':'Read-only audit of Apollo source/TODO/FIXME.','parameters':{'type':'object','properties':{}}},
   {'name':'create_proposal','description':'Create approval-gated improvement proposal; does not alter core.','parameters':{'type':'object','properties':{'title':{'type':'string'},'summary':{'type':'string'},'files':{'type':'array','items':{'type':'string'}}},'required':['title','summary']}},
   {'name':'stage_multi_file_patch','description':'Write coordinated multi-file candidate under Workspace/self_improvement; never auto-applied.','parameters':{'type':'object','properties':{'title':{'type':'string'},'summary':{'type':'string'},'changes':{'type':'array','items':{'type':'object','properties':{'path':{'type':'string'},'content':{'type':'string'}},'required':['path','content']}}},'required':['title','summary','changes']}},
@@ -18,6 +31,7 @@ class Module:
   return r
  def run(self,a,x):
   x=x or {}
+  if a=='source_learning_status':return self.source_learning.status()
   if a=='audit_apollo':
    files=[p for p in self.base.rglob('*.py') if 'workspace' not in p.parts and '__pycache__' not in p.parts];mark=[]
    for p in files:
@@ -57,6 +71,8 @@ class Module:
   page=QWidget(parent);outer=QVBoxLayout(page)
   outer.addWidget(QLabel('Apollo Developer Lab — changes remain proposals until approved'))
   tabs=QTabWidget();outer.addWidget(tabs,1)
+  from apollo_source_learning_ui import source_learning_view
+  tabs.addTab(source_learning_view(self.source_learning,tabs),'Autonomous Source Learning')
   proposal_page=QWidget();l=QVBoxLayout(proposal_page)
   lst=QListWidget();l.addWidget(lst,1);refresh=QPushButton('Refresh Proposals');l.addWidget(refresh)
   def load_proposals():

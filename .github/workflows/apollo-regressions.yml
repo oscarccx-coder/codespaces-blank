@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install lightweight test dependencies
-        run: python -m pip install cryptography numpy pypdf python-docx openpyxl reportlab
+        run: python -m pip install cryptography numpy psutil pypdf python-docx openpyxl reportlab
       - name: Reject newly tracked private runtime files
         run: python apollo_ui/tools/audit_repository.py --check-new --base origin/main
       - name: Validate source syntax and module manifests
@@ -43,7 +43,7 @@ jobs:
           APOLLO_BASE_DIR="$PWD" python module_validator.py modules/memory_bank
       - name: Check chat persistence, scoped files and streaming transport
         working-directory: apollo_ui
-        run: python -m unittest -v tests.test_chat_workspace tests.test_practice_mode tests.test_workflow_intelligence tests.test_idle_learning tests.test_suggestions tests.test_initiative_director tests.test_initiative_scheduler
+        run: python -m unittest -v tests.test_chat_workspace tests.test_practice_mode tests.test_workflow_intelligence tests.test_idle_learning tests.test_source_learning tests.test_suggestions tests.test_initiative_director tests.test_initiative_scheduler
       - name: Check Home core activity and playback lifecycle
         working-directory: apollo_ui
         run: python -m unittest -v tests.test_home_core tests.test_chat_voice
@@ -135,7 +135,7 @@ jobs:
           set QT_QPA_PLATFORM=offscreen
           .venv\Scripts\python.exe -m unittest -v tests.test_home_core tests.test_chat_voice
           .venv\Scripts\python.exe -m unittest -v tests.test_windows_ui_polish tests.test_windows_foundry_ui tests.test_windows_obd_starting_ui tests.test_windows_updater_ui tests.test_windows_learning_ui tests.test_knowledge_nodes
-          .venv\Scripts\python.exe -m unittest -v tests.test_chat_workspace tests.test_practice_mode tests.test_workflow_intelligence tests.test_idle_learning tests.test_suggestions tests.test_initiative_director tests.test_initiative_scheduler tests.test_workflow_ui
+          .venv\Scripts\python.exe -m unittest -v tests.test_chat_workspace tests.test_practice_mode tests.test_workflow_intelligence tests.test_idle_learning tests.test_source_learning tests.test_suggestions tests.test_initiative_director tests.test_initiative_scheduler tests.test_workflow_ui
       - name: Check numbered Setup batch entrypoints
         working-directory: apollo_ui
         shell: cmd
@@ -166,8 +166,10 @@ jobs:
           python-version: "3.13"
       - name: Build owner-controlled headless Qt sandbox image
         run: docker build --pull -t apollo-foundry-qt:phase1 -f apollo_ui/foundry_sandbox/Dockerfile apollo_ui/foundry_sandbox
+      - name: Install resource monitor for source-learning checks
+        run: python -m pip install psutil
       - name: Verify GUI events, launch, and failing tests inside Docker
         working-directory: apollo_ui
         env:
           APOLLO_FOUNDRY_INTEGRATION: "1"
-        run: python -m unittest -v tests.test_foundry_sandbox_docker
+        run: python -m unittest -v tests.test_foundry_sandbox_docker tests.test_source_learning
