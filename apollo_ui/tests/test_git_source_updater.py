@@ -157,6 +157,8 @@ class SourceUpdateTests(unittest.TestCase):
         self.assertTrue(protected("apollo_ui/storage/databases/foo.db"))
         self.assertTrue(protected("apollo_ui/Audio/output.wav"))
         self.assertTrue(protected("apollo_ui/config.local.json"))
+        self.assertTrue(protected(".env"))
+        self.assertTrue(protected("./.env"))
         self.assertFalse(protected("apollo_ui/main.py"))
         self.assertFalse(protected("apollo_ui/modules/update_manager/module.py"))
 
