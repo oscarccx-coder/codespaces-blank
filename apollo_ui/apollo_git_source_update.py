@@ -20,9 +20,11 @@ from datetime import datetime, timezone
 PRIVATE_PARTS = {"storage", "recordings", "audio", "workspace", "models"}
 DATA_FILES = {"apollo_ui/config.local.json", "apollo_ui/config.json",
               "apollo_ui/settings.json"}
-DATA_SUFFIXES = (".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm",
-                 ".sqlite-wal", ".sqlite-shm", ".log", ".wav", ".mp3",
-                 ".m4a", ".flac", ".ogg", ".key", ".pem", ".p12", ".pfx")
+DATA_SUFFIXES = (".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm", ".db-journal",
+                 ".sqlite-wal", ".sqlite-shm", ".sqlite-journal",
+                 ".sqlite3-wal", ".sqlite3-shm", ".sqlite3-journal",
+                 ".log", ".wav", ".mp3", ".m4a", ".flac", ".ogg", ".pcm",
+                 ".key", ".pem", ".p12", ".pfx")
 
 
 def protected(path: str) -> bool:
