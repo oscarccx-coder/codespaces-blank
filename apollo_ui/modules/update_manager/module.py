@@ -273,6 +273,7 @@ class Module:
             state["busy"] = bool(yes)
             for btn in controls:
                 btn.setEnabled(not yes)
+            github_token.setEnabled(not yes)
             channel.setEnabled(not yes)
             source.setEnabled(not yes)
             server.setEnabled(not yes and source.currentData() == "server")
