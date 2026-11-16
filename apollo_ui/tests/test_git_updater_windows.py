@@ -18,6 +18,7 @@ SETUP_BAT = ROOT / "Setup" / "03_UPDATE_APOLLO.bat"
 LEGACY_BAT = ROOT / "UPDATE_APOLLO_CODE.bat"
 SOURCE_BAT = ROOT / "Setup" / "21_INSTALL_GIT_SOURCE.bat"
 PY_HELPER = ROOT / "apollo_git_source_update.py"
+BACKUP_HELPER = ROOT / "apollo_git_backup.py"
 
 
 class EntryPointTests(unittest.TestCase):
@@ -33,6 +34,8 @@ class EntryPointTests(unittest.TestCase):
         self.assertIn('--porcelain=v1', helper)
         self.assertIn('--ff-only', helper)
         self.assertIn('--show-current', helper)
+        self.assertIn("--repair-recovery", helper)
+        self.assertIn("restore_missing(", helper)
         self.assertIn("No reset or destructive", helper)
         self.assertIn("pause >nul", main)
         self.assertIn("[LOG]", helper)
@@ -66,6 +69,7 @@ class WindowsMainGitUpdateTests(unittest.TestCase):
         shutil.copyfile(SETUP_BAT, self.author / "apollo_ui" / "Setup" / SETUP_BAT.name)
         shutil.copyfile(LEGACY_BAT, self.author / "apollo_ui" / LEGACY_BAT.name)
         shutil.copyfile(PY_HELPER, self.author / "apollo_ui" / PY_HELPER.name)
+        shutil.copyfile(BACKUP_HELPER, self.author / "apollo_ui" / BACKUP_HELPER.name)
         (self.author / ".gitignore").write_text("apollo_ui/storage/\n", encoding="utf-8")
         (self.author / "apollo_ui" / "config.json").write_text('{"version":"1.0.0"}', encoding="utf-8")
         (self.author / "README.md").write_text("version one\n", encoding="utf-8")
