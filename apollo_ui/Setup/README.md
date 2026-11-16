@@ -6,7 +6,7 @@
 |---|---|
 | `01_INSTALL_APOLLO.bat` | Install/repair core requirements, then open setup |
 | `02_START_APOLLO.bat` | Launch Apollo |
-| `03_UPDATE_APOLLO.bat` | Safely fast-forward a clean local Git checkout from `origin/main` only; `--check` is read-only |
+| `03_UPDATE_APOLLO.bat` | Guarded Git main fast-forward; preserves locally changed runtime data but stops if incoming commits touch private paths; `--check` is read-only |
 | `21_INSTALL_GIT_SOURCE.bat` | Bootstrap a separate Git-connected Apollo next to an existing ZIP installation; `--check` is read-only |
 | `04_REPAIR_VOICE.bat` | Install/repair optional XTTS Python runtime |
 | `05_DIAGNOSE.bat` | Check Ollama, XTTS model files, packages and isolated XTTS imports |
@@ -56,7 +56,7 @@ If you see **Docker CLI found but engine unavailable**, open Docker Desktop and 
 
 The noninteractive Windows CI smoke tests mock Docker; they **never install Docker or pull/build a live image**. A real installation still requires testing on the owner's PC.
 
-**Updater self-test:** Double-click `18_TEST_APOLLO_UPDATER.bat`. It does **not** pull, install, upgrade models, create external accounts or change live Apollo code. It prints a check result, then runs offline signed-release and disposable Git regression tests using private Python. Failure logs are preserved under `%TEMP%\Apollo_Updater_Self_Test.log`. If the folder isn't a clean `main` Git checkout, the preflight correctly reports a warning. Fix checkout issues before attempting a real source update. CI uses `--tests-only` because pull request checkouts intentionally have detached HEAD.
+**Updater self-test:** Double-click `18_TEST_APOLLO_UPDATER.bat`. It does **not** pull, install, upgrade models, create external accounts or change live Apollo code. It prints a check result, then runs offline signed-release and disposable Git regression tests using private Python. Failure logs are preserved under `%TEMP%\Apollo_Updater_Self_Test.log`. If source code is dirty or the folder is not a real `main` Git checkout, the preflight correctly reports a warning; locally modified private runtime files do not automatically block code-only updates. Fix checkout issues before attempting a real source update. CI uses `--tests-only` because pull request checkouts intentionally have detached HEAD.
 
 
 ## OpenJarvis integration
@@ -74,3 +74,5 @@ If Apollo was extracted from a ZIP, use **Install Git source (no release)** in U
 Your original installation, memory, voice profiles, XTTS weights and workspaces are not touched or automatically migrated. In the new `Apollo-Git\apollo_ui` folder run `Setup\01_INSTALL_APOLLO.bat` once, then launch with `Setup\02_START_APOLLO.bat`. Once Apollo is running from this real Git checkout, the Update Centre button becomes **Update from Git (main)** for future fast-forward source updates.
 
 Use explicit Apollo Backup / Restore to move private data after confirming the new installation works. Source checkouts are not signed packages and should only be used for code you deliberately approve. Do not delete the original Apollo until its data is safely restored and verified.
+
+**Update Centre mode:** A real Git checkout uses **Update Apollo (Git main)** and **Check Git main** with the guarded helper. A ZIP install uses **Update Apollo (Signed)** (only after publishing a verified release), or **Install Git source (no release)** for a separate checkout. Never bypass a private-data stop from an incoming runtime-cleanup commit. Complete verified backup and owner-reviewed migration first.

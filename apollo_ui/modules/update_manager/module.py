@@ -44,6 +44,14 @@ class Module:
                 device_name=arguments.get("device_name"),
             )
         if action == "check_for_updates":
+            if (self.base.parent / ".git").exists() or (self.base / ".git").exists():
+                from apollo_git_source_update import run_update
+                messages = []
+                exit_code = run_update(self.base.parent, check_remote=True, emit=messages.append)
+                return {"ok": exit_code == 0, "mode": "git-main",
+                        "available": exit_code == 0 and any("[AVAILABLE]" in item for item in messages),
+                        "error": None if exit_code == 0 else "\n".join(messages[-8:]),
+                        "details": messages[-16:]}
             return self.service.check_for_updates()
         if action in {"install_staged_update", "import_update_public_key", "stage_update"}:
             raise PermissionError("Installing, trusting and staging updates requires direct user interaction in Update Manager.")
@@ -194,6 +202,9 @@ class Module:
         def pretty(data):
             output.setPlainText(json.dumps(data, indent=2, default=str))
 
+        def is_git_checkout():
+            return (self.base.parent / ".git").exists() or (self.base / ".git").exists()
+
         def refresh():
             info = self.service.status()
             settings = info["settings"]
@@ -202,7 +213,14 @@ class Module:
             server.setText(str(settings.get("server_url", "")))
             channel.setCurrentText(str(settings.get("channel", "stable")))
             auto_check.setChecked(bool(settings.get("auto_check", False)))
-            git_checkout = (self.base.parent / ".git").exists() or (self.base / ".git").exists()
+            git_checkout = is_git_checkout()
+            combined_btn.setText("Update Apollo (Git main)" if git_checkout else "Update Apollo (Signed)")
+            check_btn.setText("Check Git main" if git_checkout else "Check signed releases")
+            combined_btn.setToolTip(
+                "Safely fast-forward origin/main without touching runtime data."
+                if git_checkout else
+                "Requires a published, verified signed release and trusted key."
+            )
             git_btn.setText("Update from Git (main)" if git_checkout
                             else "Install Git source (no release)")
             git_btn.setToolTip(
@@ -212,8 +230,9 @@ class Module:
             )
             status.setText(
                 f"Installed: Apollo {info['current_version']}\n"
-                f"Source: {'GitHub Releases' if settings.get('source') == 'github' else 'Local server'}"
-                f"  •  Signing: {'Trusted key' if info['trusted_key'] else 'Setup needed'}"
+                f"Update mode: {'Git source checkout' if git_checkout else 'Signed release'}\n"
+                f"Release source: {'GitHub Releases' if settings.get('source') == 'github' else 'Local server'}"
+                f"  •  Signing: {'not needed for Git main' if git_checkout else ('Trusted key' if info['trusted_key'] else 'Setup needed')}"
             )
             latest = info.get("last_install")
             if latest and latest.get("ok") is False:
@@ -434,14 +453,15 @@ class Module:
                 progress_bar.hide()
                 progress.setText("Could not start Git source installation.")
 
-        def git_update():
+        def git_update(check_remote=False):
             if state["busy"]:
                 return
             checkout = self.base
-            if not (checkout.parent / ".git").exists() and not (checkout / ".git").exists():
-                git_install()
+            if not is_git_checkout():
+                if not check_remote:
+                    git_install()
                 return
-            if QMessageBox.question(
+            if not check_remote and QMessageBox.question(
                 page, "Update Apollo source",
                 "Pull verified Git objects from origin/main into this local checkout?\\n"
                 "This is a source-development update, not a signed Apollo release. "
@@ -451,11 +471,13 @@ class Module:
                 return
             set_busy(True)
             git_state["mode"] = "update"
+            state["git_check"] = bool(check_remote)
             git_state["output"] = ""
             git_state["changed"] = False
             progress_bar.setRange(0, 0)  # Git provides no reliable byte total.
             progress_bar.setVisible(True)
-            progress.setText("Updating Apollo from origin/main...")
+            progress.setText("Checking Git main without installing..." if check_remote
+                             else "Updating Apollo from origin/main...")
             script = self.base / "Setup" / "13_UPDATE_GIT_MAIN.bat"
             if not script.is_file():
                 set_busy(False)
@@ -470,7 +492,8 @@ class Module:
             # Windows forbids literal quotes in filesystem path components.
             git_process.setArguments([])
             git_process.setNativeArguments(
-                '/d /s /c ""' + str(script) + '" --no-pause"'
+                '/d /s /c ""' + str(script) + '" ' +
+                ('--check-remote ' if check_remote else '') + '--no-pause"'
             )
             git_process.start()
             if not git_process.waitForStarted(1500):
@@ -481,11 +504,11 @@ class Module:
         def git_output():
             chunk = bytes(git_process.readAllStandardOutput()).decode("utf-8", errors="replace")
             git_state["output"] = (git_state["output"] + chunk)[-24000:]
-            lines = git_state["output"].replace("\\r", "\\n").splitlines()
+            lines = git_state["output"].replace("\r", "\n").splitlines()
             if lines:
                 progress.setText(lines[-1][:220])
-                output.setPlainText("\\n".join(lines[-120:]))
-            if "Updating " in git_state["output"] or "Fast-forward" in git_state["output"]:
+                output.setPlainText("\n".join(lines[-120:]))
+            if "[UPDATED]" in git_state["output"]:
                 git_state["changed"] = True
 
         def git_finished(exit_code, _status):
@@ -516,8 +539,14 @@ class Module:
                     "Your previous Apollo data was not migrated or modified."
                 )
                 return
-            if "Already up to date." in git_state["output"] and not git_state["changed"]:
+            if state.get("git_check") and "[AVAILABLE]" in git_state["output"]:
+                progress.setText("New Apollo code available. Click Update Apollo to install.")
+                return
+            if "[UP-TO-DATE]" in git_state["output"] and not git_state["changed"]:
                 progress.setText("Apollo source is already up to date.")
+                return
+            if not git_state["changed"]:
+                progress.setText("No code was installed. Review the Git check details.")
                 return
             progress.setText("New Apollo source received. Restart required to load changes.")
             answer = QMessageBox.question(page, "Restart Apollo?",
@@ -555,6 +584,9 @@ class Module:
                 launch_installer()
 
         def do_combined():
+            if is_git_checkout():
+                git_update()
+                return
             if not self.service.status().get("trusted_key"):
                 advanced_panel.setVisible(True)
                 advanced_toggle.setText("Advanced options ▾")
@@ -596,7 +628,7 @@ class Module:
                     QMessageBox.warning(page, "Signing key", str(exc))
 
         save_btn.clicked.connect(save)
-        check_btn.clicked.connect(lambda: run_async("check"))
+        check_btn.clicked.connect(lambda: git_update(check_remote=True) if is_git_checkout() else run_async("check"))
         stage_btn.clicked.connect(lambda: run_async("stage"))
         install_btn.clicked.connect(do_install)
         combined_btn.clicked.connect(do_combined)
@@ -604,5 +636,5 @@ class Module:
         trust_local_btn.clicked.connect(local_trust)
         refresh()
         if self.service.settings().get("auto_check"):
-            QTimer.singleShot(300, lambda: run_async("check"))
+            QTimer.singleShot(300, lambda: git_update(check_remote=True) if is_git_checkout() else run_async("check"))
         return page

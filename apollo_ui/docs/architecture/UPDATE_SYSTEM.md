@@ -2,7 +2,31 @@
 
 ## Simple Git code updates (developers and source checkouts)
 
-Close Apollo, then run `UPDATE_APOLLO_CODE.bat`, or the equivalent `Setup/03_UPDATE_APOLLO.bat`, or click **Update from Git (main)** in the Update Centre. They share one guarded updater (`Setup/13_UPDATE_GIT_MAIN.bat`). It only fast-forwards the checked-out `main` branch. It rejects an unclean checkout, an unconfigured remote, a detached head and other branches rather than switching branches or force-resetting changes. It does not download XTTS weights. Run `INSTALL_REQUIREMENTS.bat` after a change to core requirements.
+In a real Apollo Git checkout, **Update Apollo (Git main)** now runs the
+guarded source updater. **Check Git main** fetches and checks incoming changes
+without installing code; the dedicated **Update from Git (main)** button uses
+the same guarded pathway. Apollo still asks before any source update.
+
+The shared `Setup/13_UPDATE_GIT_MAIN.bat` delegates to
+`apollo_git_source_update.py`. It requires local `main` and an origin remote;
+only a fast-forward is permitted. It refuses modified/untracked **code**,
+diverged branches and incoming changes to private runtime data, including
+module-local `storage/`, recordings, memory databases and private keys.
+Existing locally modified runtime data does not, by itself, block a code-only
+update. No reset, clean, forced checkout or automatic stash is performed.
+
+Use `Setup/03_UPDATE_APOLLO.bat --check` for a strictly read-only local
+preflight, or `Setup/13_UPDATE_GIT_MAIN.bat --check-remote` to fetch remote
+metadata and report `[AVAILABLE]` / `[UP-TO-DATE]` without installing.
+A real update reports `[UPDATED]` only after Git advances HEAD. Restart
+Apollo after a successful code update; Python dependencies may need separate
+setup. This source route is **not a signed release**.
+
+**Security migration warning:** Pulling the future PR #66 cleanup can remove
+old tracked private files. The guarded updater must refuse those incoming
+changes. Use the verified private-data backup and separately reviewed,
+side-by-side migration instead of bypassing the stop. Rotating an exposed
+device token and cleaning Git history are separate owner-controlled actions.
 
 ## ZIP-to-Git bootstrap (no signed release needed)
 
