@@ -51,8 +51,8 @@ class Module:
         title.setStyleSheet("font-size:26px;font-weight:800;color:#e7fffb;")
         root.addWidget(title)
         subtitle = QLabel(
-            "One place for Apollo's voice selection, fallback speech controls, Voice Imprint profiles, "
-            "XTTS tuning and performance. Neural Voice Imprint takes priority when activated; Windows speech remains the fallback."
+            "One place for Apollo's voice selection, VoiceStudio local speech and cloning, "
+            "XTTS Voice Imprint and performance. Choose VoiceStudio for speech/dictation without loading XTTS; Windows speech remains available."
         )
         subtitle.setWordWrap(True)
         subtitle.setStyleSheet("color:#8fcfc3;")
@@ -85,6 +85,8 @@ class Module:
                 tabs.addTab(placeholder, label)
 
         add_module_tab("text_to_speech", "Voice Control & Selection")
+        from apollo_voicestudio_ui import build_view as build_voicestudio
+        tabs.addTab(build_voicestudio(self.base, self.runtime, tabs), "VoiceStudio")
         add_module_tab("voice_imprint_trainer", "Voice Imprint Lab")
         add_module_tab("capabilities", "Open-source Backends")
 

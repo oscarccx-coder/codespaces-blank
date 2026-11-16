@@ -16,10 +16,15 @@ def build_view(module,parent=None):
     for button in (setup,check,stop): row.addWidget(button)
     layout.addLayout(row)
     boxes={};current=svc.settings()
-    for key,caption,items in [('voice','Speech output',['existing','kokoro']),('transcription','Dictation',['existing','faster_whisper']),
+    for key,caption,items in [('voice','Speech output',['existing','kokoro','voicestudio']),('transcription','Dictation',['existing','faster_whisper']),
                               ('web','Web page reader',['existing','crawl4ai']),('device','Worker device',['cpu','cuda'])]:
         row=QHBoxLayout();row.addWidget(QLabel(caption));combo=QComboBox();combo.addItems(items);combo.setCurrentText(current[key]);boxes[key]=combo;row.addWidget(combo);layout.addLayout(row)
     voice=QLineEdit(current['voice_name']);voice.setPlaceholderText('Kokoro voice, e.g. bm_george');layout.addWidget(voice)
+    layout.addWidget(QLabel('VoiceStudio (separate local app, no XTTS required)'))
+    vs_url=QLineEdit(current['voicestudio_url']);vs_url.setPlaceholderText('http://127.0.0.1:3900');layout.addWidget(vs_url)
+    vs_voice=QLineEdit(current['voicestudio_voice']);vs_voice.setPlaceholderText('VoiceStudio profile ID or default');layout.addWidget(vs_voice)
+    vs_model=QLineEdit(current['voicestudio_model']);vs_model.setPlaceholderText('tts-1 = active engine in VoiceStudio');layout.addWidget(vs_model)
+    probe_voice=QPushButton('Test VoiceStudio connection');layout.addWidget(probe_voice)
     llama=QLineEdit(current['llama_url']);llama.setPlaceholderText('Local llama-server URL ending /v1');layout.addWidget(llama)
     save=QPushButton('Save backend choices');layout.addWidget(save)
     activate=QPushButton('Use running llama.cpp server for Apollo chat');layout.addWidget(activate)
@@ -30,9 +35,12 @@ def build_view(module,parent=None):
     def save_choices():
         try:
             for key,name in [('voice','kokoro'),('transcription','faster_whisper'),('web','crawl4ai')]:
-                if boxes[key].currentText()!='existing' and not svc.status(name)['installed']:
+                if boxes[key].currentText()==name and not svc.status(name)['installed']:
                     raise RuntimeError('Install '+name+' before selecting it')
-            svc.configure(**{k:v.currentText() for k,v in boxes.items()},voice_name=voice.text().strip(),llama_url=llama.text().strip())
+            svc.configure(**{k:v.currentText() for k,v in boxes.items()},
+                          voice_name=voice.text().strip(),llama_url=llama.text().strip(),
+                          voicestudio_url=vs_url.text().strip(),voicestudio_voice=vs_voice.text().strip(),
+                          voicestudio_model=vs_model.text().strip())
             show()
         except Exception as exc: output.appendPlainText(str(exc))
     def background(fn):
@@ -40,6 +48,11 @@ def build_view(module,parent=None):
             try: signals.result.emit(json.dumps(fn(),indent=2,default=str))
             except Exception as exc: signals.result.emit(f'{type(exc).__name__}: {exc}')
         threading.Thread(target=work,daemon=True).start()
+    def test_voice():
+        chosen=vs_url.text().strip()
+        from apollo_voicestudio import probe
+        background(lambda:probe(chosen))
+
     def activate_llama():
         # Capture text before leaving GUI thread.
         chosen=llama.text().strip()
@@ -78,5 +91,6 @@ def build_view(module,parent=None):
                     setup.setEnabled(True);output.appendPlainText('Install Python 3.12/3.13 and run the numbered Setup batch file.');return
         process.start(runner,prefix+[str(module.base/'tools/setup_capabilities.py'),name])
     save.clicked.connect(save_choices);activate.clicked.connect(activate_llama);setup.clicked.connect(install)
+    probe_voice.clicked.connect(test_voice)
     check.clicked.connect(show);stop.clicked.connect(lambda:background(lambda:(svc.cancel(),{'stop_requested':True})[1]))
     history.clicked.connect(lambda:background(svc.runs));show();return page

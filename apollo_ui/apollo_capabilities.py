@@ -20,7 +20,9 @@ OPERATIONS = {'docling': {'document'}, 'kokoro': {'synthesize'}, 'faster_whisper
     'crawl4ai': {'crawl'}, 'browser_use': {'browser_task'}, 'gpt_researcher': {'research'},
     'graphiti': {'graph_search', 'graph_add'}, 'llama_cpp': {'inference'}}
 DEFAULTS = {'voice': 'existing', 'transcription': 'existing', 'web': 'existing',
-    'device': 'cpu', 'voice_name': 'bm_george', 'whisper_model': 'base.en',
+    'device': 'cpu', 'voice_name': 'bm_george', 'voicestudio_url': 'http://127.0.0.1:3900',
+    'voicestudio_voice': 'default', 'voicestudio_model': 'tts-1',
+    'voicestudio_checkout': '', 'whisper_model': 'base.en',
     'embedding_model': 'nomic-embed-text', 'graph_uri': 'bolt://127.0.0.1:7687',
     'graph_user': 'neo4j', 'llama_url': 'http://127.0.0.1:8080/v1',
     'timeout': 180, 'research_timeout': 600, 'max_steps': 12}
@@ -74,12 +76,23 @@ class CapabilityService:
     def configure(self, **changes):
         # Called by owner UI only. No configuration action is exported to chat.
         if set(changes) - set(DEFAULTS): raise ValueError('Unknown backend setting')
-        for key, choices in {'voice': {'existing','kokoro'}, 'transcription': {'existing','faster_whisper'},
+        for key, choices in {'voice': {'existing','kokoro','voicestudio'}, 'transcription': {'existing','faster_whisper','voicestudio'},
                              'web': {'existing','crawl4ai'}, 'device': {'cpu','cuda'}}.items():
             if key in changes and changes[key] not in choices: raise ValueError(key)
         for key in ('timeout', 'research_timeout', 'max_steps'):
             if key in changes:
                 changes[key] = max(1, min(int(changes[key]), 900 if key != 'max_steps' else 30))
+        if 'voicestudio_checkout' in changes:
+            checkout = str(changes['voicestudio_checkout']).strip()
+            if checkout:
+                from apollo_voicestudio_runtime import _validate_checkout
+                _validate_checkout(checkout)
+        if 'voicestudio_url' in changes:
+            from apollo_voicestudio import _endpoint
+            _endpoint(changes['voicestudio_url'], '/health')
+        for key, maximum in (('voicestudio_voice', 200), ('voicestudio_model', 100)):
+            if key in changes and not (1 <= len(str(changes[key]).strip()) <= maximum):
+                raise ValueError('Invalid VoiceStudio voice/model name')
         if 'llama_url' in changes: local_endpoint(changes['llama_url'])
         if 'graph_uri' in changes:
             from urllib.parse import urlsplit
