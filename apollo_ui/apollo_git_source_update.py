@@ -20,9 +20,11 @@ from datetime import datetime, timezone
 PRIVATE_PARTS = {"storage", "recordings", "audio", "workspace", "models"}
 DATA_FILES = {"apollo_ui/config.local.json", "apollo_ui/config.json",
               "apollo_ui/settings.json"}
-DATA_SUFFIXES = (".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm",
-                 ".sqlite-wal", ".sqlite-shm", ".log", ".wav", ".mp3",
-                 ".m4a", ".flac", ".ogg", ".key", ".pem", ".p12", ".pfx")
+DATA_SUFFIXES = (".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm", ".db-journal",
+                 ".sqlite-wal", ".sqlite-shm", ".sqlite-journal",
+                 ".sqlite3-wal", ".sqlite3-shm", ".sqlite3-journal",
+                 ".log", ".wav", ".mp3", ".m4a", ".flac", ".ogg", ".pcm",
+                 ".key", ".pem", ".p12", ".pfx")
 
 
 def protected(path: str) -> bool:
@@ -54,6 +56,13 @@ def git(root: Path, *args: str, timeout: int = 180) -> bytes:
     return result.stdout
 
 
+def _generated_bytecode(path: str) -> bool:
+    """Python's compiled import cache is neither source code nor user state."""
+    normalized = path.replace("\\", "/").lower()
+    parts = normalized.split("/")
+    return "__pycache__" in parts and normalized.endswith((".pyc", ".pyo"))
+
+
 def changed_worktree_paths(root: Path) -> list[str]:
     """Parse Git's NUL-delimited porcelain status, including renames."""
     data = git(root, "status", "--porcelain=v1", "--untracked-files=all", "-z")
@@ -74,7 +83,7 @@ def changed_worktree_paths(root: Path) -> list[str]:
                 raise ValueError("Truncated Git rename status; update stopped.")
             paths.append(rows[idx])
             idx += 1
-    return paths
+    return [path for path in paths if not _generated_bytecode(path)]
 
 
 def incoming_paths(root: Path) -> list[str]:
@@ -84,7 +93,9 @@ def incoming_paths(root: Path) -> list[str]:
     return [part for part in data.decode("utf-8", errors="surrogateescape").split("\0") if part]
 
 
-def run_update(root: Path, *, check_only: bool = False, check_remote: bool = False, emit=print) -> int:
+def run_update(root: Path, *, check_only: bool = False, check_remote: bool = False,
+               backup_parent=None, repair_recovery: bool = False,
+               emit=print) -> int:
     root = root.resolve()
     emit("=========================================================")
     emit(" APOLLO SAFE GIT MAIN UPDATE")
@@ -100,18 +111,41 @@ def run_update(root: Path, *, check_only: bool = False, check_remote: bool = Fal
             raise RuntimeError(f"Current branch is {branch!r}, not main. Switch branches manually.")
         origin = git(root, "remote", "get-url", "origin").decode(errors="replace").strip()
         emit(f"[INFO] Git origin: {origin}")
+        from apollo_git_backup import preview_backup, snapshot, restore_missing
         paths = changed_worktree_paths(root)
         blocked = [path for path in paths if not protected(path)]
         data = [path for path in paths if protected(path)]
-        if blocked:
-            emit(f"[STOPPED] {len(blocked)} modified or untracked code file(s). No files changed.")
-            for path in blocked[:12]:
+        backup_plan = None
+        if repair_recovery or check_only:
+            backup_plan = preview_backup(root, backup_parent)
+            allowed = set(backup_plan["recovery_files"]) if repair_recovery else set()
+        else:
+            allowed = set()
+        real_blockers = [path for path in blocked if path not in allowed]
+        if real_blockers:
+            emit(f"[STOPPED] {len(real_blockers)} modified or untracked code file(s). No files changed.")
+            for path in real_blockers[:12]:
                 emit(f"  [CODE] {path}")
-            emit("[FIX] Commit, stash or manually move CODE edits before updating. Do not reset user data.")
+            if set(blocked) == set(real_blockers) and set(blocked) & {
+                "apollo_ui/Setup/RUN_APOLLO_UPDATER_RECOVERY.bat",
+                "apollo_ui/Setup/apollo_git_source_update.py",
+            }:
+                emit("[FIX] These obsolete recovery launchers can be safely archived "
+                     "after a verified backup using --repair-recovery.")
+            else:
+                emit("[FIX] Review, commit or manually move code edits. Never reset user data.")
             return 2
+        if allowed:
+            emit("[PLAN] " + str(len(allowed)) +
+                 " verified untracked legacy recovery launcher(s) will be archived outside Git.")
         if data:
             emit(f"[SAFE] {len(data)} changed runtime data file(s) will be preserved.")
         if check_only:
+            if backup_plan is None:
+                backup_plan = preview_backup(root, backup_parent)
+            emit("[BACKUP PREVIEW] " + str(backup_plan["private_files"]) +
+                 " private file(s), " + str(backup_plan["estimated_bytes"]) +
+                 " bytes; destination: " + backup_plan["backup_parent"])
             emit("[CHECK] Read-only preflight completed. No Git fetch, pull or file changes.")
             return 0
         before = git(root, "rev-parse", "HEAD").decode().strip()
@@ -129,20 +163,38 @@ def run_update(root: Path, *, check_only: bool = False, check_remote: bool = Fal
                 emit(f"  [PRIVATE] {path}")
             emit("[FIX] Requires an explicit, reviewed data-preserving migration. No force reset or auto-stash.")
             return 3
-        if not changed:
-            emit("[UP-TO-DATE] Apollo source is already up to date.")
-            return 0
         if check_remote:
-            emit(f"[AVAILABLE] {len(changed)} code path(s) can be fast-forwarded from origin/main.")
+            if not changed:
+                emit("[UP-TO-DATE] Apollo source is already up to date.")
+            else:
+                emit(f"[AVAILABLE] {len(changed)} code path(s) can be fast-forwarded from origin/main.")
             emit("[CHECK] This fetched upstream changes for comparison but did not merge them.")
             return 0
-        emit(f"[UPDATE] Fast-forwarding {len(changed)} code path(s)...")
-        git(root, "merge", "--ff-only", "FETCH_HEAD", timeout=360)
-        after = git(root, "rev-parse", "HEAD").decode().strip()
-        if before == after:
-            raise RuntimeError("Git reported success but HEAD did not advance.")
-        emit(f"[UPDATED] Source advanced from {before[:12]} to {after[:12]}.")
-        emit("[NEXT] Restart Apollo to load the updated code. User data was not reset.")
+        if not changed and not allowed:
+            emit("[UP-TO-DATE] Apollo source is already up to date.")
+            return 0
+        # A real update always gets an external SHA256-verified private-data snapshot
+        # BEFORE merging source. Only approved, specifically named untracked legacy
+        # launchers are relocated, never arbitrary user code or tracked files.
+        backup = snapshot(root, backup_parent, relocate_recovery=bool(allowed),
+                          emit=emit)
+        try:
+            if changed:
+                emit(f"[UPDATE] Fast-forwarding {len(changed)} code path(s)...")
+                git(root, "merge", "--ff-only", "FETCH_HEAD", timeout=360)
+                after = git(root, "rev-parse", "HEAD").decode().strip()
+                if before == after:
+                    raise RuntimeError("Git reported success but HEAD did not advance.")
+                emit(f"[UPDATED] Source advanced from {before[:12]} to {after[:12]}.")
+            else:
+                emit("[UP-TO-DATE] Apollo source is current; obsolete recovery "
+                     "launchers were safely archived.")
+        finally:
+            # Even on a failed merge, recover only missing, previously verified
+            # private data. No existing version is ever overwritten.
+            restore_missing(root, Path(backup["path"]), emit=emit)
+        emit("[BACKUP LOCATION] " + backup["path"])
+        emit("[NEXT] Restart Apollo to load updated code if [UPDATED] is present.")
         return 0
     except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
         emit(f"[ERROR] {exc}")
@@ -156,6 +208,10 @@ def main(argv=None):
     parser.add_argument("--check-remote", action="store_true", help="Fetch and assess origin/main without installing")
     parser.add_argument("--no-pause", action="store_true", help="Accepted for BAT compatibility")
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
+    parser.add_argument("--backup-parent", type=Path,
+                        help="Existing drive/location for external, unencrypted private backup")
+    parser.add_argument("--repair-recovery", action="store_true",
+                        help="After backup, archive only two known untracked legacy launcher files")
     args = parser.parse_args(argv)
     if args.check and args.check_remote:
         parser.error("--check and --check-remote cannot be combined")
@@ -166,7 +222,10 @@ def main(argv=None):
             print(message, flush=True)
             handle.write(message + "\n")
             handle.flush()
-        result = run_update(args.root, check_only=args.check, check_remote=args.check_remote, emit=emit)
+        result = run_update(args.root, check_only=args.check,
+                            check_remote=args.check_remote,
+                            backup_parent=args.backup_parent,
+                            repair_recovery=args.repair_recovery, emit=emit)
         emit(f"[RESULT] Git update result code {result}.")
         emit(f"[LOG] {log}")
     return result

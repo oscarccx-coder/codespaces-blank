@@ -74,12 +74,35 @@ class UpdateCentreButtonTests(unittest.TestCase):
             self.assertEqual(qprocess.state(), QProcess.ProcessState.NotRunning, trace)
             self.assertEqual((fixture.install / "README.md").read_text(), "version two\n", trace)
             self.assertGreaterEqual(approved.call_count, 2)
+            self.assertIn("SHA256-verified private backup", approved.call_args_list[0].args[2])
+            backups = fixture.install.parent / "Apollo-Private-Backups"
+            self.assertTrue(backups.is_dir(), "Git update must create an external backup")
+            self.assertTrue(list(backups.glob("apollo-*/apollo-backup-manifest.json")))
             warned.assert_not_called()
             self.assertTrue(observed_running or (fixture.install / "README.md").read_text() == "version two\n")
 
         output = "\n".join(label.text() for label in panel.findChildren(QLabel))
         self.assertIn("Restart required", output)
 
+
+    def test_backup_ui_controls_are_visible_and_not_model_callable(self):
+        from PySide6.QtWidgets import QPushButton
+        from modules.update_manager.module import Module
+        with tempfile.TemporaryDirectory(prefix="Apollo backup UI ") as location:
+            base = Path(location) / "apollo_ui"
+            base.mkdir()
+            module = Module({"base_dir": base})
+            panel = module.build_ui()
+            try:
+                preview = panel.findChild(QPushButton, "gitBackupPreview")
+                restore = panel.findChild(QPushButton, "gitRestoreMissing")
+                self.assertIsNotNone(preview)
+                self.assertIsNotNone(restore)
+                self.assertEqual(preview.text(), "Preview backup and recovery blockers")
+                names = {entry["name"] for entry in module.tools()}
+                self.assertFalse(any("backup" in name or "restore" in name for name in names))
+            finally:
+                panel.close()
 
     def test_github_pat_input_is_masked_and_owner_only(self):
         from PySide6.QtWidgets import QLineEdit

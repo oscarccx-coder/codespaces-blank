@@ -189,6 +189,23 @@ class Module:
         layout.addWidget(progress_bar)
         advanced_toggle.setToolTip("Settings, signing-key setup and diagnostic information.")
         layout.addWidget(advanced_toggle)
+        # Verified external backups are mandatory for Git source updates.
+        backup_note = QLabel(
+            "Git main: first back up all private files OUTSIDE Git with SHA256. "
+            "After the update, restore only missing private files and NEVER "
+            "overwrite existing files. Backups are local and UNENCRYPTED."
+        )
+        backup_note.setObjectName("gitBackupSafetyNote")
+        backup_note.setWordWrap(True)
+        advanced_layout.addWidget(backup_note)
+        backup_preview_btn = QPushButton("Preview backup and recovery blockers")
+        backup_preview_btn.setObjectName("gitBackupPreview")
+        restore_missing_btn = QPushButton("Restore missing private files...")
+        restore_missing_btn.setObjectName("gitRestoreMissing")
+        backup_row = QHBoxLayout()
+        backup_row.addWidget(backup_preview_btn)
+        backup_row.addWidget(restore_missing_btn)
+        advanced_layout.addLayout(backup_row)
         advanced_layout.addWidget(QLabel("Update details and diagnostics"))
         output = QPlainTextEdit()
         output.setReadOnly(True)
@@ -213,7 +230,8 @@ class Module:
         signals = UpdateSignals(page)
         state = {"busy": False}
         controls = (git_btn, save_btn, check_btn, stage_btn, install_btn,
-                    combined_btn, trust_github_btn, trust_local_btn, token_button)
+                    combined_btn, trust_github_btn, trust_local_btn, token_button,
+                    backup_preview_btn, restore_missing_btn)
         window = (ui_context or {}).get("apollo_window") if isinstance(ui_context, dict) else None
 
         def pretty(data):
@@ -392,6 +410,23 @@ class Module:
             set_busy(False)
             progress_bar.setVisible(False)
             pretty(result)
+            if kind == "backup-preview":
+                progress.setText(
+                    "Backup preview: " + str(result["private_files"]) +
+                    " private file(s), " + f'{result["estimated_bytes"] / (1024 ** 3):.2f}' +
+                    " GiB. Destination: " + result["backup_parent"] +
+                    ". Recoverable old launchers: " +
+                    (", ".join(result["recovery_files"]) or "none") +
+                    ". Other code blockers: " + str(result["blocked_code_count"])
+                )
+                advanced_panel.setVisible(True)
+                return
+            if kind == "backup-restore":
+                progress.setText(
+                    str(result["restored"]) + " missing private file(s) restored; " +
+                    str(result["unchanged"]) + " existing file(s) untouched."
+                )
+                return
             if kind == "github-token":
                 progress.setText("GitHub connected as " + result["account"] +
                                  ". Credential stored in Windows Credential Manager.")
@@ -526,14 +561,22 @@ class Module:
                 if not check_remote:
                     git_install()
                 return
-            if not check_remote and QMessageBox.question(
-                page, "Update Apollo source",
-                "Pull verified Git objects from origin/main into this local checkout?\\n"
-                "This is a source-development update, not a signed Apollo release. "
-                "Uncommitted local changes will not be overwritten.",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
-            ) != QMessageBox.Yes:
-                return
+            if not check_remote:
+                from apollo_git_backup import default_backup_parent
+                destination = default_backup_parent(self.base.parent)
+                if QMessageBox.question(
+                    page, "Back up private files and update Apollo",
+                    "Close any other Apollo processes and background workers before updating.\n\n"
+                    "Apollo will create a new SHA256-verified private backup OUTSIDE Git at:\n" +
+                    str(destination) + "\n\n"
+                    "It can archive only two known, UNTRACKED recovery launchers that "
+                    "currently block your update. No other code edits will be moved.\n\n"
+                    "The update is fast-forward only. On completion it automatically "
+                    "restores MISSING private files, but never replaces existing data.\n"
+                    "Backups are local and UNENCRYPTED. Proceed?",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+                ) != QMessageBox.Yes:
+                    return
             set_busy(True)
             git_state["mode"] = "update"
             state["git_check"] = bool(check_remote)
@@ -558,7 +601,8 @@ class Module:
             git_process.setArguments([])
             git_process.setNativeArguments(
                 '/d /s /c ""' + str(script) + '" ' +
-                ('--check-remote ' if check_remote else '') + '--no-pause"'
+                ('--check-remote ' if check_remote else '--repair-recovery ') +
+                '--no-pause"'
             )
             git_process.start()
             if not git_process.waitForStarted(1500):
@@ -633,6 +677,50 @@ class Module:
                     QMessageBox.warning(page, "Restart manually",
                                         "Source updated; please close Apollo and start it again.\\n" + str(exc))
 
+        def preview_git_backup():
+            if state["busy"]:
+                return
+            if not is_git_checkout():
+                QMessageBox.information(page, "Backup preview", "Open a Git source checkout first.")
+                return
+            from apollo_git_backup import preview_backup
+            set_busy(True)
+            progress.setText("Scanning private files and recovery blockers (read-only)...")
+            def worker():
+                try:
+                    signals.finished.emit("backup-preview", preview_backup(self.base.parent))
+                except Exception as exc:
+                    signals.failed.emit("backup-preview", f"{type(exc).__name__}: {exc}")
+            threading.Thread(target=worker, name="ApolloGitBackupPreview", daemon=True).start()
+
+        def restore_from_private_backup():
+            if state["busy"]:
+                return
+            from apollo_git_backup import default_backup_parent, restore_missing
+            folder = QFileDialog.getExistingDirectory(
+                page, "Select an Apollo private backup snapshot",
+                str(default_backup_parent(self.base.parent)))
+            if not folder:
+                return
+            if QMessageBox.question(
+                page, "Restore only missing private files",
+                "Verify the backup and restore MISSING private files from:\n" +
+                folder + "\n\nNo existing files will be overwritten. Approve?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            ) != QMessageBox.Yes:
+                return
+            set_busy(True)
+            progress.setText("Verifying backup and restoring missing private files...")
+            def worker():
+                try:
+                    signals.finished.emit("backup-restore",
+                        restore_missing(self.base.parent, Path(folder), emit=lambda _: None))
+                except Exception as exc:
+                    signals.failed.emit("backup-restore", f"{type(exc).__name__}: {exc}")
+            threading.Thread(target=worker, name="ApolloGitMissingRestore", daemon=True).start()
+
+        backup_preview_btn.clicked.connect(preview_git_backup)
+        restore_missing_btn.clicked.connect(restore_from_private_backup)
         git_process.readyReadStandardOutput.connect(git_output)
         git_process.finished.connect(git_finished)
         git_btn.clicked.connect(git_update)

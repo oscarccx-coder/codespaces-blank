@@ -15,6 +15,50 @@ module-local `storage/`, recordings, memory databases and private keys.
 Existing locally modified runtime data does not, by itself, block a code-only
 update. No reset, clean, forced checkout or automatic stash is performed.
 
+### Automatic private backups, recovery-file repair and safe restore
+
+Each **real Git update** now creates a new SHA256-verified backup of all detected
+Apollo-private files (memory databases, WAL/SHM, settings, saved recordings,
+profiles, logs, keys, module-local storage and models) before changing code.
+By default, backup snapshots go to `<Apollo-Git parent>/Apollo-Private-Backups/
+apollo-YYYYMMDD-HHMMSS-<unique>/`, **outside** the checkout. Backups are
+private **but not encrypted**; protect the drive and do not upload them.
+Large voice/model installations may require significant extra space. An
+incomplete backup stops the update and leaves original files in place.
+Snapshots are not automatically deleted.
+
+From **Apollo Updates → Advanced options**, choose **Preview backup and
+recovery blockers** to see file count, estimated bytes, backup location and
+known recovery-script blockers without copying any files. The standard
+**Update Apollo (Git main)** button asks before creating the backup. The
+equivalent owner-approved command is
+`Setup/13_UPDATE_GIT_MAIN.bat --repair-recovery`. The two recognized,
+**untracked** leftovers are:
+`apollo_ui/Setup/RUN_APOLLO_UPDATER_RECOVERY.bat` and
+`apollo_ui/Setup/apollo_git_source_update.py`. They are SHA256-verified,
+copied outside Git and relocated only when this exact repair mode is approved.
+All other local code changes remain blockers. Neither `reset --hard` nor
+`git clean` is used.
+
+After the Git fast-forward (or a failed merge attempt), Apollo verifies the
+backup and automatically restores only private paths that are **missing**.
+An existing file, even if modified, is never overwritten. Moved recovery
+launchers are **never automatically restored into the checkout** because
+they would recreate the original blocker; copies remain in the backup's
+`relocated/` folder for manual inspection. There is also an
+**Restore missing private files...** button accepting a selected snapshot
+and asking approval. A restore must match the same checkout path and SHA256
+manifest. Code changes, remote private-data changes, failed verification,
+inadequate disk space and unsafe links still stop the operation.
+
+**Important:** A backup is not a database-consistent snapshot if Apollo or
+its workers are actively writing to files. Close other Apollo processes,
+background workers and voice tasks before using the external update launcher.
+An in-app update can itself run while Apollo is open, so its backup cannot
+guarantee cross-database consistency; prefer closing Apollo and using the
+BAT launcher for critical data migrations. This feature does **not** bypass
+the PR #66 security gate or make tracked private data safe to publish.
+
 Use `Setup/03_UPDATE_APOLLO.bat --check` for a strictly read-only local
 preflight, or `Setup/13_UPDATE_GIT_MAIN.bat --check-remote` to fetch remote
 metadata and report `[AVAILABLE]` / `[UP-TO-DATE]` without installing.

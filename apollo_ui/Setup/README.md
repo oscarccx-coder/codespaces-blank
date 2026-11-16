@@ -6,7 +6,7 @@
 |---|---|
 | `01_INSTALL_APOLLO.bat` | Install/repair core requirements, then open setup |
 | `02_START_APOLLO.bat` | Launch Apollo |
-| `03_UPDATE_APOLLO.bat` | Guarded Git main fast-forward; preserves locally changed runtime data but stops if incoming commits touch private paths; `--check` is read-only |
+| `03_UPDATE_APOLLO.bat` | Guarded Git main fast-forward with mandatory verified external private backup and missing-only restore; `--repair-recovery` also archives two known untracked legacy recovery launchers after approval; `--check` is read-only |
 | `21_INSTALL_GIT_SOURCE.bat` | Bootstrap a separate Git-connected Apollo next to an existing ZIP installation; `--check` is read-only |
 | `22_SETUP_VOICESTUDIO.bat` | Diagnose previously downloaded VoiceStudio source; `--install --with-prerequisites` asks before installing Bun/uv and a separate backend environment |
 | `04_REPAIR_VOICE.bat` | Install/repair optional XTTS Python runtime |
@@ -87,3 +87,13 @@ In **Apps → Apollo Updates → Advanced options**, paste your GitHub personal 
 ## VoiceStudio one-click setup
 
 Open **Voice Centre → VoiceStudio**, select the downloaded VoiceStudio Git checkout and click **Check prerequisites**. **Install / repair VoiceStudio** asks before using WinGet to add missing Bun/uv and before running VoiceStudio's own locked dependency and Python setup, isolated from Apollo. You can let it start/test the local backend after setup. It does not automatically download source code, models or publish releases. Local logs are kept in `storage/logs/`; the alternative BAT is `22_SETUP_VOICESTUDIO.bat` (read-only by default). Follow `docs/architecture/VOICESTUDIO_INTEGRATION.md` for the full instructions.
+
+## Recover from obsolete updater scripts blocking Git
+
+If Git status shows **only** `apollo_ui/Setup/RUN_APOLLO_UPDATER_RECOVERY.bat` and `apollo_ui/Setup/apollo_git_source_update.py` as extra code files, the new updater can archive those **untracked** files into a verified private backup and proceed after explicit owner approval:
+
+```bat
+call "Setup\13_UPDATE_GIT_MAIN.bat" --repair-recovery
+```
+
+It will not relocate any other code, overwrite a local database, disable Git's safety checks or change the remote. Backups go into the sibling `Apollo-Private-Backups` folder, and missing-only restore runs after the update. In **Apollo Updates → Advanced options** you can preview the snapshot and manually restore missing files from a previously verified snapshot. Store backups on a trusted local drive because they contain unencrypted personal data and keys. For consistent databases, close Apollo and all workers and run the BAT rather than updating while Apollo is writing.
