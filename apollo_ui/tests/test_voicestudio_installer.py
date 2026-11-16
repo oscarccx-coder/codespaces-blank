@@ -1,6 +1,7 @@
 """VoiceStudio guided setup tests; no real installer/model/code execution."""
 from __future__ import annotations
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -44,6 +45,9 @@ class GuidedInstallerTests(unittest.TestCase):
             runner.assert_not_called()
 
     def test_owner_approved_runtime_stays_in_selected_source(self):
+        python = self.source / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        python.parent.mkdir(parents=True)
+        python.write_bytes(b"fake python for offline installer fixture")
         with patch("apollo_voicestudio_installer.locate_tool",
                    side_effect=lambda name: "/fake/" + name), \
              patch("apollo_voicestudio_installer.prepare_backend",
@@ -55,6 +59,14 @@ class GuidedInstallerTests(unittest.TestCase):
         self.assertTrue(outcome["prepared"])
         self.assertEqual(outcome["installed_tools"], [])
         runner.assert_called_once_with(self.source, self.root / "logs")
+
+    def test_reports_failure_when_setup_did_not_create_python_environment(self):
+        with patch("apollo_voicestudio_installer.locate_tool",
+                   side_effect=lambda name: "/fake/" + name), \
+             patch("apollo_voicestudio_installer.prepare_backend",
+                   return_value={"ok": True, "prepared": True, "log": "local.log"}):
+            with self.assertRaisesRegex(RuntimeError, "environment was not created"):
+                guided_install(self.source, self.root / "logs", approved=True)
 
     def test_winget_uses_exact_ids_and_never_shell_execution(self):
         installed = set()
