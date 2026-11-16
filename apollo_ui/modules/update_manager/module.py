@@ -116,6 +116,23 @@ class Module:
         configuration_row("Update source", source)
         configuration_row("Server URL", server)
         advanced_layout.addWidget(auto_check)
+        # Owner-only credential entry. Never expose this as a model-callable tool,
+        # save it in Apollo settings, or print its contents to the activity log.
+        github_token = QLineEdit()
+        github_token.setObjectName("githubTokenInput")
+        github_token.setEchoMode(QLineEdit.EchoMode.Password)
+        github_token.setPlaceholderText("Paste GitHub PAT (optional for public repositories)")
+        github_token.setMaxLength(1024)
+        token_button = QPushButton("Connect GitHub token securely")
+        token_help = QLabel(
+            "Public Apollo updates work without a token. For authenticated Git access, "
+            "a verified token is saved in Windows Credential Manager, never in Apollo files."
+        )
+        token_help.setWordWrap(True)
+        advanced_layout.addWidget(QLabel("GitHub account (optional)"))
+        advanced_layout.addWidget(github_token)
+        advanced_layout.addWidget(token_button)
+        advanced_layout.addWidget(token_help)
         source.currentIndexChanged.connect(
             lambda _: server.setEnabled(source.currentData() == "server")
         )
@@ -196,7 +213,7 @@ class Module:
         signals = UpdateSignals(page)
         state = {"busy": False}
         controls = (git_btn, save_btn, check_btn, stage_btn, install_btn,
-                    combined_btn, trust_github_btn, trust_local_btn)
+                    combined_btn, trust_github_btn, trust_local_btn, token_button)
         window = (ui_context or {}).get("apollo_window") if isinstance(ui_context, dict) else None
 
         def pretty(data):
@@ -256,6 +273,7 @@ class Module:
             state["busy"] = bool(yes)
             for btn in controls:
                 btn.setEnabled(not yes)
+            github_token.setEnabled(not yes)
             channel.setEnabled(not yes)
             source.setEnabled(not yes)
             server.setEnabled(not yes and source.currentData() == "server")
@@ -320,6 +338,40 @@ class Module:
 
             threading.Thread(target=background, name="ApolloReleaseUpdate", daemon=True).start()
 
+        def connect_github_token():
+            if state["busy"]:
+                return
+            from apollo_github_auth import vault_ready, connect_token
+            status = vault_ready()
+            if not status["ready"]:
+                QMessageBox.warning(page, "GitHub connection", status["reason"])
+                return
+            value = github_token.text()
+            # No token persists in the widget, log, settings, or callbacks
+            # after this single explicitly confirmed verification operation.
+            if not value:
+                QMessageBox.warning(page, "GitHub connection", "Paste your GitHub token first.")
+                return
+            if QMessageBox.question(
+                page, "Save GitHub credential",
+                "Verify this token directly with GitHub and save it in the "
+                "Windows Credential Manager for Git HTTPS access? This can "
+                "replace a GitHub credential previously stored for this account. "
+                "Do not use a token with permissions Apollo does not need.",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            ) != QMessageBox.Yes:
+                github_token.clear()
+                return
+            github_token.clear()
+            set_busy(True)
+            progress.setText("Testing GitHub connection securely...")
+            def worker():
+                try:
+                    signals.finished.emit("github-token", connect_token(value))
+                except Exception as exc:
+                    signals.failed.emit("github-token", f"{type(exc).__name__}: {exc}")
+            threading.Thread(target=worker, name="ApolloGitHubConnect", daemon=True).start()
+
         def launch_installer():
             result = self.service.launch_installer(restart=True)
             pretty(result)
@@ -340,6 +392,19 @@ class Module:
             set_busy(False)
             progress_bar.setVisible(False)
             pretty(result)
+            if kind == "github-token":
+                progress.setText("GitHub connected as " + result["account"] +
+                                 ". Credential stored in Windows Credential Manager.")
+                token_help.setText("Connected: " + result["account"] +
+                    ". Public source updates still require no token.")
+                # Continue the owner's setup workflow, never silently overwrite
+                # an existing ZIP or install unapproved code.
+                if is_git_checkout():
+                    git_update(check_remote=True)
+                else:
+                    progress.setText("GitHub connected. Choose the separate source install to receive main updates.")
+                    git_install()  # This asks for explicit approval before cloning.
+                return
             if kind == "key":
                 fingerprint = result["fingerprint"]
                 answer = QMessageBox.question(
@@ -632,6 +697,7 @@ class Module:
         stage_btn.clicked.connect(lambda: run_async("stage"))
         install_btn.clicked.connect(do_install)
         combined_btn.clicked.connect(do_combined)
+        token_button.clicked.connect(connect_github_token)
         trust_github_btn.clicked.connect(lambda: run_async("key"))
         trust_local_btn.clicked.connect(local_trust)
         refresh()

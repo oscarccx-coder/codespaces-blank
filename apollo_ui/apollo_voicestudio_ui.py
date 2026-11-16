@@ -18,7 +18,8 @@ def build_view(base, runtime=None, parent=None):
     )
     from apollo_capabilities import service
     from apollo_voicestudio import probe, list_voices, create_clone
-    from apollo_voicestudio_runtime import start_backend, stop_backend, backend_status, prepare_backend, find_downloaded_checkout
+    from apollo_voicestudio_runtime import start_backend, stop_backend, backend_status, find_downloaded_checkout
+    from apollo_voicestudio_installer import diagnose, guided_install
 
     svc = service(base, runtime)
     conf = svc.settings()
@@ -46,14 +47,18 @@ def build_view(base, runtime=None, parent=None):
     source_row.addWidget(browse)
     layout.addLayout(source_row)
 
-    setup = QPushButton("Prepare VoiceStudio runtime (Bun / uv)")
+    check_setup = QPushButton("Check prerequisites")
+    setup = QPushButton("Install / repair VoiceStudio")
     start = QPushButton("Start VoiceStudio backend (prepared source)")
     stop_backend_btn = QPushButton("Stop Apollo-owned VoiceStudio backend")
     connect = QPushButton("Test connection")
     lifecycle = QHBoxLayout()
-    for btn in (setup, start, stop_backend_btn, connect):
+    for btn in (check_setup, setup, start, stop_backend_btn, connect):
         lifecycle.addWidget(btn)
     layout.addLayout(lifecycle)
+    auto_start = QCheckBox("Start local backend and test connection after installation")
+    auto_start.setChecked(True)
+    layout.addWidget(auto_start)
 
     selection = QHBoxLayout()
     layout.addWidget(QLabel("VoiceStudio voice profile and speech engine"))
@@ -107,7 +112,7 @@ def build_view(base, runtime=None, parent=None):
         failed = Signal(str, str)
     signals = Signals(panel)
     busy = {"value": False}
-    operation_buttons = (setup, start, stop_backend_btn, connect, refresh, use, preview, clone)
+    operation_buttons = (check_setup, setup, start, stop_backend_btn, connect, refresh, use, preview, clone)
 
     def report(message):
         output.appendPlainText(str(message))
@@ -239,8 +244,10 @@ def build_view(base, runtime=None, parent=None):
             consent.setChecked(False)
         elif action == "Testing connection":
             report("VoiceStudio online: " + str(result))
-        elif action == "Preparing backend":
-            report("VoiceStudio runtime setup: " + str(result))
+        elif action == "Checking prerequisites":
+            report("VoiceStudio setup check: " + str(result))
+        elif action == "Installing backend":
+            report("VoiceStudio installation: " + str(result))
         elif action == "Starting backend":
             report("VoiceStudio backend launch: " + str(result))
         elif action == "Stopping backend":
@@ -267,17 +274,62 @@ def build_view(base, runtime=None, parent=None):
         folder = source.text().strip()
         work("Starting backend", lambda: start_backend(folder, Path(base) / "storage" / "logs"))
     connect.clicked.connect(test_connection)
+    def check_installation():
+        folder = source.text().strip()
+        work("Checking prerequisites", lambda: diagnose(folder))
+
     def install_checkout():
         folder = source.text().strip()
+        address = url.text().strip()
+        try:
+            preflight = diagnose(folder)
+        except (OSError, ValueError) as exc:
+            report("VoiceStudio source check failed: " + str(exc))
+            return
+        missing = preflight["missing"]
+        missing_details = (
+            "Missing tools: " + ", ".join(missing) +
+            ". These will be installed using WinGet after your approval.\\n"
+            if missing else "Bun and uv are already installed.\\n"
+        )
+        if missing and not preflight["can_install_prerequisites"]:
+            report("Windows Package Manager is missing. Install Bun and uv manually, "
+                   "then run setup again.")
+            return
+        launch = auto_start.isChecked()
         if QMessageBox.question(
-            panel, "Install third-party runtime",
-            "Run VoiceStudio's own Bun and Python setup scripts in the chosen folder?\n"
-            "These scripts can download several gigabytes of dependencies and execute "
-            "third-party code on this PC. Apollo's Python environment will not be changed.",
+            panel, "Install / repair VoiceStudio",
+            "Use your selected downloaded VoiceStudio checkout?\\n\\n" +
+            missing_details +
+            "Apollo will run VoiceStudio's own locked Bun dependency installation "
+            "and separate Python setup. These third-party scripts may download "
+            "several gigabytes and execute code on your PC.\\n"
+            + ("The local VoiceStudio backend will then start and be tested.\\n"
+               if launch else "Backend startup will remain manual.\\n") +
+            "Apollo's Python environment, Ollama models and XTTS are not replaced. Continue?",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
         ) != QMessageBox.Yes:
             return
-        work("Preparing backend", lambda: prepare_backend(folder, Path(base) / "storage" / "logs"))
+
+        def install_and_start():
+            from time import sleep
+            logs = Path(base) / "storage" / "logs"
+            result = guided_install(folder, logs, approved=True, install_missing=bool(missing))
+            if launch:
+                result["backend"] = start_backend(folder, logs)
+                for _ in range(8):
+                    try:
+                        result["connection"] = probe(address, timeout=3)
+                        break
+                    except (OSError, RuntimeError, ValueError):
+                        sleep(2)
+                else:
+                    result["connection"] = {"ready": False,
+                        "notice": "Backend launched but health check is not ready yet; see local setup logs."}
+            return result
+        work("Installing backend", install_and_start)
+
+    check_setup.clicked.connect(check_installation)
     setup.clicked.connect(install_checkout)
     start.clicked.connect(launch_checkout)
     stop_backend_btn.clicked.connect(lambda: work("Stopping backend", stop_backend))

@@ -81,6 +81,26 @@ class UpdateCentreButtonTests(unittest.TestCase):
         self.assertIn("Restart required", output)
 
 
+    def test_github_pat_input_is_masked_and_owner_only(self):
+        from PySide6.QtWidgets import QLineEdit
+        from modules.update_manager.module import Module
+        with tempfile.TemporaryDirectory(prefix="Apollo GitHub vault UI ") as location:
+            base = Path(location) / "apollo_ui"
+            base.mkdir()
+            app = Module({"base_dir": base})
+            panel = app.build_ui()
+            try:
+                field = panel.findChild(QLineEdit, "githubTokenInput")
+                self.assertIsNotNone(field)
+                self.assertEqual(field.echoMode(), QLineEdit.EchoMode.Password)
+                self.assertFalse(field.text())
+                self.assertFalse(any(
+                    "token" in tool["name"].casefold() or
+                    "credential" in tool["name"].casefold()
+                    for tool in app.tools()))
+            finally:
+                panel.close()
+
     def test_zip_install_offers_bootstrap_and_requires_approval(self):
         from PySide6.QtWidgets import QPushButton, QMessageBox
         from modules.update_manager.module import Module

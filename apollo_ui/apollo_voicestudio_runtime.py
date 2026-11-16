@@ -83,8 +83,11 @@ def prepare_backend(checkout, logs_dir):
     Apollo's own Python venv. This action must not be model-callable.
     """
     folder = _validate_checkout(checkout)
-    bun = shutil.which("bun")
-    uv = shutil.which("uv")
+    # WinGet may install into a user-specific location not yet on this
+    # long-running Apollo process's original PATH.
+    from apollo_voicestudio_installer import locate_tool
+    bun = locate_tool("bun")
+    uv = locate_tool("uv")
     if not bun or not uv:
         raise RuntimeError("Install Bun and uv before preparing VoiceStudio.")
     logs = Path(logs_dir).resolve()
@@ -116,8 +119,11 @@ def start_backend(checkout, logs_dir):
     """Starts VoiceStudio only on an explicit owner click, never as an LLM tool."""
     global _OWNED
     folder = _validate_checkout(checkout)
-    bun = shutil.which("bun")
-    uv = shutil.which("uv")
+    # WinGet may install into a user-specific location not yet on this
+    # long-running Apollo process's original PATH.
+    from apollo_voicestudio_installer import locate_tool
+    bun = locate_tool("bun")
+    uv = locate_tool("uv")
     if not bun or not uv:
         raise RuntimeError("Bun and uv must be installed to run VoiceStudio from Git source.")
     python = folder / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")

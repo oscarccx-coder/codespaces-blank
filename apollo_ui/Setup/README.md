@@ -8,6 +8,7 @@
 | `02_START_APOLLO.bat` | Launch Apollo |
 | `03_UPDATE_APOLLO.bat` | Guarded Git main fast-forward; preserves locally changed runtime data but stops if incoming commits touch private paths; `--check` is read-only |
 | `21_INSTALL_GIT_SOURCE.bat` | Bootstrap a separate Git-connected Apollo next to an existing ZIP installation; `--check` is read-only |
+| `22_SETUP_VOICESTUDIO.bat` | Diagnose previously downloaded VoiceStudio source; `--install --with-prerequisites` asks before installing Bun/uv and a separate backend environment |
 | `04_REPAIR_VOICE.bat` | Install/repair optional XTTS Python runtime |
 | `05_DIAGNOSE.bat` | Check Ollama, XTTS model files, packages and isolated XTTS imports |
 | `06_BACKUP.bat` | Create a local, unencrypted data backup ZIP |
@@ -76,3 +77,13 @@ Your original installation, memory, voice profiles, XTTS weights and workspaces 
 Use explicit Apollo Backup / Restore to move private data after confirming the new installation works. Source checkouts are not signed packages and should only be used for code you deliberately approve. Do not delete the original Apollo until its data is safely restored and verified.
 
 **Update Centre mode:** A real Git checkout uses **Update Apollo (Git main)** and **Check Git main** with the guarded helper. A ZIP install uses **Update Apollo (Signed)** (only after publishing a verified release), or **Install Git source (no release)** for a separate checkout. Never bypass a private-data stop from an incoming runtime-cleanup commit. Complete verified backup and owner-reviewed migration first.
+
+## Connect your GitHub token securely
+
+In **Apps → Apollo Updates → Advanced options**, paste your GitHub personal access token in the **password-masked** field and click **Connect GitHub token securely**. Apollo verifies the token using `https://api.github.com/user`, then passes it over standard input to Git Credential Manager with the **Windows Credential Manager** vault selected. The token is never written to Apollo configuration, printed in updater logs or included in the Git remote URL. The field clears immediately when submitted. Only this owner-operated UI can save a token; chat and Foundry cannot.
+
+**Public GitHub main updates need no token.** If using a token for a private repository, give it the smallest repository contents permissions needed. Use a *new* token if an earlier token was ever shared or stored in public Git history. If Git for Windows/Git Credential Manager is missing, the app refuses token storage and explains the prerequisite. Configure/remove old GitHub credentials through Windows Credential Manager. A token does not make a ZIP install into a Git checkout, publish a signed release, or authorize code to bypass approval/safety gates.
+
+## VoiceStudio one-click setup
+
+Open **Voice Centre → VoiceStudio**, select the downloaded VoiceStudio Git checkout and click **Check prerequisites**. **Install / repair VoiceStudio** asks before using WinGet to add missing Bun/uv and before running VoiceStudio's own locked dependency and Python setup, isolated from Apollo. You can let it start/test the local backend after setup. It does not automatically download source code, models or publish releases. Local logs are kept in `storage/logs/`; the alternative BAT is `22_SETUP_VOICESTUDIO.bat` (read-only by default). Follow `docs/architecture/VOICESTUDIO_INTEGRATION.md` for the full instructions.
