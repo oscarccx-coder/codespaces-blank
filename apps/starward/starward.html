@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0a101a"><title>STARWARD — ZSS Autonomous Starship</title>
+<style>
+:root{color-scheme:dark;--bg:#090e17;--panel:#101925;--edge:#263344;--ink:#edf0e8;--muted:#91a1b4;--amber:#ffbd73;--cyan:#7dd9fb;--green:#79e3ac;--red:#f18495}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,select{font:inherit}button,select,.filelabel{border:1px solid var(--edge);border-radius:5px;background:#152130;color:var(--ink);padding:9px 12px;cursor:pointer;min-height:40px}button:hover,.filelabel:hover{background:#223346;border-color:#658096}button:focus-visible,select:focus-visible,.filelabel:focus-within{outline:2px solid var(--amber);outline-offset:3px}button:disabled{opacity:.45;cursor:default}.primary{background:var(--amber);color:#17212c;border-color:var(--amber);font-weight:750}.primary:hover{background:#f4ce9e}.quiet{background:transparent}.danger{color:var(--red)}.mono,.eyebrow,.tag,.stat strong,.clock{font-family:"Courier New",monospace}.muted{color:var(--muted)}.eyebrow{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}h1,h2,h3,p{margin:0}h2{font-size:16px}h3{font-size:14px}.topbar{min-height:88px;display:flex;align-items:center;justify-content:space-between;padding:18px 26px;border-bottom:1px solid var(--edge);gap:16px}.brand{display:flex;align-items:center;gap:13px}.mark{width:38px;height:38px;color:var(--amber);display:grid;place-items:center;border:1px solid #805d39;transform:rotate(45deg);font-size:25px}.mark span{transform:rotate(-45deg)}h1{font-size:25px;letter-spacing:5px;font-weight:700}.brand p{font-size:10px;margin-top:5px;letter-spacing:2px;color:var(--muted)}.topmeta{display:flex;align-items:center;gap:20px}.signal{font-size:11px;color:var(--green)}.signal:before{content:"";width:6px;height:6px;border-radius:100%;background:currentColor;display:inline-block;margin-right:7px;box-shadow:0 0 9px currentColor}.clock{font-size:12px;color:var(--muted)}.topactions{display:flex;gap:7px}.filelabel{display:inline-flex;align-items:center;position:relative;overflow:hidden}.filelabel input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}.metrics{display:grid;grid-template-columns:repeat(8,1fr);border-bottom:1px solid var(--edge);background:#0d1520}.stat{padding:16px 22px;border-right:1px solid #1b2937;min-width:0}.stat span{display:block;font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}.stat strong{display:block;margin-top:6px;font-size:21px;font-weight:500}.stat small{font-size:11px;color:var(--muted)}.stat .bar{height:3px;background:#203040;margin-top:9px}.stat .bar i{display:block;height:100%;background:var(--green);transition:width .5s}.layout{display:grid;grid-template-columns:218px minmax(0,1fr) 310px;min-height:720px}.roster{background:#0e1621;border-right:1px solid var(--edge);padding:20px 12px;overflow:hidden}.sectionhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:16px}.roster .sectionhead{padding:0 8px}.depthead{margin:18px 7px 7px;font:10px "Courier New",monospace;text-transform:uppercase;letter-spacing:1.2px}.crewcard{display:flex;gap:9px;align-items:center;text-align:left;padding:8px 9px;border:1px solid transparent;background:transparent;width:100%;min-height:57px}.crewcard.selected{background:#23303d;border-color:#456070}.crewcard.child{padding-left:22px}.avatar{position:relative;display:block;flex:none;width:22px;height:31px;image-rendering:pixelated}.avatar:before{content:"";position:absolute;width:10px;height:9px;top:2px;left:6px;background:#dbc4aa;box-shadow:0 -3px 0 #404754}.avatar:after{content:"";position:absolute;width:18px;height:12px;left:2px;top:12px;background:var(--crewcolor);box-shadow:2px 12px 0 -3px #bac6cf,-2px 12px 0 -3px #bac6cf}.crewtext{min-width:0;flex:1}.crewtext b{font-size:12px;display:block;font-weight:650}.crewtext span{display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);margin-top:3px}.workdot{height:5px;width:5px;background:var(--green);border-radius:100%;flex:none}.workspace{min-width:0;padding:22px 22px 0}.viewhead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:17px}.viewhead h2{font-size:21px;font-weight:600;letter-spacing:.5px}.viewhead p{color:var(--muted);font-size:11px;margin-top:6px}.badge{display:inline-flex;font:10px "Courier New",monospace;border:1px solid #365467;color:var(--cyan);padding:5px 8px;border-radius:3px;letter-spacing:1px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap;padding-bottom:12px}.segmented{display:flex;gap:3px;align-items:center}.segmented button{padding:7px 11px;min-height:35px;font-size:11px;background:transparent}.segmented button.active{background:#26394b;border-color:#567a8e;color:var(--cyan)}.timecontrols{display:flex;gap:5px;align-items:center}.timecontrols button{font:11px "Courier New",monospace;min-height:35px;padding:7px 10px}.canvaswrap{position:relative;border:1px solid #2b3b4c;background:#070d17;border-radius:6px;overflow:auto;box-shadow:0 8px 35px #0003;scrollbar-color:#3c556b #0b1420}canvas{width:100%;height:auto;display:block;aspect-ratio:1200/650;image-rendering:pixelated;touch-action:pan-x pan-y}.shipcaption{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:10px "Courier New",monospace;color:var(--muted);padding:12px 2px}.legend{display:flex;gap:14px;flex-wrap:wrap}.legend i{width:6px;height:6px;display:inline-block;margin-right:6px;background:var(--cyan)}.roomaccess{display:flex;gap:5px;overflow:auto;margin:3px 0 14px;padding-bottom:7px}.roomaccess button{min-height:29px;padding:5px 9px;font-size:10px;white-space:nowrap}.roomaccess .active{border-color:var(--amber);color:var(--amber)}.missionstrip{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:15px;border:1px solid var(--edge);border-radius:5px;background:#111c29;padding:16px;margin-bottom:18px}.missionstrip b{font-size:12px;display:block;margin:5px 0}.missionstrip p{font-size:10px;color:var(--muted);line-height:1.6}.miniProgress{height:3px;background:#283a4b;margin-top:10px}.miniProgress i{height:100%;display:block;background:var(--amber)}.feed{border-top:1px solid var(--edge);padding-top:15px}.feedline{display:grid;grid-template-columns:47px 7px 1fr;gap:8px;align-items:start;padding:9px 0;border-bottom:1px solid #1c2937;font-size:11px;line-height:1.55}.feedline time{font:10px "Courier New",monospace;color:var(--muted);padding-top:3px}.feedline i{margin-top:7px;width:5px;height:5px;background:var(--cyan)}.feedline b{font-size:10px;font-weight:650;color:var(--cyan);margin-right:6px}.inspector{border-left:1px solid var(--edge);background:#0e1722;padding:19px 17px;min-width:0}.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding-bottom:18px}.tabs button{padding:7px 3px;min-height:34px;background:transparent;font-size:11px}.tabs .active{background:#223344;color:var(--amber);border-color:#58616b}.panelcontent{font-size:12px;line-height:1.6}.panelcontent h2{margin-bottom:6px;font-size:18px}.panelcontent h3{margin-top:19px;margin-bottom:7px}.panelcontent p{color:var(--muted)}.card{padding:13px;background:#14202e;border:1px solid var(--edge);border-radius:5px;margin-top:12px}.card .eyebrow{font-size:9px}.card p{font-size:11px;line-height:1.6;margin:6px 0}.full{width:100%;text-align:left;margin-top:7px}.orderbutton{padding:11px 12px;display:flex;align-items:center;gap:10px;line-height:1.4}.orderbutton .symbol{font:19px "Courier New",monospace;opacity:.75}.orderbutton b{display:block;font-size:12px}.orderbutton small{display:block;font-size:10px;color:var(--muted);margin-top:3px}.orderbutton.active{border-color:#b08b5c;background:#2b2927}.kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #243344;font-size:11px;gap:8px}.kv span{color:var(--muted)}.tag{display:inline-block;font-size:9px;border:1px solid #31495e;border-radius:3px;padding:2px 5px;color:var(--cyan);margin:3px 3px 0 0}.taskitem{padding:12px 0;border-bottom:1px solid var(--edge)}.taskitem b{font-size:11px}.taskitem .muted{font-size:10px;margin-top:3px}.taskbar{height:3px;background:#263849;margin-top:8px}.taskbar i{display:block;height:100%;background:var(--cyan)}.panel-scroll{max-height:780px;overflow:auto;padding-right:3px}.status{color:var(--green);font:10px "Courier New",monospace}.warn{color:var(--amber)}.instructions{font-size:10px;line-height:1.7;color:var(--muted);border-top:1px solid var(--edge);margin-top:18px;padding-top:13px}.footer{padding:17px 24px;border-top:1px solid var(--edge);color:#6f8296;display:flex;gap:10px;justify-content:space-between;font:9px "Courier New",monospace;letter-spacing:1px}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#243849;border:1px solid #7290a4;box-shadow:0 8px 25px #0008;color:var(--ink);padding:13px 20px;border-radius:6px;font-size:12px;max-width:90vw;z-index:10;pointer-events:none}.toast:empty{display:none}.help{position:fixed;inset:0;background:#050a12c9;display:none;align-items:center;justify-content:center;padding:24px;z-index:20}.help.open{display:flex}.helpbox{max-width:600px;width:100%;background:#142131;border:1px solid #54728a;border-radius:8px;padding:26px;max-height:85vh;overflow:auto;line-height:1.8}.helpbox h2{font-size:23px;margin:8px 0 14px}.helpbox p{font-size:13px;color:#b9c6d5;margin:12px 0}.helpbox ol{font-size:12px;color:#b9c6d5;padding-left:20px}.helpbox button{margin-top:16px;width:100%}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+@media(min-width:1650px){.layout{grid-template-columns:235px minmax(0,1fr) 340px}.workspace{padding:28px 32px 0}.panel-scroll{max-height:980px}}
+@media(max-width:1120px){.layout{grid-template-columns:185px minmax(0,1fr)}.inspector{grid-column:1/-1;border-top:1px solid var(--edge);border-left:0}.panel-scroll{max-height:none}.panelcontent{max-width:900px;margin:auto}.tabs{max-width:600px;margin:auto}.stat{padding:13px}.topmeta .signal{display:none}.missionstrip{grid-template-columns:1fr 1fr}.missionstrip>div:first-child{grid-column:1/-1}.workspace{padding:18px 14px 0}}
+@media(max-width:700px){.topbar{padding:17px 14px;align-items:flex-start;flex-wrap:wrap}.brand p{font-size:8px}h1{font-size:21px}.mark{width:30px;height:30px}.topmeta{width:100%;justify-content:space-between;gap:7px}.topactions button,.filelabel{padding:7px 10px;font-size:11px;min-height:35px}.metrics{grid-template-columns:repeat(4,1fr)}.stat{padding:11px 13px;border-bottom:1px solid #1b2937}.stat strong{font-size:19px}.stat span{font-size:8px}.layout{display:flex;flex-direction:column}.roster{order:2;border-top:1px solid var(--edge);border-right:0;padding:15px 12px;max-height:240px;overflow:auto}.workspace{order:1;padding:19px 12px 0}.inspector{order:3;padding:19px 15px}.crewlist{display:grid;grid-template-columns:1fr 1fr}.depthead{grid-column:1/-1}.crewcard.child{padding-left:12px}.viewhead h2{font-size:19px}.viewhead p{font-size:10px}.badge{font-size:8px}.canvaswrap canvas{min-width:830px}.shipcaption{font-size:9px}.missionstrip{padding:13px;gap:10px}.feed{padding-bottom:18px}.feedline{font-size:10px}.footer{padding:15px;line-height:1.7;flex-direction:column}.panel-scroll{max-height:650px}.helpbox{padding:21px}.clock{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style></head><body>
+<header class="topbar"><div class="brand"><div class="mark" aria-hidden="true"><span>✦</span></div><div><h1>STARWARD</h1><p>ZSS LABORATORIES / AUTONOMOUS EXPLORATION</p></div></div><div class="topmeta"><span class="signal">CREW NETWORK ONLINE</span><span class="clock" id="clock">MISSION 00:00</span><div class="topactions"><button id="helpbutton" data-action="help" title="How to play">Guide</button><button id="savebutton" data-action="save">Save voyage</button><label class="filelabel">Load<input id="loadfile" type="file" accept=".json,application/json" aria-label="Load saved voyage"></label></div></div></header>
+<section class="metrics" aria-label="Ship status">
+<div class="stat"><span>Hull integrity</span><strong id="hullValue"></strong><div class="bar"><i id="hullBar"></i></div></div>
+<div class="stat"><span>Oxygen</span><strong id="oxygenValue"></strong><div class="bar"><i id="oxygenBar"></i></div></div>
+<div class="stat"><span>Reactor output</span><strong id="powerValue"></strong><div class="bar"><i id="powerBar"></i></div></div>
+<div class="stat"><span>Crew aboard</span><strong id="crewValue"></strong><small>six departments</small></div>
+<div class="stat"><span>Jump fuel</span><strong id="fuelValue"></strong><small>sector survey refuels</small></div>
+<div class="stat"><span>Salvage / parts</span><strong id="scrapValue"></strong><small id="partsValue"></small></div>
+<div class="stat"><span>Food / medkits</span><strong id="foodValue"></strong><small id="medValue"></small></div>
+<div class="stat"><span>Research data</span><strong id="dataValue"></strong><small>shared science archive</small></div>
+</section>
+<div class="layout">
+<aside class="roster" aria-label="Crew hierarchy"><div class="sectionhead"><h2>Chain of command</h2><span class="eyebrow">16 AGENTS</span></div><div id="crewlist" class="crewlist"></div></aside>
+<main class="workspace"><div class="viewhead"><div><div class="eyebrow" style="margin-bottom:7px">EXPLORER CLASS / NCC-ZSS-0315</div><h2>ZSS Resolute</h2><p id="sectorlabel">Eos Anchorage · Reclamation mission</p></div><span class="badge" id="alertbadge">AUTONOMY ACTIVE</span></div>
+<div class="toolbar"><div class="segmented" aria-label="Display"><button id="viewship" data-action="view" data-value="ship" class="active">Ship interior</button><button id="viewmap" data-action="view" data-value="map">Sector map</button></div><div class="timecontrols" aria-label="Simulation speed"><button id="pause" data-action="pause">Ⅱ Pause</button><button id="speed1" data-action="speed" data-value="1" class="active">1×</button><button id="speed2" data-action="speed" data-value="2">2×</button><button id="speed5" data-action="speed" data-value="5">5×</button></div></div>
+<div class="canvaswrap"><canvas id="ship" width="1200" height="650" tabindex="0" role="img" aria-label="Live pixel starship. Select compartments using the buttons below, or select crew from the roster."></canvas></div>
+<div class="shipcaption"><div class="legend"><span><i></i>CREW / SYSTEMS</span><span><i style="background:#ffbd73"></i>ENGINEERING</span><span><i style="background:#f18495"></i>INCIDENT</span></div><span id="viewhint">Select a room or crew member · Scroll sideways on mobile</span></div>
+<nav id="roomaccess" class="roomaccess" aria-label="Select compartment or destination"></nav>
+<section id="missionstrip" class="missionstrip" aria-label="Mission progress"></section>
+<section class="feed" aria-label="Recent crew communications"><div class="sectionhead"><h2>Ship communications</h2><span class="eyebrow">LIVE CHANNEL</span></div><div id="feed"></div></section>
+</main>
+<aside class="inspector" aria-label="Mission controls and inspector"><nav class="tabs" aria-label="Control panel"><button id="taborders" class="active" data-action="tab" data-value="orders">Command</button><button id="tabdetails" data-action="tab" data-value="details">Inspect</button><button id="tabresearch" data-action="tab" data-value="research">Science</button><button id="tabtasks" data-action="tab" data-value="tasks">Orders</button></nav><div class="panel-scroll"><div id="panel" class="panelcontent"></div></div></aside>
+</div>
+<footer class="footer"><span>ZSS LABORATORIES · INTELLIGENCE ADVANCES ALONGSIDE HUMANITY</span><span>RULE-BASED CREW AGENTS · OFFLINE READY · VOYAGE SAVED ON THIS DEVICE</span></footer>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="help" class="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="helpbox"><div class="eyebrow">WELCOME ABOARD, ADMIRAL</div><h2 id="helpTitle">A crew with a job to do.</h2><p>The Resolute is a damaged exploration ship. Your 16 crew members make local decisions, follow a captain-led hierarchy, and physically travel to carry out their orders.</p><ol><li><b>Set the captain's priority.</b> Explore, repair, research or look after the crew. Department heads create and delegate the work.</li><li><b>Watch the ship.</b> Engineers diagnose, fabricate and repair. Medical treats injuries. Security contains incidents and checks crew safety. Operations handles supplies, salvage and navigation.</li><li><b>Go beyond the ship.</b> Choose an adjacent destination on the sector map, or enable autonomous navigation. Scientists survey each new sector for data, fuel and materials.</li><li><b>Build a better vessel.</b> Research unlocks repair drones, adaptive shields and hydroponics. Engineers can construct them once materials are available.</li><li><b>Complete the expedition.</b> Map every compartment, survey five sectors, and develop three technologies. Continue exploring after the objective is complete.</li></ol><p>These are simulated decision-making agents. No language model, API key or internet connection is needed. Time advances while this page is active. Autosave stays on this device; use <b>Save voyage</b> to keep a portable backup.</p><p><b>Keyboard:</b> Space pauses, 1 / 2 / 5 changes speed, M switches views. Room and destination buttons provide keyboard access to the map.</p><button id="closehelp" class="primary" data-action="closehelp">Take command →</button></div></div>
+<script id="simulation-engine">
+"use strict";
+const StarshipDefs = (() => {
+ const rooms = [
+ ["engines","Propulsion","engineering",0,0,92],["security","Security","security",1,0,100],["bridge","Command bridge","command",2,0,100],["sensors","Sensor array","science",3,0,76],["observatory","Observatory","science",4,0,100],
+ ["reactor","Reactor core","engineering",0,1,62],["workshop","Fabrication","engineering",1,1,100],["medbay","Medical bay","medical",2,1,100],["lab","Research lab","science",3,1,90],["archive","Sealed archive","science",4,1,68],
+ ["life","Life support","operations",0,2,88],["cargo","Cargo hold","operations",1,2,80],["mess","Galley & mess","operations",2,2,100],["quarters","Crew quarters","operations",3,2,100],["hangar","Shuttle bay","operations",4,2,72]
+ ].map(([id,name,dept,col,row,integrity])=>({id,name,dept,col,row,integrity,x:155+col*192,y:115+row*151,w:176,h:116}));
+ const crew = [
+ ["vale","Mira Vale","Captain","command",1,"bridge",.92],["holt","Elias Holt","Executive officer","command",2,"bridge",.84],
+ ["rook","Ada Rook","Chief engineer","engineering",3,"reactor",.95],["kit","Kit Mercer","Systems engineer","engineering",4,"engines",.76],["bolt","Bo Tan","Fabricator","engineering",4,"workshop",.82],
+ ["sol","Dr. Nia Sol","Chief medical officer","medical",3,"medbay",.94],["reed","Sam Reed","Medic","medical",4,"medbay",.77],
+ ["imani","Imani Voss","Chief science officer","science",3,"lab",.93],["orin","Orin Kade","Research officer","science",4,"sensors",.8],
+ ["ward","Juno Ward","Chief of security","security",3,"security",.91],["pike","Ash Pike","Security officer","security",4,"cargo",.79],
+ ["chen","Lena Chen","Chief of operations","operations",3,"cargo",.9],["moss","Eden Moss","Quartermaster","operations",4,"mess",.75],["ari","Ari Bell","Flight officer","operations",4,"bridge",.85],["nova","Nova Quinn","General crew","operations",4,"quarters",.7],["lux","Lux","Utility android","operations",4,"workshop",.83]
+ ];
+ const colors={command:"#ffbd73",engineering:"#f7ca67",medical:"#79e3ac",science:"#7dd9fb",security:"#f18495",operations:"#c0a7ef"};
+ const sectors=[
+ {id:0,name:"Eos Anchorage",x:130,y:330,links:[1,2],type:"station"},
+ {id:1,name:"Cinder Belt",x:335,y:180,links:[0,2,3],type:"salvage"},
+ {id:2,name:"The Quiet Reach",x:350,y:460,links:[0,1,4],type:"signal"},
+ {id:3,name:"Vesper Wreck",x:560,y:105,links:[1,4,5],type:"derelict"},
+ {id:4,name:"Morrow's Veil",x:585,y:345,links:[2,3,5,6],type:"nebula"},
+ {id:5,name:"Kepler's Rest",x:825,y:175,links:[3,4,7],type:"station"},
+ {id:6,name:"Glass Ocean",x:840,y:470,links:[4,7],type:"planet"},
+ {id:7,name:"The Far Beacon",x:1050,y:320,links:[5,6],type:"signal"}
+ ];
+ const research=[
+ {id:"drone",name:"Maintenance drones",cost:16,description:"Unlock a repair drone; engineers work 35% faster.",build:"drone"},
+ {id:"shield",name:"Adaptive shielding",cost:22,description:"Unlock a shield emitter; reduce incident damage.",build:"shield"},
+ {id:"medicine",name:"Regenerative medicine",cost:26,description:"Medical treatment becomes 50% faster."},
+ {id:"sensors",name:"Deep-field analysis",cost:30,description:"Surveys collect 50% more research data."},
+ {id:"food",name:"Closed-loop hydroponics",cost:32,description:"Unlock a hydroponics unit for a steady food supply.",build:"food"}
+ ];
+ const builds={
+ drone:{name:"Repair drone",room:"workshop",scrap:18,parts:3,required:50},
+ shield:{name:"Shield emitter",room:"reactor",scrap:22,parts:4,required:60},
+ food:{name:"Hydroponics unit",room:"life",scrap:18,parts:3,required:45}
+ };
+ const kinds={
+ survey:{dept:["security","science","operations"],time:18,label:"Survey compartment"},
+ diagnose:{dept:["engineering"],time:9,label:"Diagnose fault"},
+ fabricate:{dept:["engineering","operations"],time:17,label:"Fabricate repair parts"},
+ repair:{dept:["engineering"],time:26,label:"Restore system"},
+ fire:{dept:["security","engineering","operations"],time:20,label:"Suppress fire"},
+ treat:{dept:["medical"],time:20,label:"Treat injured crew"},
+ patrol:{dept:["security"],time:24,label:"Patrol & inspect"},
+ audit:{dept:["security"],time:16,label:"Check crew safety"},
+ scan:{dept:["science"],time:30,label:"Scan local sector"},
+ experiment:{dept:["science"],time:30,label:"Analyse stellar samples"},
+ research:{dept:["science"],time:65,label:"Develop technology"},
+ salvage:{dept:["operations","engineering"],time:25,label:"Recover usable materials"},
+ supplies:{dept:["operations"],time:24,label:"Prepare crew supplies"},
+ medkits:{dept:["medical","operations"],time:22,label:"Prepare medical kits"},
+ build:{dept:["engineering"],time:50,label:"Construct equipment"},
+ navigate:{dept:["operations","command"],time:30,label:"Plot & execute jump"}
+ };
+ return {rooms,crew,colors,sectors,research,builds,kinds};
+})();
+class StarshipSim {
+ constructor(seed=315) {
+  this.s={version:1,seed:seed>>>0,time:0,nextId:1,hull:91,oxygen:98,fuel:7,scrap:48,parts:9,food:74,medkits:12,data:0,threat:0,
+   focus:"explore",autoNav:true,paused:false,speed:1,sector:0,visited:[0],scanned:[],technologies:[],built:[],tasks:[],log:[],orders:[],
+   nextIncident:95,directorAt:0,gameover:false,victory:false,jumps:0,completed:0,
+   rooms:StarshipDefs.rooms.map(r=>({id:r.id,integrity:r.integrity,fire:0,breach:0,surveyed:!["archive","hangar","cargo"].includes(r.id)})),
+   crew:StarshipDefs.crew.map(([id,name,role,dept,rank,room,skill],i)=>{
+    const p=this.point(room);return {id,name,role,dept,rank,room,skill,x:p.x+(i%3-1)*10,y:p.y,health:100,energy:82+(i%4)*4,hunger:85,morale:85,task:null,path:[],destination:null,activity:"Awaiting orders",memory:[],dead:false,need:null,work:0};
+   })};
+  this.log("command","CAPTAIN VALE","Reclaim the Resolute. Map sealed compartments, restore her systems, then follow the far beacon.");
+  this.log("engineering","ADA ROOK","Reactor damage confirmed. Preparing a diagnostic → fabrication → repair plan.");
+  this.s.orders.push({id:"CAP-0",time:0,focus:"explore",text:"Reclaim the ship, protect the crew and investigate the far beacon.",by:"vale"});
+  this.director();
+ }
+ point(id) {const r=StarshipDefs.rooms.find(r=>r.id===id);return {x:r.x+r.w/2,y:r.y+r.h-19};}
+ room(id) {return this.s.rooms.find(r=>r.id===id);}
+ crew(id) {return this.s.crew.find(c=>c.id===id);}
+ rand() {this.s.seed=(Math.imul(this.s.seed,1664525)+1013904223)>>>0;return this.s.seed/4294967296;}
+ log(dept,who,message) {this.s.log.unshift({time:this.s.time,dept,who,message});if(this.s.log.length>120)this.s.log.length=120;}
+ leader(dept) {return this.s.crew.filter(c=>!c.dead&&c.dept===dept).sort((a,b)=>a.rank-b.rank)[0]||this.captain();}
+ captain() {return this.s.crew.filter(c=>!c.dead).sort((a,b)=>a.rank-b.rank)[0];}
+ power() {return Math.round(this.room("reactor").integrity*(this.room("reactor").fire>0?.6:1));}
+ alive() {return this.s.crew.filter(c=>!c.dead);}
+ add(kind,room,extra={}) {
+  if(!StarshipDefs.kinds[kind]||!this.room(room))return null;
+  if(this.s.tasks.filter(t=>!["done","cancelled"].includes(t.status)).length>=70)return null;
+  const def=StarshipDefs.kinds[kind],head=this.leader(def.dept[0]),captain=this.captain();
+  if(!head||!captain)return null;
+  const t={id:"T"+this.s.nextId++,kind,room,priority:50,required:def.time,progress:0,status:"queued",assignee:null,depends:[],target:null,chain:null,blueprint:null,sector:null,started:false,created:this.s.time,issuedBy:head.id,captain:captain.id,order:this.s.orders[0]?.id||"CAP-0",blocked:"",...extra};
+  this.s.tasks.push(t);return t;
+ }
+ has(kind,room,target=null) {return this.s.tasks.some(t=>t.kind===kind&&t.room===room&&(target===null||t.target===target)&&!["done","cancelled"].includes(t.status));}
+ activeChain(id) {return this.s.tasks.some(t=>t.chain===id&&!["done","cancelled"].includes(t.status));}
+ repairPlan(id,priority=78) {
+  const r=this.room(id);if(!r||!r.surveyed||this.activeChain(id)||(r.integrity>=98&&r.breach===0))return false;
+  const a=this.add("diagnose",id,{priority,chain:id});
+  if(!a)return false;
+  const b=this.add("fabricate","workshop",{priority:priority-1,chain:id,depends:[a.id]});
+  const c=b&&this.add("repair",id,{priority:priority-2,chain:id,depends:[b.id]});
+  if(!b||!c){a.status="cancelled";if(b)b.status="cancelled";return false;}
+  this.log("engineering",this.leader("engineering").name,"Plan "+a.id+": diagnose "+StarshipDefs.rooms.find(x=>x.id===id).name+", fabricate parts, then restore the system.");
+  return true;
+ }
+ setFocus(focus) {
+  if(!["explore","repair","research","welfare"].includes(focus))return false;
+  this.s.focus=focus;const captain=this.captain();if(!captain)return false;
+  const text={explore:"Map our ship and survey each new sector. Keep the crew safe.",repair:"Engineering has priority. Restore systems before pushing onward.",research:"Science has priority. Gather evidence and develop useful technology.",welfare:"Crew welfare first. Medical, food and rest take priority."}[focus];
+  this.s.orders.unshift({id:"CAP-"+this.s.nextId++,time:this.s.time,focus,text,by:captain.id});this.s.orders=this.s.orders.slice(0,30);
+  this.log("command",captain.name,text);this.s.directorAt=0;return true;
+ }
+ route(from,to) {
+  if(from===to)return [];
+  const defs=StarshipDefs.rooms,q=[[from]],seen=new Set([from]);
+  while(q.length){const p=q.shift(),a=defs.find(r=>r.id===p[p.length-1]);
+   for(const b of defs){if(seen.has(b.id))continue;
+    const adjacent=a.row===b.row&&Math.abs(a.col-b.col)===1||a.col===b.col&&[1,3].includes(a.col)&&Math.abs(a.row-b.row)===1;
+    if(!adjacent)continue;const n=p.concat(b.id);if(b.id===to)return n.slice(1);seen.add(b.id);q.push(n);
+   }
+  }return null;
+ }
+ travel(c,to,dt) {
+  if(c.room===to&&!c.path.length){c.destination=null;return true;}
+  if(c.destination!==to||!c.path.length){c.path=this.route(c.room,to)||[];c.destination=to;}
+  let remaining=dt*38;
+  while(c.path.length&&remaining>0){
+   const id=c.path[0],p=this.point(id),dx=p.x-c.x,dy=p.y-c.y,d=Math.hypot(dx,dy);
+   if(d<=remaining){c.x=p.x;c.y=p.y;c.room=id;c.path.shift();remaining-=d;}
+   else {c.x+=dx/d*remaining;c.y+=dy/d*remaining;remaining=0;}
+  }
+  if(!c.path.length)c.destination=null;
+  return c.room===to&&!c.path.length;
+ }
+ release(c) {if(c.task){const t=this.s.tasks.find(t=>t.id===c.task);if(t&&!["done","cancelled"].includes(t.status)){t.assignee=null;t.status="queued";}}c.task=null;c.path=[];c.destination=null;}
+ ready(t) {return t.depends.every(id=>this.s.tasks.some(d=>d.id===id&&d.status==="done"));}
+ canAfford(t) {
+  const s=this.s;
+  if(t.started)return true;
+  if(t.kind==="fabricate"&&s.scrap<4)return false;
+  if(t.kind==="repair"&&s.parts<2)return false;
+  if(t.kind==="research"&&s.data<(StarshipDefs.research.find(r=>r.id===t.target)?.cost??Infinity))return false;
+  if(t.kind==="build"){const b=StarshipDefs.builds[t.blueprint];return !!b&&s.scrap>=b.scrap&&s.parts>=b.parts;}
+  if(t.kind==="medkits"&&s.scrap<2)return false;
+  if(t.kind==="navigate"&&s.fuel<1)return false;
+  if(t.kind==="treat"&&s.medkits<1)return false;
+  return true;
+ }
+ begin(t) {
+  if(!this.canAfford(t))return false;
+  if(t.started)return true;
+  const s=this.s;
+  if(t.kind==="fabricate")s.scrap-=4;
+  if(t.kind==="repair")s.parts-=2;
+  if(t.kind==="research")s.data-=StarshipDefs.research.find(r=>r.id===t.target).cost;
+  if(t.kind==="build"){const b=StarshipDefs.builds[t.blueprint];s.scrap-=b.scrap;s.parts-=b.parts;}
+  if(t.kind==="medkits")s.scrap-=2;
+  if(t.kind==="navigate")s.fuel-=1;
+  if(t.kind==="treat")s.medkits-=1;
+  t.started=true;return true;
+ }
+ queueBuild(id) {
+  if(!StarshipDefs.builds[id]||!this.s.technologies.includes(id)||this.s.built.includes(id)||this.s.tasks.some(t=>t.kind==="build"&&t.blueprint===id&&!["done","cancelled"].includes(t.status)))return false;
+  const b=StarshipDefs.builds[id];if(!this.add("build",b.room,{blueprint:id,required:b.required,priority:68}))return false;
+  this.log("engineering",this.leader("engineering").name,b.name+" accepted for fabrication. Materials will be reserved when construction starts.");return true;
+ }
+ jump(id) {
+  if(!Number.isInteger(id)||!StarshipDefs.sectors[this.s.sector].links.includes(id)||this.s.fuel<1||this.s.tasks.some(t=>t.kind==="navigate"&&!["done","cancelled"].includes(t.status)))return false;
+  if(!this.add("navigate","bridge",{sector:id,priority:58}))return false;this.log("command",this.captain().name,"Flight control: plot a course to "+StarshipDefs.sectors[id].name+".");return true;
+ }
+ director() {
+  const s=this.s;if(s.gameover)return;
+  s.directorAt=s.time+6;
+  const cap=this.captain();if(!cap){s.gameover=true;s.paused=true;return;}
+  for(const c of s.crew){
+   if(c.dead)continue;
+   if(c.health<87&&!this.has("treat","medbay",c.id))this.add("treat","medbay",{target:c.id,priority:95+(87-c.health)/10});
+  }
+  for(const r of s.rooms){
+   if(!r.surveyed){if(!this.has("survey",r.id))this.add("survey",r.id,{priority:s.focus==="explore"?76:43});continue;}
+   if(r.fire>0&&!this.has("fire",r.id))this.add("fire",r.id,{priority:125,required:18});
+   if((r.integrity<83||r.breach>0)&&!this.activeChain(r.id))this.repairPlan(r.id,r.id==="reactor"||r.id==="life"||r.breach>0?99:(s.focus==="repair"?94:72));
+  }
+  if(s.scrap<65&&!this.has("salvage","cargo"))this.add("salvage","cargo",{priority:s.scrap<10?111:45});
+  if(s.food<70&&!this.has("supplies","mess"))this.add("supplies","mess",{priority:s.food<20?108:52});
+  if(s.medkits<6&&!this.has("medkits","medbay"))this.add("medkits","medbay",{priority:s.medkits<1?114:67});
+  if(!this.has("patrol","security"))this.add("patrol","security",{priority:s.threat>0?118:35});
+  const tired=s.crew.find(c=>{const job=s.tasks.find(t=>t.id===c.task);return !c.dead&&job&&(c.energy<34||(s.time-job.created>150&&job.progress<job.required*.2))&&!this.has("audit",c.room,c.id);});
+  if(tired&&!s.tasks.some(t=>t.kind==="audit"&&!["done","cancelled"].includes(t.status)))this.add("audit",tired.room,{target:tired.id,priority:82});
+  if(!s.scanned.includes(s.sector)&&!this.has("scan","sensors"))this.add("scan","sensors",{sector:s.sector,priority:s.focus==="explore"?83:66});
+  if(!this.has("experiment","lab"))this.add("experiment","lab",{priority:s.focus==="research"?88:42});
+  const next=StarshipDefs.research.find(r=>!s.technologies.includes(r.id));
+  if(next&&s.data>=next.cost&&!s.tasks.some(t=>t.kind==="research"&&!["done","cancelled"].includes(t.status)))this.add("research","lab",{target:next.id,priority:s.focus==="research"?96:74});
+  for(const id of s.technologies){if(StarshipDefs.builds[id]&&s.scrap>35&&s.parts>4)this.queueBuild(id);}
+  const unsafe=s.oxygen<65||s.hull<45||s.threat>40||s.rooms.some(r=>r.fire>0||r.breach>0);
+  if(s.autoNav&&!unsafe&&s.rooms.every(r=>r.surveyed)&&s.scanned.includes(s.sector)&&!s.tasks.some(t=>t.kind==="navigate"&&!["done","cancelled"].includes(t.status))){
+   const links=StarshipDefs.sectors[s.sector].links;
+   const target=links.find(id=>!s.visited.includes(id))??links[Math.floor(this.rand()*links.length)];
+   this.jump(target);
+  }
+  // Keep dependency records until every live dependent finishes.
+  const protectedIds=new Set(s.tasks.filter(t=>!["done","cancelled"].includes(t.status)).flatMap(t=>t.depends));
+  if(s.tasks.length>220){let n=s.tasks.length-180;s.tasks=s.tasks.filter(t=>{if(n>0&&["done","cancelled"].includes(t.status)&&!protectedIds.has(t.id)){n--;return false;}return true;});}
+ }
+ eligible(c,t) {
+  const departments=StarshipDefs.kinds[t.kind].dept;
+  if(departments.includes(c.dept))return true;
+  return c.dept==="operations"&&this.s.crew.filter(x=>departments.includes(x.dept)).every(x=>x.dead||x.health<60);
+ }
+ choose(c) {
+  const choices=this.s.tasks.filter(t=>t.status==="queued"&&!t.assignee&&this.ready(t)&&this.canAfford(t)&&this.eligible(c,t)&&!(t.kind==="treat"&&t.target===c.id));
+  choices.sort((a,b)=>this.score(c,b)-this.score(c,a));
+  if(choices.length){const t=choices[0];t.status="assigned";t.assignee=c.id;c.task=t.id;c.activity=StarshipDefs.kinds[t.kind].label;c.memory.unshift("Assigned "+t.id+" by "+(this.crew(t.issuedBy)?.name||"command"));c.memory=c.memory.slice(0,8);}
+ }
+ score(c,t) {
+  let boost=0;
+  if(this.s.focus==="repair"&&["repair","fabricate","diagnose","fire"].includes(t.kind))boost=20;
+  if(this.s.focus==="research"&&["research","experiment"].includes(t.kind))boost=25;
+  if(this.s.focus==="welfare"&&["treat","supplies","medkits","audit"].includes(t.kind))boost=25;
+  const distance=(this.route(c.room,t.room)||[]).length;
+  return t.priority+boost-distance*3+(t.kind==="navigate"&&c.id==="ari"?20:0);
+ }
+ finish(t,c) {
+  const s=this.s,r=this.room(t.room);t.status="done";t.assignee=null;c.task=null;c.activity="Task complete";s.completed++;c.work++;c.morale=Math.min(100,c.morale+1);
+  c.memory.unshift("Completed "+t.id+": "+StarshipDefs.kinds[t.kind].label);c.memory=c.memory.slice(0,8);
+  let message="";
+  switch(t.kind){
+   case "survey":r.surveyed=true;s.data+=4;s.scrap+=4;message="Compartment mapped: "+StarshipDefs.rooms.find(x=>x.id===r.id).name+". Recovered materials and technical records.";break;
+   case "diagnose":message="Fault isolated in "+StarshipDefs.rooms.find(x=>x.id===r.id).name+". Fabrication team has the specifications.";break;
+   case "fabricate":s.parts+=3;message="Replacement assembly fabricated. Repair team cleared to proceed.";break;
+   case "repair":r.integrity=100;r.breach=0;s.hull=Math.min(100,s.hull+3);message=StarshipDefs.rooms.find(x=>x.id===r.id).name+" restored. Hull seams sealed.";break;
+   case "fire":r.fire=0;message="Fire contained. Compartment is safe for engineering.";break;
+   case "treat":{const patient=this.crew(t.target);if(patient&&!patient.dead){patient.health=100;patient.energy=Math.min(100,patient.energy+15);patient.need=null;message=patient.name+" is fit for duty.";}break;}
+   case "patrol":s.threat=Math.max(0,s.threat-35);message=s.threat>0?"Threat reduced. Continuing containment.":"Patrol complete. Crew stations and access protocols checked.";break;
+   case "audit":{const person=this.crew(t.target);if(person&&!person.dead){person.morale=Math.min(100,person.morale+5);if(person.energy<38){person.need="rest";this.release(person);}message="Safety check on "+person.name+": relief and rest authorised when needed.";}break;}
+   case "scan":if(!s.scanned.includes(t.sector)){s.scanned.push(t.sector);s.data+=s.built.includes("sensors")||s.technologies.includes("sensors")?18:12;s.scrap+=6;s.fuel=Math.min(20,s.fuel+2);message="Sector survey complete. Recovered navigational data, 6 scrap and 2 fuel.";}break;
+   case "experiment":s.data=Math.min(500,s.data+(s.technologies.includes("sensors")?12:8));message="Sample analysis complete. Findings added to the research archive.";break;
+   case "research":if(!s.technologies.includes(t.target)){s.technologies.push(t.target);message="Research completed: "+StarshipDefs.research.find(x=>x.id===t.target).name+".";}break;
+   case "salvage":s.scrap=Math.min(200,s.scrap+12);message="Salvage sorted: 12 usable scrap recovered.";break;
+   case "supplies":s.food=Math.min(100,s.food+22);message="Fresh rations prepared for the crew.";break;
+   case "medkits":s.medkits=Math.min(40,s.medkits+5);message="Medical locker restocked with 5 treatment kits.";break;
+   case "build":if(!s.built.includes(t.blueprint)){s.built.push(t.blueprint);message=StarshipDefs.builds[t.blueprint].name+" constructed, tested and brought online.";}break;
+   case "navigate":s.sector=t.sector;s.jumps++;if(!s.visited.includes(t.sector))s.visited.push(t.sector);message="Arrived in "+StarshipDefs.sectors[t.sector].name+". Science: begin a local survey.";break;
+  }
+  if(message)this.log(c.dept,c.name,message);
+ }
+ incident(kind=null) {
+  const s=this.s;if(s.gameover)return;
+  const kinds=["fire","breach","injury","intruder","discovery"];
+  kind=kind||kinds[Math.floor(this.rand()*kinds.length)];
+  const pool=s.rooms.filter(r=>r.surveyed&&!["bridge","medbay"].includes(r.id));
+  const r=pool[Math.floor(this.rand()*pool.length)],crew=this.alive(),c=crew[Math.floor(this.rand()*crew.length)];
+  const shield=s.built.includes("shield")?.5:1;
+  if(kind==="fire"){r.fire=Math.min(100,r.fire+30*shield);r.integrity=Math.max(0,r.integrity-12*shield);this.log("security","SHIP ALERT","Electrical fire in "+StarshipDefs.rooms.find(x=>x.id===r.id).name+". Emergency response requested.");}
+  if(kind==="breach"){r.breach=Math.min(100,r.breach+35*shield);r.integrity=Math.max(0,r.integrity-25*shield);s.hull=Math.max(0,s.hull-7*shield);this.log("engineering","SHIP ALERT","Micrometeorite strike. Hull leak detected in "+StarshipDefs.rooms.find(x=>x.id===r.id).name+".");}
+  if(kind==="injury"&&c){c.health=Math.max(1,c.health-42);this.log("medical","MEDICAL ALERT",c.name+" injured during duty. Medical team notified.");}
+  if(kind==="intruder"){s.threat=Math.min(100,s.threat+48);this.log("security","SECURITY ALERT","Unregistered maintenance drone detected. Security is checking compartments and crew access.");}
+  if(kind==="discovery"){s.data=Math.min(500,s.data+10);s.scrap=Math.min(200,s.scrap+8);this.log("science","SCIENCE REPORT","An old probe is broadcasting star charts. Recovered 10 data and 8 scrap.");}
+  s.directorAt=0;
+ }
+ step(dt=1) {
+  const s=this.s;if(s.paused||s.gameover)return;dt=Math.max(0,Math.min(2,dt));if(!dt)return;
+  s.time+=dt;
+  if(s.time>=s.directorAt)this.director();
+  if(s.time>=s.nextIncident){this.incident();s.nextIncident=s.time+100+this.rand()*75;}
+  const life=this.room("life"),power=this.power(),leaks=s.rooms.reduce((n,r)=>n+r.breach,0);
+  s.oxygen=this.clamp(s.oxygen+((life.integrity>45&&power>25?.08:-.18)-leaks*.0015)*dt);
+  s.hull=this.clamp(s.hull-leaks*.00055*dt);
+  if(s.built.includes("food"))s.food=Math.min(100,s.food+.04*dt);
+  for(const r of s.rooms){
+   if(r.fire>0){r.fire=Math.min(100,r.fire+.025*dt);r.integrity=this.clamp(r.integrity-r.fire*.0015*dt);}
+  }
+  for(const c of s.crew){
+   if(c.dead)continue;const r=this.room(c.room);
+   c.hunger=this.clamp(c.hunger-.035*dt);c.energy=this.clamp(c.energy-(c.task?.065:.025)*dt);
+   c.health=this.clamp(c.health-(r.fire*.0016+(s.oxygen<30?.09:0)+(c.hunger<=0?.025:0))*dt);
+   if(c.health<=0){c.dead=true;this.release(c);c.activity="Lost";this.log("medical","CREW LOSS",c.name+" has died. Command succession updated.");continue;}
+   const assignedTreatment=this.s.tasks.some(t=>t.kind==="treat"&&t.target===c.id&&!["done","cancelled"].includes(t.status));
+   if(assignedTreatment&&(c.need==="medical"||c.health<(c.dept==="medical"?60:87))){if(c.need!=="medical"){this.release(c);c.need="medical";}c.activity="Reporting to medical";if(this.travel(c,"medbay",dt)){c.activity="Awaiting treatment";c.energy=this.clamp(c.energy+.12*dt);if(c.dept==="medical"){c.health=this.clamp(c.health+.3*dt);if(c.health>=65)c.need=null;}}continue;}
+   if(c.need==="medical")c.need=null;
+   if(!c.need&&(c.energy<23||c.hunger<22)){this.release(c);c.need=c.energy<23?"rest":"food";}
+   if(c.need){
+    const to=c.need==="rest"?"quarters":"mess";c.activity=c.need==="rest"?"Resting off duty":"Taking a meal";
+    if(this.travel(c,to,dt)){if(c.need==="rest"){c.energy=this.clamp(c.energy+2*dt);if(c.energy>=92)c.need=null;}
+     else if(s.food>0){const food=Math.min(s.food,.06*dt);s.food-=food;c.hunger=this.clamp(c.hunger+food*45);if(c.hunger>=92)c.need=null;}
+    }continue;
+   }
+   if(!c.task)this.choose(c);
+   const t=s.tasks.find(t=>t.id===c.task);
+   if(t){
+    if(t.status==="cancelled"||t.status==="done"){this.release(c);continue;}
+    // An imminent emergency may interrupt routine work without duplicating claims.
+    if(t.priority<110){const emergency=s.tasks.find(x=>x.status==="queued"&&x.priority>=120&&this.eligible(c,x));if(emergency){this.release(c);this.choose(c);continue;}}
+    c.activity=StarshipDefs.kinds[t.kind].label;
+    if(!this.travel(c,t.room,dt))continue;
+    if(t.kind==="treat"){const p=this.crew(t.target);if(!p||p.dead){t.status="cancelled";this.release(c);continue;}if(p.room!=="medbay"||p.path.length){c.activity="Waiting for patient";continue;}}
+    if(!this.begin(t)){t.blocked="Awaiting materials";this.release(c);continue;}
+    t.blocked="";t.status="working";
+    let rate=(.55+c.skill*.8)*(power<20?.45:1)*(c.energy<35?.7:1);
+    if(!StarshipDefs.kinds[t.kind].dept.includes(c.dept))rate*=.5;
+    if(s.built.includes("drone")&&["repair","fabricate","build"].includes(t.kind))rate*=1.35;
+    if(s.technologies.includes("medicine")&&t.kind==="treat")rate*=1.5;
+    t.progress+=rate*dt;
+    if(t.kind==="fire"){const targetRoom=this.room(t.room);targetRoom.fire=Math.max(0,targetRoom.fire-rate*2*dt);}
+    if(t.kind==="treat"){const p=this.crew(t.target);p.health=Math.min(99,p.health+rate*1.6*dt);}
+    if(t.progress>=t.required)this.finish(t,c);
+   }else{
+    c.activity=c.dept==="command"?"Coordinating departments":"Standing by at station";
+    const home=StarshipDefs.crew.find(x=>x[0]===c.id)[5];this.travel(c,home,dt);
+   }
+  }
+  if(s.hull<=0||s.oxygen<=0||this.alive().length===0){s.gameover=true;s.paused=true;this.log("command","MISSION LOST","The Resolute can no longer sustain the mission. Load a saved voyage or begin again.");}
+  if(!s.victory&&s.visited.length>=5&&s.scanned.length>=5&&s.technologies.length>=3&&s.rooms.every(r=>r.surveyed)){
+   s.victory=true;this.log("command","MISSION ACHIEVED","Five sectors surveyed, three technologies developed, and the ship reclaimed. The voyage continues.");
+  }
+  for(const k of ["scrap","parts","food","medkits","data","fuel"])s[k]=Math.max(0,s[k]);
+ }
+ clamp(n) {return Math.max(0,Math.min(100,n));}
+ export() {return JSON.stringify({format:"zss-starward-v1",state:this.s});}
+ static restore(text) {
+  if(typeof text!=="string"||text.length>3000000)throw Error("Save file is too large.");
+  const parsed=JSON.parse(text),s=parsed.state;
+  const fail=()=>{throw Error("This save is not a valid Starward voyage.");};
+  if(parsed.format!=="zss-starward-v1"||!s||s.version!==1)fail();
+  const numeric=(x,min,max)=>typeof x==="number"&&Number.isFinite(x)&&x>=min&&x<=max;
+  const textOk=(x,max=600)=>typeof x==="string"&&x.length<=max;
+  if(!numeric(s.seed,0,4294967295)||!numeric(s.time,0,1e10)||!Number.isInteger(s.seed)||!Number.isInteger(s.nextId)||s.nextId<1||s.nextId>1e9)fail();
+  for(const k of ["hull","oxygen","food","threat"])if(!numeric(s[k],0,100))fail();
+  for(const k of ["fuel","scrap","parts","medkits","data"])if(!numeric(s[k],0,1e7))fail();
+  for(const k of ["nextIncident","directorAt","jumps","completed"])if(!numeric(s[k],0,1e10))fail();
+  if(!["explore","repair","research","welfare"].includes(s.focus)||![1,2,5].includes(s.speed)||![s.paused,s.autoNav,s.gameover,s.victory].every(x=>typeof x==="boolean"))fail();
+  const sector=id=>Number.isInteger(id)&&id>=0&&id<StarshipDefs.sectors.length;
+  if(!sector(s.sector)||!Array.isArray(s.visited)||!Array.isArray(s.scanned)||!s.visited.every(sector)||!s.scanned.every(sector)||s.visited.length>8||s.scanned.length>8||new Set(s.visited).size!==s.visited.length||new Set(s.scanned).size!==s.scanned.length)fail();
+  const knownRoom=id=>StarshipDefs.rooms.some(r=>r.id===id),knownCrew=id=>StarshipDefs.crew.some(c=>c[0]===id);
+  if(!Array.isArray(s.rooms)||s.rooms.length!==15||new Set(s.rooms.map(r=>r.id)).size!==15)fail();
+  for(const r of s.rooms)if(!knownRoom(r.id)||!numeric(r.integrity,0,100)||!numeric(r.fire,0,100)||!numeric(r.breach,0,100)||typeof r.surveyed!=="boolean")fail();
+  if(!Array.isArray(s.crew)||s.crew.length!==16||new Set(s.crew.map(c=>c.id)).size!==16)fail();
+  for(const c of s.crew){
+   const d=StarshipDefs.crew.find(x=>x[0]===c.id);if(!d||c.name!==d[1]||c.role!==d[2]||c.dept!==d[3]||c.rank!==d[4]||c.skill!==d[6]||!knownRoom(c.room))fail();
+   for(const k of ["health","energy","hunger","morale"])if(!numeric(c[k],0,100))fail();
+   if(!numeric(c.x,0,1300)||!numeric(c.y,0,700)||!numeric(c.work,0,1e10)||typeof c.dead!=="boolean"||!textOk(c.activity,100)||!Array.isArray(c.memory)||c.memory.length>8||!c.memory.every(x=>textOk(x,250)))fail();
+   if(![null,"medical","rest","food"].includes(c.need)||!Array.isArray(c.path)||c.path.length>15||!c.path.every(knownRoom)||(c.destination!==null&&!knownRoom(c.destination))||(c.task!==null&&!textOk(c.task,30)))fail();
+   let previous=c.room;
+   for(const next of c.path){const route=new StarshipSim(1).route(previous,next);if(!route||route.length!==1)fail();previous=next;}
+  }
+  const allowedTech=StarshipDefs.research.map(x=>x.id);
+  for(const key of ["technologies","built"]){if(!Array.isArray(s[key])||s[key].length>5||new Set(s[key]).size!==s[key].length||!s[key].every(x=>key==="built"?Object.hasOwn(StarshipDefs.builds,x):allowedTech.includes(x)))fail();}
+  if(!s.built.every(x=>s.technologies.includes(x)))fail();
+  if(!Array.isArray(s.tasks)||s.tasks.length>400||new Set(s.tasks.map(t=>t.id)).size!==s.tasks.length)fail();
+  for(const t of s.tasks){
+   if(!textOk(t.id,30)||!/^T\d+$/.test(t.id)||Number(t.id.slice(1))>=s.nextId||!Object.hasOwn(StarshipDefs.kinds,t.kind)||!knownRoom(t.room)||!["queued","assigned","working","done","cancelled"].includes(t.status))fail();
+   if(!numeric(t.progress,0,1e7)||!numeric(t.required,.1,1e7)||!numeric(t.priority,0,1000)||!numeric(t.created,0,1e10)||typeof t.started!=="boolean")fail();
+   if(!knownCrew(t.issuedBy)||!knownCrew(t.captain)||(t.assignee!==null&&!knownCrew(t.assignee))||!textOk(t.order,40)||!textOk(t.blocked,100)||(t.chain!==null&&!knownRoom(t.chain)))fail();
+   if(!Array.isArray(t.depends)||t.depends.length>3||!t.depends.every(id=>typeof id==="string"&&/^T\d+$/.test(id)&&Number(id.slice(1))<Number(t.id.slice(1))&&(["done","cancelled"].includes(t.status)||s.tasks.some(x=>x.id===id))))fail();
+   if(t.kind==="research"&&!allowedTech.includes(t.target)||["treat","audit"].includes(t.kind)&&!knownCrew(t.target)||t.kind==="build"&&!Object.hasOwn(StarshipDefs.builds,t.blueprint)||["navigate","scan"].includes(t.kind)&&!sector(t.sector))fail();
+   if(t.assignee!==null){const c=s.crew.find(c=>c.id===t.assignee);if(c.task!==t.id||c.dead||!["assigned","working"].includes(t.status)||(!StarshipDefs.kinds[t.kind].dept.includes(c.dept)&&c.dept!=="operations"))fail();}
+  }
+  for(const c of s.crew)if(c.task!==null&&!s.tasks.some(t=>t.id===c.task&&t.assignee===c.id))fail();
+  if(!Array.isArray(s.log)||s.log.length>120||!Array.isArray(s.orders)||s.orders.length>30)fail();
+  for(const l of s.log)if(!numeric(l.time,0,1e10)||!Object.hasOwn(StarshipDefs.colors,l.dept)||!textOk(l.who,120)||!textOk(l.message))fail();
+  for(const o of s.orders)if(!textOk(o.id,40)||!numeric(o.time,0,1e10)||!knownCrew(o.by)||!["explore","repair","research","welfare"].includes(o.focus)||!textOk(o.text))fail();
+  // Rebuild known records rather than accepting arbitrary imported object keys.
+  const copy=(obj,keys)=>Object.fromEntries(keys.map(k=>[k,obj[k]]));
+  const sim=new StarshipSim(1),base=sim.s;
+  for(const k of Object.keys(base))if(!["rooms","crew","tasks","log","orders"].includes(k))base[k]=s[k];
+  base.rooms=s.rooms.map(r=>copy(r,["id","integrity","fire","breach","surveyed"]));
+  base.crew=s.crew.map(c=>copy(c,["id","name","role","dept","rank","room","skill","x","y","health","energy","hunger","morale","task","path","destination","activity","memory","dead","need","work"]));
+  base.tasks=s.tasks.map(t=>copy(t,["id","kind","room","priority","required","progress","status","assignee","depends","target","chain","blueprint","sector","started","created","issuedBy","captain","order","blocked"]));
+  base.log=s.log.map(l=>copy(l,["time","dept","who","message"]));base.orders=s.orders.map(o=>copy(o,["id","time","focus","text","by"]));
+  return sim;
+ }
+}
+</script>
+<script>
+"use strict";
+(() => {
+ const $=id=>document.getElementById(id),D=StarshipDefs,canvas=$("ship"),ctx=canvas.getContext("2d"),STORE="zss-starward-v1";
+ const esc=x=>String(x??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+ const clock=t=>String(Math.floor(t/60)).padStart(2,"0")+":"+String(Math.floor(t%60)).padStart(2,"0");
+ let sim=new StarshipSim(315),view="ship",tab="orders",selected={kind:"room",id:"reactor"},toastTimer=0,lastSave=0,lastPanel=0,lastFrame=0,lastDraw=0,accumulator=0,storageWarned=false,helpPaused=false,helpFocus=null;
+ const reduced=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+ try{const saved=localStorage.getItem(STORE);if(saved)sim=StarshipSim.restore(saved);}catch(e){toast("The previous autosave could not be loaded. A new voyage is ready.");}
+ function toast(message){$("toast").textContent=message;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("toast").textContent="",6500);}
+ function autosave(){try{localStorage.setItem(STORE,sim.export());}catch(e){if(!storageWarned){toast("Autosave is unavailable in this browser. Use Save voyage to download a backup.");storageWarned=true;}}}
+ function patch(id,html){const el=$(id);if(el.innerHTML===html)return;const active=el.contains(document.activeElement)?document.activeElement.id:null,scroll=el.scrollTop;el.innerHTML=html;el.scrollTop=scroll;if(active&&$(active))$(active).focus({preventScroll:true});}
+ function healthBar(value,color="#79e3ac"){return '<div class="taskbar"><i style="width:'+Math.max(0,Math.min(100,value))+'%;background:'+color+'"></i></div>';}
+ function taskTitle(t){let text=D.kinds[t.kind].label;if(t.kind==="research")text=D.research.find(x=>x.id===t.target)?.name||text;if(t.kind==="build")text="Build "+D.builds[t.blueprint].name;if(t.kind==="navigate")text="Jump: "+D.sectors[t.sector].name;if(t.kind==="treat")text="Treat "+(sim.crew(t.target)?.name||"crew");return text;}
+ function taskHtml(t){const owner=t.assignee?sim.crew(t.assignee)?.name:"Awaiting assignment",head=sim.crew(t.issuedBy)?.name,blocked=!sim.ready(t)?"Waiting for "+t.depends.join(", "):!sim.canAfford(t)?"Waiting for materials":t.status;
+  return '<div class="taskitem"><b>'+esc(taskTitle(t))+'</b><span class="tag">'+esc(t.id)+'</span><div class="muted">'+esc(D.rooms.find(r=>r.id===t.room).name)+' · '+esc(blocked)+'</div><div class="muted">'+esc(head)+' → '+esc(owner)+'</div>'+healthBar(t.progress/t.required*100)+'<div class="muted">'+(t.started?"Resources reserved":"Resources checked before starting")+'</div></div>';
+ }
+ function render(){
+  const s=sim.s;
+  $("clock").textContent="MISSION "+clock(s.time);
+  for(const [key,value] of [["hull",s.hull],["oxygen",s.oxygen],["power",sim.power()]]){
+   $(key+"Value").textContent=Math.round(value)+"%";$(key+"Bar").style.width=value+"%";$(key+"Bar").style.background=value<35?"#f18495":value<70?"#ffbd73":"#79e3ac";
+  }
+  $("crewValue").textContent=sim.alive().length+" / 16";$("fuelValue").textContent=Math.floor(s.fuel);$("scrapValue").textContent=Math.floor(s.scrap);$("partsValue").textContent=Math.floor(s.parts)+" fabricated parts";$("foodValue").textContent=Math.round(s.food)+"%";$("medValue").textContent=Math.floor(s.medkits)+" medical kits";$("dataValue").textContent=Math.floor(s.data);
+  $("sectorlabel").textContent=D.sectors[s.sector].name+" · "+(s.victory?"Expedition objective complete":s.focus==="explore"?"Autonomous reclamation & exploration":s.focus==="repair"?"Ship restoration priority":s.focus==="research"?"Scientific research priority":"Crew welfare priority");
+  const emergencies=s.rooms.filter(r=>r.fire>0||r.breach>0).length+(s.threat>0?1:0);
+  $("alertbadge").textContent=s.gameover?"MISSION LOST":s.paused?"SIMULATION PAUSED":emergencies?emergencies+" ACTIVE INCIDENT"+(emergencies>1?"S":""):s.victory?"MISSION ACCOMPLISHED":"AUTONOMY ACTIVE";
+  $("alertbadge").style.color=emergencies?"#f18495":"";
+  $("pause").textContent=s.paused?"▶ Resume":"Ⅱ Pause";$("pause").disabled=s.gameover;
+  for(const n of [1,2,5]){$("speed"+n).classList.toggle("active",s.speed===n);$("speed"+n).setAttribute("aria-pressed",String(s.speed===n));}
+  for(const v of ["ship","map"]){$("view"+v).classList.toggle("active",view===v);$("view"+v).setAttribute("aria-pressed",String(view===v));}
+  for(const name of ["orders","details","research","tasks"]){$("tab"+name).classList.toggle("active",tab===name);$("tab"+name).setAttribute("aria-pressed",String(tab===name));}
+  let roster="";
+  for(const dept of ["command","engineering","medical","science","security","operations"]){
+   roster+='<div class="depthead" style="color:'+D.colors[dept]+'">'+(dept==="command"?"Captain → executive officer":dept)+'</div>';
+   for(const c of s.crew.filter(c=>c.dept===dept)){
+    roster+='<button id="crew-'+c.id+'" class="crewcard '+(c.rank>=4?"child ":"")+(selected.kind==="crew"&&selected.id===c.id?"selected":"")+'" data-action="crew" data-value="'+c.id+'" aria-label="'+esc(c.name+", "+c.role+", "+c.activity)+'"><span class="avatar" style="--crewcolor:'+(c.dead?"#526070":D.colors[dept])+'"></span><span class="crewtext"><b>'+esc(c.name)+(c.rank===1?" ★":"")+'</b><span>'+esc(c.dead?"Lost":c.activity)+'</span></span><i class="workdot" style="background:'+(c.dead?"#f18495":c.need?"#ffbd73":c.task?"#79e3ac":"#466079")+'"></i></button>';
+   }
+  }
+  patch("crewlist",roster);
+  patch("roomaccess",(view==="ship"?D.rooms.map(r=>'<button id="room-'+r.id+'" class="'+(selected.kind==="room"&&selected.id===r.id?"active":"")+'" data-action="room" data-value="'+r.id+'">'+esc(sim.room(r.id).surveyed?r.name:"Unmapped: "+r.name)+'</button>'):D.sectors.map(r=>'<button id="sector-'+r.id+'" class="'+(selected.kind==="sector"&&selected.id===String(r.id)?"active":"")+'" data-action="sector" data-value="'+r.id+'">'+esc(r.name)+(r.id===s.sector?" [here]":"")+'</button>')).join(""));
+  const rooms=s.rooms.filter(r=>r.surveyed).length;
+  patch("missionstrip",'<div><span class="eyebrow">'+(s.victory?"EXPEDITION COMPLETE":"CURRENT EXPEDITION")+'</span><b>'+(s.victory?"The far frontier is open.":"Reclaim. Restore. Reach beyond.")+'</b><p>'+s.completed+' crew tasks completed · '+s.built.length+' ship upgrades built</p></div><div><span class="eyebrow">SHIP RECLAMATION</span><b>'+rooms+' / 15 compartments mapped</b><div class="miniProgress"><i style="width:'+rooms/15*100+'%"></i></div></div><div><span class="eyebrow">SCIENTIFIC EXPEDITION</span><b>'+Math.min(5,s.scanned.length)+' / 5 sectors · '+Math.min(3,s.technologies.length)+' / 3 technologies</b><div class="miniProgress"><i style="width:'+Math.min(100,(Math.min(5,s.scanned.length)/5+Math.min(3,s.technologies.length)/3)*50)+'%"></i></div></div>');
+  patch("feed",s.log.slice(0,5).map(l=>'<div class="feedline"><time>'+clock(l.time)+'</time><i style="background:'+D.colors[l.dept]+'"></i><div><b style="color:'+D.colors[l.dept]+'">'+esc(l.who.toUpperCase())+'</b>'+esc(l.message)+'</div></div>').join(""));
+  $("viewhint").textContent=view==="ship"?"Select a room or crew member · Scroll sideways on mobile":"Select an adjacent sector to plot a jump";
+  renderPanel();
+ }
+ function renderPanel(){
+  const s=sim.s;let html="";
+  if(tab==="orders"){
+   const captain=sim.captain();
+   html='<div class="eyebrow">YOUR ROLE / MISSION ADMIRAL</div><h2 style="margin-top:7px">Captain’s directive</h2><p>Choose the priority. '+esc(captain?.name||"Command")+' and the department heads handle the crew assignments.</p>';
+   for(const [id,symbol,title,desc] of [["explore","⌁","Explore & reclaim","Map compartments. Survey new sectors."],["repair","⚒","Restore the ship","Plan repairs and fabricate replacements."],["research","◇","Advance science","Analyse samples and develop technology."],["welfare","+","Protect the crew","Prioritise treatment, food and rest."]]){
+    html+='<button id="focus-'+id+'" class="full orderbutton '+(s.focus===id?"active":"")+'" data-action="focus" data-value="'+id+'" aria-pressed="'+(s.focus===id)+'"><span class="symbol" aria-hidden="true">'+symbol+'</span><span><b>'+title+'</b><small>'+desc+'</small></span></button>';
+   }
+   html+='<div class="card"><span class="eyebrow">NAVIGATION AUTHORITY</span><h3 style="margin-top:6px">Autonomous exploration</h3><p>The captain jumps to neighbouring sectors after local surveys, when the vessel is safe.</p><button id="autonav" class="full '+(s.autoNav?"primary":"")+'" data-action="autonav" aria-pressed="'+s.autoNav+'">'+(s.autoNav?"✓ Autonomous navigation on":"Enable autonomous navigation")+'</button></div>';
+   html+='<div class="card"><span class="eyebrow">CAPTAIN’S STANDING ORDER</span><p>'+esc(s.orders[0]?.text||"Reclaim the ship, protect the crew and investigate the far beacon.")+'</p><span class="tag">CAPTAIN → XO → HEADS → CREW</span></div>';
+   html+='<h3>Emergency training</h3><p>Introduce a real simulated fault and watch the crew respond.</p><button id="drill" class="full quiet danger" data-action="drill">Trigger a shipboard incident</button>';
+   html+='<div class="instructions">Crew members can interrupt routine work to respond to danger. Meals, rest and treatment are part of the duty cycle. Emergency work always takes priority over your directive.</div><button id="reset" class="full quiet" data-action="reset">Begin a new voyage</button>';
+  }else if(tab==="details"){
+   if(selected.kind==="crew"){
+    const c=sim.crew(selected.id),head=c.rank===1?"You, the admiral":c.rank===2?sim.captain()?.name:c.rank===3?sim.crew("holt").dead?sim.captain()?.name:sim.crew("holt").name:sim.leader(c.dept)?.name;
+    html='<div class="eyebrow" style="color:'+D.colors[c.dept]+'">'+esc(c.dept.toUpperCase())+' / RANK '+c.rank+'</div><h2 style="margin-top:7px">'+esc(c.name)+'</h2><p>'+esc(c.role)+'</p><div class="card"><span class="eyebrow">CURRENT ACTIVITY</span><p style="color:#edf0e8">'+esc(c.activity)+'</p><div class="kv"><span>Location</span>'+esc(D.rooms.find(r=>r.id===c.room).name)+'</div><div class="kv"><span>Reports to</span>'+esc(head)+'</div><div class="kv"><span>Skill proficiency</span>'+Math.round(c.skill*100)+'%</div><div class="kv"><span>Completed tasks</span>'+c.work+'</div></div>';
+    for(const [k,label] of [["health","Health"],["energy","Energy"],["hunger","Fed"],["morale","Morale"]])html+='<div class="kv"><span>'+label+'</span>'+Math.round(c[k])+'%</div>'+healthBar(c[k],c[k]<30?"#f18495":D.colors[c.dept]);
+    const t=s.tasks.find(t=>t.id===c.task);if(t)html+='<h3>Current order</h3>'+taskHtml(t);
+    html+='<h3>Recent task memory</h3>'+c.memory.map(m=>'<div class="card" style="font-size:11px">'+esc(m)+'</div>').join("");
+   }else if(selected.kind==="sector"){
+    const id=Number(selected.id),r=D.sectors[id],here=s.sector===id,adjacent=D.sectors[s.sector].links.includes(id);
+    html='<div class="eyebrow">SECTOR '+String(id+1).padStart(2,"0")+' / '+r.type.toUpperCase()+'</div><h2 style="margin-top:7px">'+esc(r.name)+'</h2><p>'+({station:"An old resupply station and a safe navigation reference.",salvage:"Mineral-rich debris drifts between burnt-out asteroids.",signal:"A repeating transmission reaches out through the dark.",derelict:"A silent cruiser holds lost engineering records.",nebula:"Charged dust conceals uncharted stellar phenomena.",planet:"An ocean of glass beneath a pale distant sun."}[r.type])+'</p><div class="card"><div class="kv"><span>Navigation</span>'+(here?"Current position":adjacent?"Within jump range":"Reach via linked sectors")+'</div><div class="kv"><span>Survey</span>'+(s.scanned.includes(id)?"Complete":"Pending arrival & scan")+'</div><div class="kv"><span>Jump fuel cost</span>1 unit</div><div class="kv"><span>Survey recovery</span>2 fuel + data + scrap</div></div>';
+    html+='<button id="jump-'+id+'" class="full primary" data-action="jump" data-value="'+id+'" '+(!adjacent||s.fuel<1||s.tasks.some(t=>t.kind==="navigate"&&!["done","cancelled"].includes(t.status))?"disabled":"")+'>Plot course to this sector →</button><p style="margin-top:12px">Flight control executes the jump from the bridge. Crew continue their duties during transit.</p>';
+   }else{
+    const r=sim.room(selected.id),d=D.rooms.find(x=>x.id===r.id),tasks=s.tasks.filter(t=>t.room===r.id&&!["done","cancelled"].includes(t.status));
+    html='<div class="eyebrow">DECK '+(d.row+1)+' / '+d.dept.toUpperCase()+'</div><h2 style="margin-top:7px">'+esc(d.name)+'</h2><p>'+esc(r.surveyed?"Mapped compartment. The department head monitors its condition.":"This sealed compartment still needs a crew survey.")+'</p><div class="card"><div class="kv"><span>System integrity</span>'+Math.round(r.integrity)+'%</div>'+healthBar(r.integrity)+'<div class="kv"><span>Fire severity</span>'+Math.round(r.fire)+'%</div><div class="kv"><span>Hull leak severity</span>'+Math.round(r.breach)+'%</div><div class="kv"><span>Crew present</span>'+s.crew.filter(c=>!c.dead&&c.room===r.id&&!c.path.length).length+'</div></div>';
+    html+='<button id="repair-'+r.id+'" class="full primary" data-action="repair" data-value="'+r.id+'" '+(!r.surveyed||sim.activeChain(r.id)||r.integrity>=98&&r.breach===0?"disabled":"")+'>Request engineering repair plan</button>';
+    if(!r.surveyed)html+='<p style="margin-top:10px">The captain has already queued a survey team. Security clears access before engineering begins.</p>';
+    html+='<h3>Compartment orders</h3>'+(tasks.length?tasks.map(taskHtml).join(""):'<p>No outstanding work in this compartment.</p>');
+   }
+  }else if(tab==="research"){
+   html='<div class="eyebrow">SCIENCE → ENGINEERING</div><h2 style="margin-top:7px">The research archive</h2><p>Scientists analyse samples and propose technologies. Engineers build the equipment those discoveries unlock.</p>';
+   for(const r of D.research){const unlocked=s.technologies.includes(r.id),task=s.tasks.find(t=>t.kind==="research"&&t.target===r.id&&!["done","cancelled"].includes(t.status)),b=D.builds[r.build];
+    html+='<div class="card"><span class="status '+(!unlocked?"warn":"")+'">'+(unlocked?"✓ RESEARCH COMPLETE":task?"RESEARCH IN PROGRESS":r.cost+" DATA REQUIRED")+'</span><h3 style="margin-top:6px">'+r.name+'</h3><p>'+r.description+'</p>'+(task?healthBar(task.progress/task.required*100):"");
+    if(b){const pending=s.tasks.some(t=>t.kind==="build"&&t.blueprint===r.build&&!["done","cancelled"].includes(t.status));html+='<div class="muted" style="font-size:10px">Build cost: '+b.scrap+' scrap / '+b.parts+' parts</div><button id="build-'+r.build+'" class="full" data-action="build" data-value="'+r.build+'" '+(!unlocked||s.built.includes(r.build)||pending?"disabled":"")+'>'+(s.built.includes(r.build)?"✓ Installed":pending?"Construction queued":!unlocked?"Blueprint locked":"Commission "+b.name)+'</button>';}
+    html+='</div>';
+   }
+   html+='<div class="instructions">Research and construction also proceed autonomously when resources permit. Materials are spent once, when the assigned crew member starts work.</div>';
+  }else{
+   const active=s.tasks.filter(t=>!["done","cancelled"].includes(t.status)).sort((a,b)=>b.priority-a.priority);
+   html='<div class="eyebrow">DELEGATED WORK / '+active.length+' OPEN</div><h2 style="margin-top:7px">Crew task ledger</h2><p>Every task has an issuing officer, an assigned agent, prerequisites and a progress record.</p>'+active.map(taskHtml).join("")+'<h3>Captain’s directives</h3>'+s.orders.slice(0,5).map(o=>'<div class="card"><span class="eyebrow">'+esc(o.id)+' · '+clock(o.time)+'</span><p>'+esc(o.text)+'</p></div>').join("")+'<h3>Full communications log</h3>'+s.log.slice(0,35).map(l=>'<div class="taskitem"><span class="eyebrow">'+clock(l.time)+' / '+esc(l.who)+'</span><p style="margin-top:5px">'+esc(l.message)+'</p></div>').join("");
+  }
+  patch("panel",html);
+ }
+ const stars=Array.from({length:115},(_,i)=>({x:(i*337+71)%1200,y:(i*173+19)%650,size:i%11===0?2:1,alpha:.22+(i%6)*.09}));
+ function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),w,h);}
+ function text(str,x,y,color="#a8bdcc",size=10,align="left"){ctx.fillStyle=color;ctx.font=size+'px "Courier New",monospace';ctx.textAlign=align;ctx.fillText(str,Math.round(x),Math.round(y));}
+ function line(x1,y1,x2,y2,color,width=1){ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
+ function poly(points,fill,stroke=null){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke();}}
+ function circle(x,y,r,fill,stroke){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}}
+ function consoleAt(x,y,color,wide=22){rect(x,y,wide,19,"#34485b");rect(x+3,y+3,wide-6,10,"#102630");rect(x+5,y+5,wide-10,2,color);rect(x+5,y+9,Math.max(3,wide-15),1,color);rect(x+3,y+16,wide-6,2,"#9baeb6");}
+ function tank(x,y,color){rect(x+3,y,17,3,"#557082");rect(x,y+3,23,39,"#314857");rect(x+3,y+6,17,30,"#142734");rect(x+5,y+11,13,22,color);rect(x+5,y+13,3,17,"#bdd7ce");rect(x+3,y+42,17,3,"#557082");}
+ function equipment(r,time){
+  const x=r.x+12,y=r.y+40,c=D.colors[r.dept],on=sim.power()>20;
+  switch(r.id){
+   case "reactor":
+    rect(x+30,y+2,90,48,"#233c4c");rect(x+38,y+7,74,38,"#122732");
+    for(let i=0;i<5;i++){rect(x+43+i*13,y+11,8,30,on?"#60bbbc":"#45616c");rect(x+45+i*13,y+15,4,22,on?"#bdffe0":"#607887");}
+    rect(x+25,y+15,7,24,"#6e8995");rect(x+121,y+15,7,24,"#6e8995");consoleAt(x+135,y+25,c,17);break;
+   case "engines":
+    for(let i=0;i<3;i++){rect(x+7,y+2+i*16,88,12,"#40586a");rect(x+10,y+5+i*16,77,5,on?"#6a9fa7":"#395260");rect(x+90,y+i*16,16,16,"#65788b");}
+    consoleAt(x+126,y+22,c);break;
+   case "security":
+    for(let i=0;i<4;i++){rect(x+i*27,y+1,23,46,"#39495b");rect(x+3+i*27,y+4,17,39,"#253545");rect(x+14+i*27,y+16,4,2,c);rect(x+7+i*27,y+11,4,19,"#8c9ba7");}
+    consoleAt(x+124,y+25,c);break;
+   case "bridge":
+    poly([[x+10,y-5],[x+145,y-5],[x+137,y+12],[x+18,y+12]],"#203a50","#48738c");
+    for(let i=0;i<4;i++)rect(x+27+i*29,y-1,2,6,"#79b4bf");
+    consoleAt(x+10,y+28,c,31);consoleAt(x+116,y+28,c,31);rect(x+65,y+19,22,23,"#56647a");rect(x+69,y+15,14,21,"#657b8d");break;
+   case "sensors":
+    rect(x+18,y+36,72,5,"#3e6072");rect(x+48,y+9,9,29,"#7596a5");poly([[x+21,y],[x+89,y],[x+73,y+21],[x+37,y+21]],"#5b8695");line(x+54,y+5,x+76,y-8,c,2);consoleAt(x+115,y+23,c,32);break;
+   case "observatory":
+    rect(x+27,y+42,43,3,"#537282");line(x+48,y+40,x+67,y+18,"#637e8e",5);poly([[x+52,y+7],[x+111,y-8],[x+117,y+7],[x+58,y+21]],"#70909c","#9bc1c4");rect(x+114,y-8,5,17,c);consoleAt(x+121,y+26,c);break;
+   case "workshop":
+    rect(x+21,y-4,73,53,"#526b7c");rect(x+27,y+1,61,40,"#11202b");rect(x+29,y+4,57,5,"#97abb4");rect(x+52,y+9,9,13,c);rect(x+43,y+33,27,8,"#72929b");
+    if(sim.s.tasks.some(t=>t.room==="workshop"&&t.status==="working"))rect(x+54,y+23,4,4,"#fff1ad");
+    consoleAt(x+122,y+19,c,28);break;
+   case "medbay":
+    for(let i=0;i<3;i++){rect(x+5+i*49,y+21,41,20,"#789295");rect(x+8+i*49,y+17,34,20,"#bad0c4");rect(x+11+i*49,y+20,8,11,"#eef1d9");rect(x+10+i*49,y+38,4,10,"#4b6b71");}
+    rect(x+70,y-4,20,16,"#215547");rect(x+78,y-2,4,12,c);rect(x+74,y+2,12,4,c);break;
+   case "lab":
+    rect(x+5,y+29,144,8,"#597082");rect(x+12,y+37,6,12,"#3e5262");rect(x+136,y+37,6,12,"#3e5262");
+    for(let i=0;i<3;i++){rect(x+14+i*25,y+6,7,11,"#b6d4da");rect(x+10+i*25,y+17,16,12,"#b6d4da");rect(x+12+i*25,y+20,12,8,["#65bdc7","#a899de","#8acb97"][i]);}consoleAt(x+109,y+5,c,28);break;
+   case "archive":
+    for(let i=0;i<5;i++){rect(x+3+i*30,y-4,25,53,"#32475a");for(let j=0;j<5;j++){rect(x+7+i*30,y+j*9,17,4,"#587181");rect(x+8+i*30,y+j*9,2,2,c);}}break;
+   case "life":
+    tank(x+10,y,c);tank(x+43,y,"#73b8a2");tank(x+76,y,"#6baf9d");consoleAt(x+120,y+24,c,28);break;
+   case "cargo":
+    for(let i=0;i<5;i++){const px=x+8+(i%3)*45,py=y+19-Math.floor(i/3)*26;rect(px,py,37,25,"#576272");rect(px+3,py+3,31,18,"#3d4a5c");rect(px+15,py,5,25,"#798292");rect(px+3,py+11,31,3,"#677686");}break;
+   case "mess":
+    for(let i=0;i<2;i++){rect(x+15+i*75,y+15,58,12,"#677586");rect(x+21+i*75,y+27,5,15,"#465c6e");rect(x+60+i*75,y+27,5,15,"#465c6e");rect(x+21+i*75,y+5,10,8,"#9d8779");rect(x+55+i*75,y+6,10,7,"#83a3a1");rect(x+21+i*75,y+36,40,5,"#887e77");}break;
+   case "quarters":
+    for(let i=0;i<3;i++){rect(x+5+i*49,y-3,40,50,"#526176");rect(x+8+i*49,y+1,34,18,"#344c61");rect(x+8+i*49,y+25,34,18,"#344c61");rect(x+11+i*49,y+4,8,11,"#a4bdc1");rect(x+11+i*49,y+28,8,11,"#a4bdc1");}break;
+   case "hangar":
+    poly([[x+5,y+38],[x+31,y+7],[x+113,y+7],[x+147,y+38]],"#5c7484","#839bac");rect(x+47,y+12,52,14,"#23485d");rect(x+15,y+34,125,7,"#7c8d9a");rect(x+26,y+36,19,10,"#415867");rect(x+111,y+36,19,10,"#415867");break;
+  }
+  if(sim.s.built.includes("food")&&r.id==="life"){for(let i=0;i<3;i++){rect(x+110+i*11,y+8,8,3,"#67ac82");rect(x+113+i*11,y+11,2,10,"#9bd19b");}}
+  if(sim.s.built.includes("shield")&&r.id==="reactor"){rect(x+1,y+9,15,29,"#426477");rect(x+4,y+12,9,23,"#79cbe0");}
+ }
+ function drawCrew(c,time){
+  if(c.dead)return;const moving=c.path.length>0,walk=moving&&!reduced?Math.floor(time*6)%2:0,x=Math.round(c.x),y=Math.round(c.y),color=D.colors[c.dept];
+  rect(x-5,y+2,13,3,"#071019");rect(x-3,y-22,8,3,c.id==="lux"?"#789ea6":"#49515d");rect(x-4,y-19,10,8,c.id==="lux"?"#b2dad7":"#d9b69c");rect(x+3,y-17,2,2,"#14202c");
+  rect(x-5,y-11,12,10,color);rect(x-8,y-10+walk,3,8,color);rect(x+7,y-10-walk,3,8,color);rect(x-4,y-1,4,6-walk,"#70849b");rect(x+3,y-1,4,5+walk,"#70849b");rect(x-3,y-9,2,3,"#e5e1c2");
+  if(c.rank===1){rect(x-5,y-24,13,2,"#f7cc7b");rect(x-3,y-26,9,2,"#f7cc7b");}
+  if(c.need==="rest")text("z",x+7,y-23,"#c0a7ef",10);
+  if(c.need==="medical")text("+",x+9,y-20,"#79e3ac",13);
+  if(c.task&&sim.s.tasks.find(t=>t.id===c.task)?.status==="working"){rect(x+11,y-13,3,3,"#ffdf9c");if(!reduced&&Math.floor(time*4)%2)rect(x+15,y-17,2,2,"#ffbd73");}
+  if(c.health<85){rect(x-9,y-32,19,2,"#3e2638");rect(x-9,y-32,19*c.health/100,2,"#f18495");}
+  if(selected.kind==="crew"&&selected.id===c.id){ctx.strokeStyle="#fff0c1";ctx.lineWidth=1;ctx.strokeRect(x-12,y-30,27,39);text(c.name.split(" ")[0].toUpperCase(),x+2,y-39,"#ffdf9c",10,"center");}
+ }
+ function background(time){
+  ctx.fillStyle="#080e19";ctx.fillRect(0,0,1200,650);
+  for(const s of stars){ctx.globalAlpha=s.alpha;rect((s.x-time*.28+120000)%1200,s.y,s.size,s.size,"#aac5d2");}ctx.globalAlpha=1;
+  circle(1120,105,92,"#152334");circle(1129,100,87,"#101b2b");line(1040,80,1061,69,"#294253",3);
+  text("ZSS // RESOLUTE",33,38,"#8aa2b7",12);text("LIVE DECK TELEMETRY",1168,38,"#59758b",10,"right");
+ }
+ function drawShip(time){
+  background(time);
+  const ship=[[121,91],[1088,91],[1134,119],[1165,188],[1165,460],[1129,560],[1088,592],[121,592],[102,562],[102,121]];
+  poly(ship,"#263547","#526779");poly([[131,102],[1083,102],[1122,127],[1151,192],[1151,456],[1119,550],[1082,579],[130,579],[116,555],[116,130]],"#101b28","#324959");
+  for(let row=0;row<3;row++){
+   const y=115+row*151;rect(117,y+119,1024,17,"#22384a");line(132,y+126,1125,y+126,"#425668");text("D"+(row+1),53,y+58,"#688499",12);
+  }
+  for(const col of [1,3]){const x=155+col*192+88;rect(x-14,226,28,209,"#172c3c");line(x-8,233,x-8,436,"#547083",2);line(x+8,233,x+8,436,"#547083",2);for(let y=235;y<436;y+=13)line(x-8,y,x+8,y,"#607b8b",2);}
+  for(let i=0;i<3;i++){
+   const y=156+i*150;rect(91,y,31,59,"#394e60");rect(87,y+8,6,43,"#6a8e9c");rect(65,y+13,22,32,"#448391");rect(44,y+17,21,24,"#3a647c");
+   if(sim.power()>20){const len=reduced?25:25+Math.floor(Math.sin(time*7+i)*9);rect(43-len,y+22,len,14,"#2c677d");rect(45-len/2,y+26,len/2,6,"#9ce6e4");}
+  }
+  for(const d of D.rooms){
+   const r=sim.room(d.id),selectedRoom=selected.kind==="room"&&selected.id===d.id;
+   rect(d.x-4,d.y-4,d.w+8,d.h+8,"#4b6073");rect(d.x,d.y,d.w,d.h,"#172737");
+   for(let xx=d.x+2;xx<d.x+d.w-2;xx+=22)for(let yy=d.y+27;yy<d.y+d.h-1;yy+=22){rect(xx,yy,21,21,(Math.floor(xx/22)+Math.floor(yy/22))%2?"#192b3b":"#1c2f3f");}
+   rect(d.x,d.y,d.w,24,"#122130");rect(d.x+7,d.y+8,4,6,r.fire>0?"#f18495":r.integrity<75?"#ffbd73":D.colors[d.dept]);
+   text(r.surveyed?d.name.toUpperCase():"UNMAPPED COMPARTMENT",d.x+18,d.y+15,r.surveyed?"#c0cdd6":"#6e8598",9);
+   equipment(d,time);
+   rect(d.x+1,d.y+d.h-8,d.w-2,7,"#4b6070");for(let xx=d.x+8;xx<d.x+d.w;xx+=26)rect(xx,d.y+d.h-8,9,2,"#6c8190");
+   if(!r.surveyed){ctx.globalAlpha=.83;rect(d.x,d.y+25,d.w,d.h-25,"#09121e");ctx.globalAlpha=1;text("?",d.x+d.w/2,d.y+77,"#526b82",30,"center");text("SURVEY REQUIRED",d.x+d.w/2,d.y+98,"#698499",8,"center");}
+   if(r.breach>0){poly([[d.x+3,d.y+39],[d.x+14,d.y+53],[d.x+6,d.y+60],[d.x+17,d.y+69],[d.x+2,d.y+81]],"#111823","#ed9b8d");text("LEAK",d.x+22,d.y+53,"#f18495",9);}
+   if(r.fire>0){for(let i=0;i<4;i++){const fx=d.x+24+i*37,fy=d.y+d.h-18,shift=reduced?0:Math.floor(time*5+i)%3;rect(fx,fy-12-shift*4,9,16+shift*4,"#b35746");rect(fx+3,fy-19-shift*2,7,23+shift*2,"#ef8c50");rect(fx+4,fy-8,5,12,"#ffd38b");}}
+   const tasks=sim.s.tasks.filter(t=>t.room===r.id&&t.status==="working");if(tasks.length){rect(d.x+5,d.y+26,d.w-10,2,"#314756");rect(d.x+5,d.y+26,(d.w-10)*Math.min(1,tasks[0].progress/tasks[0].required),2,D.colors[d.dept]);}
+   if(selectedRoom){ctx.lineWidth=2;ctx.strokeStyle="#ffbd73";ctx.strokeRect(d.x-3,d.y-3,d.w+6,d.h+6);}
+   rect(d.x+d.w-2,d.y+d.h-28,5,21,"#6e8695");rect(d.x-3,d.y+d.h-28,5,21,"#6e8695");
+   text(Math.round(r.integrity)+"%",d.x+d.w-8,d.y+d.h-15,r.integrity<75?"#f4b887":"#6c9ba7",8,"right");
+  }
+  for(const c of [...sim.s.crew].sort((a,b)=>a.y-b.y))drawCrew(c,time);
+  if(sim.s.built.includes("drone")){
+   const x=432+Math.sin((reduced?0:time)*.65)*75,y=384;rect(x,y,14,7,"#89bfcd");rect(x-4,y+2,4,3,"#7dd9fb");rect(x+5,y+1,4,3,"#213e4d");
+  }
+  text("╋  01 / COMMAND",172,620,"#627e95",10);text("╋  02 / SYSTEMS",482,620,"#627e95",10);text("╋  03 / CREW & LOGISTICS",791,620,"#627e95",10);
+  if(sim.s.paused)overlay(sim.s.gameover?"MISSION LOST":"SIMULATION PAUSED",sim.s.gameover?"Load a voyage or begin again in Command.":"Crew positions held. Resume when ready.");
+ }
+ function overlay(title,subtitle){ctx.globalAlpha=.8;rect(350,278,500,90,"#0c1824");ctx.globalAlpha=1;text(title,600,313,"#ffcf91",21,"center");text(subtitle,600,341,"#a8bdcc",11,"center");}
+ function drawMap(time){
+  background(time);text("THE AURORA REACH",48,89,"#e9d9b7",19);text("Survey new sectors to collect data, salvage and jump fuel.",48,111,"#7f99ad",11);
+  for(const a of D.sectors)for(const bId of a.links){if(bId<a.id)continue;const b=D.sectors[bId],visited=sim.s.visited.includes(a.id)&&sim.s.visited.includes(b.id);ctx.setLineDash(visited?[]:[4,8]);line(a.x,a.y,b.x,b.y,visited?"#4b7188":"#243d52",visited?2:1);ctx.setLineDash([]);}
+  for(const r of D.sectors){
+   const here=sim.s.sector===r.id,visited=sim.s.visited.includes(r.id),reachable=D.sectors[sim.s.sector].links.includes(r.id),sel=selected.kind==="sector"&&Number(selected.id)===r.id,color=here?"#ffbd73":visited?"#7dd9fb":reachable?"#9ba9ba":"#4b647b";
+   circle(r.x,r.y,here?25:20,"#0d1b29",sel?"#ffdfa1":color);circle(r.x,r.y,here?8:5,color);
+   if(here){line(r.x-10,r.y-33,r.x+10,r.y-33,color,2);text("RESOLUTE",r.x,r.y-45,color,10,"center");}
+   if(r.type==="planet")circle(r.x,r.y,12,null,color);
+   if(r.type==="station"){rect(r.x-13,r.y-3,26,6,color);rect(r.x-3,r.y-13,6,26,color);}
+   text(r.name.toUpperCase(),r.x,r.y+40,color,11,"center");text(sim.s.scanned.includes(r.id)?"SURVEY COMPLETE":here?"SURVEY IN PROGRESS":reachable?"1 FUEL / IN RANGE":"UNEXPLORED",r.x,r.y+58,"#607f96",9,"center");
+  }
+  text("AUTONOMOUS NAVIGATION: "+(sim.s.autoNav?"ENABLED":"MANUAL"),48,601,"#8aa2b7",11);
+  text("FUEL "+Math.floor(sim.s.fuel)+" / "+sim.s.scanned.length+" SECTORS SURVEYED",1154,601,"#8aa2b7",11,"right");
+  if(sim.s.paused)overlay(sim.s.gameover?"MISSION LOST":"SIMULATION PAUSED","Use Resume to continue the voyage.");
+ }
+ function draw(){const time=reduced?Math.floor(sim.s.time):sim.s.time;view==="ship"?drawShip(time):drawMap(time);}
+ function openHelp(){helpPaused=sim.s.paused;sim.s.paused=true;helpFocus=document.activeElement;$("help").classList.add("open");$("closehelp").focus();render();}
+ function closeHelp(){$("help").classList.remove("open");if(!sim.s.gameover)sim.s.paused=helpPaused;if(helpFocus&&helpFocus.focus)helpFocus.focus();render();}
+ document.addEventListener("click",event=>{
+  const b=event.target.closest("[data-action]");if(!b||b.disabled)return;
+  const action=b.dataset.action,value=b.dataset.value;
+  if(action==="help"){openHelp();return;}if(action==="closehelp"){closeHelp();return;}
+  if(action==="pause"&&!sim.s.gameover)sim.s.paused=!sim.s.paused;
+  if(action==="speed")sim.s.speed=Number(value);
+  if(action==="view")view=value;
+  if(action==="tab")tab=value;
+  if(action==="crew"){selected={kind:"crew",id:value};tab="details";}
+  if(action==="room"){selected={kind:"room",id:value};tab="details";view="ship";}
+  if(action==="sector"){selected={kind:"sector",id:value};tab="details";view="map";}
+  if(action==="focus"){sim.setFocus(value);toast("Captain's directive updated. Department heads are reprioritising the work.");}
+  if(action==="autonav"){sim.s.autoNav=!sim.s.autoNav;toast("Autonomous navigation "+(sim.s.autoNav?"enabled. The captain will choose the next safe destination.":"disabled. Choose a destination on the sector map."));}
+  if(action==="repair")toast(sim.repairPlan(value,105)?"Engineering plan queued: diagnose → fabricate → repair.":"A repair plan is already active, or this room needs no repair.");
+  if(action==="build")toast(sim.queueBuild(value)?"Construction order added to the engineering ledger.":"This blueprint is locked, already built or already queued.");
+  if(action==="jump")toast(sim.jump(Number(value))?"Flight control is plotting your course.":"Unable to plot this jump. Check range, fuel and active navigation orders.");
+  if(action==="drill"){sim.incident();toast("A shipboard incident has been introduced. Watch the departments respond.");}
+  if(action==="save"){
+   autosave();const blob=new Blob([sim.export()],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="Starward_Voyage.json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast("Voyage backup prepared for download.");
+  }
+  if(action==="reset"&&window.confirm("Start a new voyage? This replaces the autosave on this device. Download a backup first if you want to keep the current mission.")){sim=new StarshipSim(315);selected={kind:"room",id:"reactor"};view="ship";tab="orders";accumulator=0;autosave();toast("A new Resolute expedition is ready.");}
+  render();draw();
+ });
+ canvas.addEventListener("click",event=>{
+  const box=canvas.getBoundingClientRect(),x=(event.clientX-box.left)*1200/box.width,y=(event.clientY-box.top)*650/box.height;
+  if(view==="ship"){const c=[...sim.s.crew].reverse().find(c=>!c.dead&&Math.abs(c.x-x)<13&&y>=c.y-29&&y<c.y+9);if(c)selected={kind:"crew",id:c.id};else{const r=D.rooms.find(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h);if(!r)return;selected={kind:"room",id:r.id};}}
+  else{const r=D.sectors.find(r=>Math.hypot(x-r.x,y-r.y)<38);if(!r)return;selected={kind:"sector",id:String(r.id)};}
+  tab="details";render();draw();
+ });
+ $("loadfile").addEventListener("change",async event=>{
+  const file=event.target.files[0];if(!file)return;
+  try{if(file.size>3000000)throw Error("Save file is too large.");const next=StarshipSim.restore(await file.text());sim=next;accumulator=0;selected={kind:"room",id:"reactor"};autosave();toast("Voyage restored. Crew memories, orders and resources recovered.");render();draw();}
+  catch(e){toast(e.message||"That file could not be loaded.");}event.target.value="";
+ });
+ document.addEventListener("keydown",event=>{
+  if($("help").classList.contains("open")){if(event.key==="Escape"){event.preventDefault();closeHelp();}else if(event.key==="Tab"){event.preventDefault();$("closehelp").focus();}return;}
+  if(event.target.closest("button,input,select,textarea,a,label"))return;
+  if(event.code==="Space"){event.preventDefault();if(!sim.s.gameover)sim.s.paused=!sim.s.paused;}
+  if(["1","2","5"].includes(event.key))sim.s.speed=Number(event.key);
+  if(event.key.toLowerCase()==="m")view=view==="ship"?"map":"ship";
+  render();draw();
+ });
+ document.addEventListener("visibilitychange",()=>{if(document.hidden){autosave();lastFrame=0;accumulator=0;}});
+ window.addEventListener("pagehide",autosave);
+ function frame(now){
+  if(!lastFrame)lastFrame=now;
+  if(!document.hidden){accumulator+=Math.min(.25,(now-lastFrame)/1000)*sim.s.speed;while(accumulator>=.2){sim.step(.2);accumulator-=.2;}
+   if(now-lastDraw>32){draw();lastDraw=now;}
+   if(now-lastPanel>800){render();lastPanel=now;}
+   if(now-lastSave>5000){autosave();lastSave=now;}
+  }
+  lastFrame=now;requestAnimationFrame(frame);
+ }
+ render();draw();requestAnimationFrame(frame);
+})();
+</script>
+</body></html>
